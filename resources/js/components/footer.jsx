@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 export default function Footer() {
   return (
     <footer
-      className="w-full"
-      style={{ backgroundColor: "#2F4B3F", color: "#FFF9F9" }}
+      className="w-full  bg-[#454444]  text-white"
     >
       <div className="max-w-7xl mx-auto px-6 py-5">
 
