@@ -13,6 +13,7 @@ import Navbar from './components/navbar';
 import Footer from './components/footer';
 
 import Contact from './pages/contact';
+import AuthPage from './pages/authpage';
 
 // Temporary placeholders so routes won't error
 const Home = () => <p className="text-center mt-10">Home</p>;
@@ -32,6 +33,8 @@ function App() {
           <Route path="/services" element={<Services />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/admin/login" element={<AuthPage />} />
+          <Route path="/admin/signup" element={<AuthPage />} />
         </Routes>
       </main>
 
