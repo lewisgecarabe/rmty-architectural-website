@@ -1,25 +1,40 @@
 import './bootstrap';
 import '../css/app.css';
 
+// Map for Contact Page
+import "leaflet/dist/leaflet.css";
+import "./components/LeafletFix";
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import Navbar from './components/navbar';
 import Footer from './components/footer';
 
+import Contact from './pages/contact';
+
+// Temporary placeholders so routes won't error
+const Home = () => <p className="text-center mt-10">Home</p>;
+const Projects = () => <p className="text-center mt-10">Projects</p>;
+const Services = () => <p className="text-center mt-10">Services</p>;
+const About = () => <p className="text-center mt-10">About</p>;
+
 function App() {
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <Navbar />
 
-      {/* Main content */}
       <main className="flex-1">
-        <p className="text-center mt-10">Main content </p>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+        </Routes>
       </main>
 
-      {/* Footer */}
       <Footer />
     </div>
   );

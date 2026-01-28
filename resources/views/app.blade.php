@@ -11,6 +11,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Gantari&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Gantari&family=Questrial&display=swap" rel="stylesheet">
+
 </head>
 <body class="bg-gray-100">
     <div id="app"></div>
