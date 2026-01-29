@@ -1,30 +1,38 @@
 import './bootstrap';
 import '../css/app.css';
 
-// Map for Contact Page
 import "leaflet/dist/leaflet.css";
 import "./components/LeafletFix";
 
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 
-import Navbar from './components/navbar';
-import Footer from './components/footer';
+import Navbar from "./components/navbar";
+import Footer from "./components/footer";
 
-import Contact from './pages/contact';
-import AuthPage from './pages/authpage';
+import Contact from "./pages/contact";
+import AuthPage from "./pages/authpage";
 
-// Temporary placeholders so routes won't error
 const Home = () => <p className="text-center mt-10">Home</p>;
 const Projects = () => <p className="text-center mt-10">Projects</p>;
 const Services = () => <p className="text-center mt-10">Services</p>;
 const About = () => <p className="text-center mt-10">About</p>;
 
-function App() {
+function Layout() {
+  const location = useLocation();
+
+  // Hide navbar & footer on admin/login
+  const isAdminPage = location.pathname.startsWith("/admin");
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
+      {!isAdminPage && <Navbar />}
 
       <main className="flex-1">
         <Routes>
@@ -33,18 +41,19 @@ function App() {
           <Route path="/services" element={<Services />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+
+          {/* Admin login */}
           <Route path="/admin/login" element={<AuthPage />} />
-          <Route path="/admin/signup" element={<AuthPage />} />
         </Routes>
       </main>
 
-      <Footer />
+      {!isAdminPage && <Footer />}
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('app')).render(
+ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
-    <App />
+    <Layout />
   </BrowserRouter>
 );
