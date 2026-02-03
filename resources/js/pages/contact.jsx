@@ -1,147 +1,213 @@
-
-import ContactMap from "../components/ContactMap";
-
+import { useMemo, useState } from "react";
 
 export default function Contact() {
+  const [inquiryType, setInquiryType] = useState("general");
+  const isConsultation = inquiryType === "consultation";
+
+  const buttonText = useMemo(() => {
+    return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT";
+  }, [isConsultation]);
+
   return (
-    <section className="max-w-6xl mx-auto px-6 py-12">
-      {/* Heading */}
-      <div className="mb-10">
-        <h1 className="font-gantari text-4xl font-extrabold tracking-wide text-gray-900">
-          CONTACT US
-        </h1>
+    <section className="w-full bg-transparent">
+      <div className="mx-auto max-w-6xl px-6 pb-10 pt-6 md:pb-14 md:pt-10">
+        {/* TOP */}
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
+          {/* Left */}
+          <div>
+            <h1 className="text-4xl font-medium tracking-tight text-black md:text-5xl">
+              Connect
+            </h1>
 
-        <p className="font-questrial mt-3 max-w-2xl text-sm leading-relaxed text-gray-600">
-          Have questions or need more information? Fill out the contact form
-          below, and our team will get back to you promptly. We’re here to
-          assist with all your construction needs!
-        </p>
-      </div>
-
-      {/* Form */}
-      <form className="space-y-6">
-      
-        <div>
-          <label className="font-gantari block text-xs font-semibold tracking-widest text-gray-700">
-            FULL NAME
-          </label>
-
-          <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div>
-              <input
-                type="text"
-                className="w-full rounded-md bg-white px-4 py-3 text-sm text-gray-900 outline-none border border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
-              />
-              <p className="font-questrial mt-2 text-[11px] text-gray-500">
-                First Name
-              </p>
-            </div>
-
-            <div>
-              <input
-                type="text"
-                className="w-full rounded-md bg-white px-4 py-3 text-sm text-gray-900 outline-none border border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
-              />
-              <p className="font-questrial mt-2 text-[11px] text-gray-500">
-                Last Name
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Email */}
-        <div className="max-w-md">
-          <label className="font-gantari block text-xs font-semibold tracking-widest text-gray-700">
-            EMAIL
-          </label>
-          <div className="mt-3">
-            <input
-              type="email"
-              className="w-full rounded-md bg-white px-4 py-3 text-sm text-gray-900 outline-none border border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
-            />
-            <p className="font-questrial mt-2 text-[11px] text-gray-500">
-              Email
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-neutral-600">
+              At vero eos et accusamus et iusto odio dignissimos
             </p>
-          </div>
-        </div>
 
-        {/* Message */}
-        <div>
-          <label className="font-gantari block text-xs font-semibold tracking-widest text-gray-700">
-            MESSAGE
-          </label>
-          <div className="mt-3">
-            <textarea
-              rows={6}
-              className="w-full rounded-md bg-white px-4 py-3 text-sm text-gray-900 outline-none border border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
+            <div className="mt-10 space-y-6 text-sm text-neutral-700">
+              <div>
+                <p className="font-medium text-neutral-800">Metro Manila</p>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600">
+                  911 Josefina II, Sampaloc, Manila, 1008 <br />
+                  Metro Manila
+                </p>
+              </div>
+
+              <div className="space-y-3 text-sm text-neutral-600">
+                <div className="flex items-center gap-3">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                    <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.4V7a1 1 0 1 0-2 0v6a1 1 0 0 0 .55.9l4 2a1 1 0 1 0 .9-1.8L13 12.4Z" />
+                  </svg>
+                  <span>9AM–6PM (Mon–Fri)</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                    <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.85 21 3 13.15 3 3a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.59a1 1 0 0 1-.25 1.01l-2.2 2.19Z" />
+                  </svg>
+                  <span>0932 454 9434</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <p className="text-xs text-neutral-500">Email</p>
+                <div className="mt-3 max-w-xs border-b border-neutral-400 pb-2">
+                  <span className="text-sm text-neutral-700">
+                    rmty.architects@gmail.com
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right hero */}
+          <div className="relative overflow-hidden rounded-sm bg-neutral-200">
+            <img
+              src="/images/PLACEHOLDER.png"
+              alt="Interior design"
+              className="h-[300px] w-full object-cover md:h-[340px]"
             />
+            <div className="absolute inset-0 bg-black/15" />
+            <div className="absolute bottom-6 left-6 right-6">
+              <p className="text-3xl font-medium tracking-tight text-white md:text-4xl">
+                EVERY DESIGN
+              </p>
+              <p className="text-xl font-medium tracking-tight text-white md:text-2xl">
+                WITH PURPOSE
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="pt-2">
-          <button
-            type="submit"
-            className="mx-auto block rounded-md bg-gray-800 px-10 py-3 text-xs font-semibold tracking-widest text-white hover:bg-gray-900"
-          >
-            SUBMIT
-          </button>
-        </div>
-      </form>
+        {/* Divider */}
+        <div className="my-14 border-t border-neutral-300/60" />
 
-      {/* Bottom section */}
-      <div className="mt-14 grid grid-cols-1 gap-10 md:grid-cols-2">
-        <div className="h-[320px] w-full overflow-hidden rounded-md bg-gray-200">
-         <ContactMap />
-
-          <div className="h-full w-full flex items-center justify-center text-gray-600 text-sm font-questrial">
-            Map placeholder
+        {/* FORM */}
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+          <div>
+            <h2 className="text-4xl font-medium leading-none text-black md:text-5xl">
+              Contact
+              <br />
+              Form
+            </h2>
           </div>
-        </div>
 
-        {/* Contact details */}
-        <div className="md:pt-2">
-          <h2 className="font-gantari text-sm font-semibold tracking-[0.25em] text-gray-900">
-            CONTACT DETAILS
-          </h2>
+          {/* 👉 Booking consultation logic untouched */}
+          <div>
+            <form className="mx-auto w-full max-w-2xl">
+              {/* Inquiry Type */}
+              <div className="text-center">
+                <p className="text-sm font-medium text-neutral-800">
+                  Inquiry Type
+                </p>
 
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center gap-3 rounded-md bg-white px-4 py-3 border border-gray-300">
-              <svg
-                className="h-5 w-5 text-black"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.85 21 3 13.15 3 3a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.59a1 1 0 01-.25 1.01l-2.2 2.19z" />
-              </svg>
+                <div className="mt-5 inline-flex rounded-full border border-neutral-300 bg-transparent p-1">
+                  <button
+                    type="button"
+                    onClick={() => setInquiryType("general")}
+                    className={[
+                      "rounded-full px-7 py-2.5 text-sm font-medium transition",
+                      inquiryType === "general"
+                        ? "bg-black text-white"
+                        : "bg-transparent text-neutral-700 hover:text-black",
+                    ].join(" ")}
+                  >
+                    General Inquiry
+                  </button>
 
-              <input
-                className="w-full bg-transparent text-sm text-gray-700 outline-none font-questrial"
-                value="0915 896 2275"
-                readOnly
-              />
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setInquiryType("consultation")}
+                    className={[
+                      "rounded-full px-7 py-2.5 text-sm font-medium transition",
+                      inquiryType === "consultation"
+                        ? "bg-black text-white"
+                        : "bg-transparent text-neutral-700 hover:text-black",
+                    ].join(" ")}
+                  >
+                    Book Consultation
+                  </button>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-3 rounded-md bg-white px-4 py-3 border border-gray-300">
-              <svg
-                className="h-5 w-5 text-black"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6a2.5 2.5 0 010 5.5z" />
-              </svg>
+              {/* Fields (unchanged) */}
+              <div className="mt-12 space-y-10">
+                <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                  <UnderlineInput label="First Name" />
+                  <UnderlineInput label="Last Name" />
+                </div>
 
-              <input
-                className="w-full bg-transparent text-sm text-gray-700 outline-none font-questrial"
-                value="911 Josefina 2 Sampaloc, Manila, Philippines, 1008"
-                readOnly
-              />
-            </div>
+                <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                  <UnderlineInput label="Email" />
+                  <UnderlineInput label="Phone" />
+                </div>
+
+                {isConsultation && (
+                  <>
+                    <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                      <UnderlineInput label="Location" />
+                      <UnderlineInput label="Project Type" />
+                    </div>
+
+                    <UnderlineInput label="Project Details" />
+
+                    <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                      <UnderlineInput label="Date" />
+                      <FileDrop label="Additional Informations (PDF, Drawings, Project Brief)" />
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <p className="mb-3 text-xs text-neutral-500">
+                    Send us a message
+                  </p>
+                  <textarea
+                    rows={4}
+                    className="w-full bg-transparent text-sm text-neutral-800 outline-none"
+                  />
+                  <div className="mt-3 border-b border-neutral-400" />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    className="mx-auto block rounded-full bg-black px-12 py-3 text-sm font-medium tracking-wide text-white hover:bg-neutral-900"
+                  >
+                    {buttonText}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/* ---------- Small components ---------- */
+
+function UnderlineInput({ label }) {
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{label}</p>
+      <input className="w-full bg-transparent text-sm text-neutral-800 outline-none" />
+      <div className="mt-3 border-b border-neutral-400" />
+    </div>
+  );
+}
+
+function FileDrop({ label }) {
+  return (
+    <div>
+      <p className="mb-3 text-xs text-neutral-500">{label}</p>
+      <label className="relative flex h-[160px] w-full cursor-pointer flex-col items-center justify-center rounded-sm border border-dashed border-neutral-400 bg-transparent text-center">
+        <input type="file" className="hidden" multiple />
+        <p className="text-xs text-neutral-500">Drop files here or</p>
+        <p className="mt-2 text-sm font-medium text-neutral-700">
+          Select Files
+        </p>
+      </label>
+    </div>
   );
 }
