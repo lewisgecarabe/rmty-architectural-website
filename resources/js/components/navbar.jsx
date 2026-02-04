@@ -7,41 +7,48 @@ export default function Navbar() {
   return (
     <>
       {/* HEADER (not sticky) */}
-      <header className="w-full z-20">
-        <nav className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between [font-family:var(--font-neue)]">
-          {/* Left: Hamburger */}
-          <button
-            onClick={() => setOpen(true)}
-            aria-label="Open menu"
-            className="text-black hover:opacity-70 transition"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="w-8 h-8"
-            >
-              <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" />
-            </svg>
-          </button>
+<section className="relative w-full h-screen">
+  
+  {/* 1. The Background Image (Acts as the 'Hero') */}
+  <img 
+    src="/images/home-hero.jpg" 
+    alt="Background ambience" 
+    className="absolute inset-0 w-full h-full object-cover object-[30%_center] z-0"
+  />
 
-          {/* Center: RMTY (Medium) */}
-          <Link
-            to="/"
-            className="text-2xl md:text-3xl tracking-wide font-medium text-black"
-          >
-            RMTY
-          </Link>
+  <header className="absolute top-0 left-0 w-full z-10">
+    <nav className="max-w-screen-2xl mx-auto px-6 py-6 flex items-center justify-between [font-family:var(--font-neue)]">
+      
+      {/* Left: Hamburger */}
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Open menu"
+        className="text-white hover:opacity-70 transition"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-15 h-10 cursor-pointer" preserveAspectRatio="none">
+          <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" />
+        </svg>
+      </button>
 
-          {/* Right: WORKS (Medium) */}
-          <Link
-            to="/projects"
-            className="text-base md:text-lg tracking-wide font-medium text-black hover:opacity-70 transition"
-          >
-            WORKS
-          </Link>
-        </nav>
-      </header>
+      {/* Center: RMTY */}
+      <Link
+        to="/"
+        className="text-2xl md:text-5xl font-medium text-white"
+      >
+        RMTY
+      </Link>
+
+      {/* Right: WORKS */}
+      <Link
+        to="/projects"
+        className="text-base md:text-2xl tracking-wide font-medium text-white hover:opacity-70 transition"
+      >
+        WORKS
+      </Link>
+    </nav>
+  </header>
+
+</section>
 
       {/* FULLSCREEN MENU OVERLAY */}
       {open && (

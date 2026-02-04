@@ -18,8 +18,8 @@ import Footer from "./components/footer";
 
 import Contact from "./pages/contact";
 import AuthPage from "./pages/authpage";
+import Home from "./pages/home"
 
-const Home = () => <p className="text-center mt-10">Home</p>;
 const Projects = () => <p className="text-center mt-10">Projects</p>;
 const Services = () => <p className="text-center mt-10">Services</p>;
 const About = () => <p className="text-center mt-10">About</p>;
@@ -36,7 +36,7 @@ function Layout() {
 
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/services" element={<Services />} />
           <Route path="/about" element={<About />} />

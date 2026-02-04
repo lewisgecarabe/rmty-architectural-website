@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="flex items-start justify-between">
           {/* Small logo */}
           <img
-            src="/images/RMTYLOGO.png"
+            src="/images/rmty-logo-transparent.png"
             alt="RMTY Designs Architects"
             className="h-20 w-20"
           />
