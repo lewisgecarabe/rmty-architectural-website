@@ -6,29 +6,29 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import RootLayout from "./layouts/RootLayout"; 
+import RootLayout from "./layouts/RootLayout";
 
 // Page Imports
-import Home from "./pages/Home";       
+import Home from "./pages/Home";
 import Contact from "./pages/Contact";
 import Services from "./pages/Services";
-import Projects from "./pages/Projects";          
-import ProjectDetails from "./pages/ProjectDetails"; 
+import Projects from "./pages/Projects";
+import ProjectDetails from "./pages/ProjectDetails";
+import About from "./pages/About"; 
 
 // Admin Imports
-import AuthPage from "./pages/Authpage";
+import AuthPage from "./pages/AuthPage";
 import AdminDashboard from "./pages/admin/Dashboard";
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
     <Routes>
-      
       <Route element={<RootLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/projects" element={<Projects />} /> 
+        <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetails />} />
         <Route path="/services" element={<Services />} />
-        <Route path="/about" element={<p className="text-center mt-32">About</p>} />
+        <Route path="/about" element={<About />} /> {/* ✅ CHANGE THIS */}
         <Route path="/contact" element={<Contact />} />
       </Route>
 
@@ -37,7 +37,6 @@ ReactDOM.createRoot(document.getElementById("app")).render(
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/inquiries" element={<AdminDashboard />} />
       <Route path="/admin/consultations" element={<AdminDashboard />} />
-      
     </Routes>
   </BrowserRouter>
 );
