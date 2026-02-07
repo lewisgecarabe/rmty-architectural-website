@@ -57,7 +57,7 @@ export default function Footer() {
             <div className="mt-4 flex md:justify-end gap-4 text-[#444]">
               {/* Facebook */}
               <a
-                href="#"
+                href="https://www.facebook.com/rmtyarchitects"
                 aria-label="Facebook"
                 className="hover:opacity-70 transition"
               >
@@ -73,7 +73,7 @@ export default function Footer() {
 
               {/* Instagram */}
               <a
-                href="#"
+                href="https://www.instagram.com/rmty_architecture/"
                 aria-label="Instagram"
                 className="hover:opacity-70 transition"
               >

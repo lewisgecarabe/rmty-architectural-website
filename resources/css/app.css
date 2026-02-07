@@ -10,7 +10,7 @@
 @font-face {
   font-family: "Neue Haas Grotesk";
   src: url("/fonts/NeueHaasGrotText-65Medium-Trial.otf") format("opentype");
-  font-weight: 500; /* Medium */
+  font-weight: 400; /* Medium */
   font-style: normal;
   font-display: swap;
 }
@@ -21,11 +21,17 @@
 @source "../../storage/framework/views/*.php";
 @source "../**/*.blade.php";
 @source "../**/*.js";
-@source "../**/*.jsx";  
-@source "../**/*.ts";   
-@source "../**/*.tsx";   
+@source "../**/*.jsx";
+@source "../**/*.ts";
+@source "../**/*.tsx";
 
 @theme {
   --font-neue: "Neue Haas Grotesk", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* ✅ MAKE IT GLOBAL (this is the missing part) */
+html,
+body {
+  font-family: var(--font-neue);
 }
