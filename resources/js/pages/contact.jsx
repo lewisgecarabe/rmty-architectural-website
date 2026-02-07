@@ -10,12 +10,12 @@ export default function Contact() {
 
   return (
     <section className="w-full bg-transparent">
-      <div className="mx-auto max-w-6xl px-6 pb-10 pt-6 md:pb-14 md:pt-10">
+      <div className="mx-auto max-w-6xl px-6 pb-10 pt-28 md:pb-14 md:pt-32">
         {/* TOP */}
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
           {/* Left */}
           <div>
-            <h1 className="text-4xl font-medium tracking-tight text-black md:text-5xl">
+            <h1 className="text-4xl font-extrabold tracking-tight text-black md:text-5xl">
               Connect
             </h1>
 
@@ -84,14 +84,15 @@ export default function Contact() {
         {/* FORM */}
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
           <div>
-            <h2 className="text-4xl font-medium leading-none text-black md:text-5xl">
+            {/* ✅ Make CONTACT FORM bold */}
+            <h2 className="text-4xl font-extrabold leading-none text-black md:text-5xl">
               Contact
               <br />
               Form
             </h2>
           </div>
 
-          {/* 👉 Booking consultation logic untouched */}
+          {/* Booking consultation logic untouched */}
           <div>
             <form className="mx-auto w-full max-w-2xl">
               {/* Inquiry Type */}

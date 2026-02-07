@@ -25,21 +25,22 @@ export default function Services() {
   return (
     <section className="w-full bg-transparent">
       {/* TOP HERO */}
-      <div className="w-full bg-[#dcdcdc]">
-        <div className="mx-auto max-w-6xl px-6 pt-6 pb-20 md:pt-10">
-          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-center">
+      <div className="w-full bg-neutral-200">
+        {/* ✅ Taller gray area + move content further down */}
+        <div className="mx-auto max-w-6xl px-6 pt-36 pb-20 md:pt-44 md:pb-24 min-h-[400px] md:min-h-[400px]">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
             {/* Left title */}
             <div className="space-y-2">
-              <h1 className="text-3xl font-medium tracking-tight text-black md:text-5xl">
+              <h1 className="text-3xl font-extrabold tracking-tight text-black md:text-6xl">
                 DESIGNING WITH
               </h1>
-              <h2 className="text-3xl font-normal tracking-tight text-black md:text-5xl">
-                Intensions
+              <h2 className="text-3xl font-extrabold tracking-tight text-black md:text-6xl">
+              INTENTIONS
               </h2>
             </div>
 
             {/* Right paragraph */}
-            <p className="max-w-md text-sm leading-relaxed text-neutral-700 md:justify-self-end">
+            <p className="max-w-md text-sm leading-relaxed text-neutral-800 md:justify-self-end">
               At vero eos et accusamus et iusto odio dignissimos ducimus qui
               blanditiis praesentium voluptatum deleniti atque corrupti quos
               dolores et quas molestias excepturi sint occaecati cupiditate non
