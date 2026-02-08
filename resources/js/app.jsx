@@ -13,8 +13,11 @@ import Home from "./pages/Home";
 import Contact from "./pages/Contact";
 import Services from "./pages/Services";
 import AuthPage from "./pages/Authpage";
-import Projects from "./pages/Projects";          // <--- Imported here
+import Projects from "./pages/Projects";          
 import ProjectDetails from "./pages/ProjectDetails"; 
+/* Admin Layout + Pages */
+import AdminDashboard from "./pages/admin/dashboard";
+
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -36,7 +39,16 @@ ReactDOM.createRoot(document.getElementById("app")).render(
 
       {/* Admin Pages */}
       <Route path="/admin/login" element={<AuthPage />} />
-      
+  {/* ---------------- ADMIN DASHBOARD ---------------- */}
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/inquiries" element={<AdminDashboard />} />
+      <Route path="/admin/consultations" element={<AdminDashboard />} />
+      <Route path="/admin/analytics" element={<AdminDashboard />} />
+      <Route path="/admin/users" element={<AdminDashboard />} />
+      <Route path="/admin/profile" element={<AdminDashboard />} />
+      <Route path="/admin/content/projects" element={<AdminDashboard />} />
+      <Route path="/admin/content/services" element={<AdminDashboard />} />
+      <Route path="/admin/content/about" element={<AdminDashboard />} />
     </Routes>
   </BrowserRouter>
 );
