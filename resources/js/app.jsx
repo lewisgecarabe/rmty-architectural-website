@@ -4,21 +4,23 @@ import "leaflet/dist/leaflet.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import RootLayout from "./layouts/RootLayout";
 
 // Page Imports
 import Home from "./pages/Home";
 import Contact from "./pages/Contact";
-import Services from "./pages/Services";
+import Services from "./pages/services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About"; 
 
 // Admin Imports
-import AuthPage from "./pages/AuthPage";
-import AdminDashboard from "./pages/admin/Dashboard";
+import AuthPage from "./pages/authpage";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/dashboard";
+import AdminContentServices from "./pages/admin/AdminContentServices";
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -28,15 +30,17 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetails />} />
         <Route path="/services" element={<Services />} />
-        <Route path="/about" element={<About />} /> {/* ✅ CHANGE THIS */}
+        <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
       </Route>
 
       <Route path="/admin/login" element={<AuthPage />} />
 
-      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/inquiries" element={<AdminDashboard />} />
-      <Route path="/admin/consultations" element={<AdminDashboard />} />
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="content/services" element={<AdminContentServices />} />
+      </Route>
     </Routes>
   </BrowserRouter>
 );
