@@ -11,7 +11,7 @@ export default function Navbar({ onOpenMenu }) {
 
   // 3. Define which pages need Black Text (Light Backgrounds)
   // .includes("/projects") covers both the list and the details page
-  const isLightPage = location.pathname.includes("/projects") || location.pathname === "/about" || location.pathname === "/services";
+  const isLightPage = location.pathname.includes("/projects") || location.pathname === "/about" || location.pathname === "/services" || location.pathname === "/contact" ;
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious();

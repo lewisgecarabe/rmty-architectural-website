@@ -11,7 +11,6 @@ import RootLayout from "./layouts/RootLayout";
 // Page Imports
 import Home from "./pages/Home";
 import Contact from "./pages/Contact";
-<<<<<<< HEAD
 import Services from "./pages/services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -21,13 +20,8 @@ import About from "./pages/About";
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
-import AdminContentServices from "./pages/admin/AdminContentServices";
-=======
-import Services from "./pages/Services";
-import AuthPage from "./pages/Authpage";
-import Projects from "./pages/Projects";          // <--- Imported here
-import ProjectDetails from "./pages/ProjectDetails"; 
->>>>>>> 403836e348b4cee9435e01733abf654da70e6f73
+import AdminContentServices from "./pages/admin/AdminContentServices";; 
+
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -42,16 +36,13 @@ ReactDOM.createRoot(document.getElementById("app")).render(
       </Route>
 
       <Route path="/admin/login" element={<AuthPage />} />
-<<<<<<< HEAD
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="content/services" element={<AdminContentServices />} />
       </Route>
-=======
-      
->>>>>>> 403836e348b4cee9435e01733abf654da70e6f73
+
     </Routes>
   </BrowserRouter>
 );

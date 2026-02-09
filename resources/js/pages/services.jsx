@@ -15,8 +15,8 @@ export default function Services() {
     <section className="w-full bg-transparent">
       {/* TOP HERO */}
       <div className="w-full bg-neutral-200">
-        {/* ✅ Taller gray area + move content further down */}
-        <div className="mx-auto max-w-6xl px-6 pt-36 pb-20 md:pt-44 md:pb-24 min-h-[400px] md:min-h-[400px]">
+        {/* ✅ Updated container width */}
+        <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 md:px-8 pt-36 pb-20 md:pt-44 md:pb-24 min-h-[400px] md:min-h-[400px]">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
             {/* Left title */}
             <div className="space-y-2">
@@ -38,7 +38,7 @@ export default function Services() {
 
       {/* SERVICES SECTION */}
       <div className="w-full bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-16">
+        <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 md:px-8 py-16">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
             {/* Left image */}
             <div className="relative overflow-hidden rounded-sm bg-neutral-200">
@@ -101,7 +101,7 @@ export default function Services() {
 
       {/* SEE OTHER PROJECTS CTA */}
       <div className="w-full bg-white">
-        <div className="mx-auto max-w-6xl px-6 pb-16">
+        <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 md:px-8 pb-16">
           <div className="relative overflow-hidden rounded-sm bg-neutral-200">
             <img
               src={cta.image || "/images/SOP.png"}

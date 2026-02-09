@@ -10,8 +10,8 @@ export default function Contact() {
 
   return (
     <section className="w-full bg-transparent">
-      <div className="mx-auto max-w-6xl px-6 pb-10 pt-28 md:pb-14 md:pt-32">
-        {/* TOP */}
+      {/* TOP (unchanged content, updated container + more top spacing) */}
+      <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 pb-12 pt-32 md:px-8 md:pb-16 md:pt-40">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
           {/* Left */}
           <div>
@@ -77,111 +77,110 @@ export default function Contact() {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Divider */}
-        <div className="my-14 border-t border-neutral-300/60" />
+      {/* FORM (full-width background, updated container width too) */}
+      <section className="w-full bg-[#EDEDED]">
+        <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 py-24 md:px-8">
+          <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
+            <div>
+              <h2 className="text-4xl font-extrabold leading-none text-black md:text-5xl">
+                Contact
+                <br />
+                Form
+              </h2>
+            </div>
 
-        {/* FORM */}
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-          <div>
-            {/* ✅ Make CONTACT FORM bold */}
-            <h2 className="text-4xl font-extrabold leading-none text-black md:text-5xl">
-              Contact
-              <br />
-              Form
-            </h2>
-          </div>
-
-          {/* Booking consultation logic untouched */}
-          <div>
-            <form className="mx-auto w-full max-w-2xl">
-              {/* Inquiry Type */}
-              <div className="text-center">
-                <p className="text-sm font-medium text-neutral-800">
-                  Inquiry Type
-                </p>
-
-                <div className="mt-5 inline-flex rounded-full border border-neutral-300 bg-transparent p-1">
-                  <button
-                    type="button"
-                    onClick={() => setInquiryType("general")}
-                    className={[
-                      "rounded-full px-7 py-2.5 text-sm font-medium transition",
-                      inquiryType === "general"
-                        ? "bg-black text-white"
-                        : "bg-transparent text-neutral-700 hover:text-black",
-                    ].join(" ")}
-                  >
-                    General Inquiry
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setInquiryType("consultation")}
-                    className={[
-                      "rounded-full px-7 py-2.5 text-sm font-medium transition",
-                      inquiryType === "consultation"
-                        ? "bg-black text-white"
-                        : "bg-transparent text-neutral-700 hover:text-black",
-                    ].join(" ")}
-                  >
-                    Book Consultation
-                  </button>
-                </div>
-              </div>
-
-              {/* Fields (unchanged) */}
-              <div className="mt-12 space-y-10">
-                <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-                  <UnderlineInput label="First Name" />
-                  <UnderlineInput label="Last Name" />
-                </div>
-
-                <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-                  <UnderlineInput label="Email" />
-                  <UnderlineInput label="Phone" />
-                </div>
-
-                {isConsultation && (
-                  <>
-                    <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-                      <UnderlineInput label="Location" />
-                      <UnderlineInput label="Project Type" />
-                    </div>
-
-                    <UnderlineInput label="Project Details" />
-
-                    <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-                      <UnderlineInput label="Date" />
-                      <FileDrop label="Additional Informations (PDF, Drawings, Project Brief)" />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <p className="mb-3 text-xs text-neutral-500">
-                    Send us a message
+            <div>
+              <form className="mx-auto w-full max-w-2xl">
+                {/* Inquiry Type */}
+                <div className="text-center">
+                  <p className="text-sm font-medium text-neutral-800">
+                    Inquiry Type
                   </p>
-                  <textarea
-                    rows={4}
-                    className="w-full bg-transparent text-sm text-neutral-800 outline-none"
-                  />
-                  <div className="mt-3 border-b border-neutral-400" />
+
+                  <div className="mt-5 inline-flex rounded-full border border-neutral-300 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setInquiryType("general")}
+                      className={[
+                        "rounded-full px-7 py-2.5 text-sm font-medium transition",
+                        inquiryType === "general"
+                          ? "bg-black text-white"
+                          : "text-neutral-700 hover:text-black",
+                      ].join(" ")}
+                    >
+                      General Inquiry
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInquiryType("consultation")}
+                      className={[
+                        "rounded-full px-7 py-2.5 text-sm font-medium transition",
+                        inquiryType === "consultation"
+                          ? "bg-black text-white"
+                          : "text-neutral-700 hover:text-black",
+                      ].join(" ")}
+                    >
+                      Book Consultation
+                    </button>
+                  </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="mx-auto block rounded-full bg-black px-12 py-3 text-sm font-medium tracking-wide text-white hover:bg-neutral-900"
-                  >
-                    {buttonText}
-                  </button>
+                {/* Fields */}
+                <div className="mt-14 space-y-10">
+                  <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                    <UnderlineInput label="First Name" />
+                    <UnderlineInput label="Last Name" />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                    <UnderlineInput label="Email" />
+                    <UnderlineInput label="Phone" />
+                  </div>
+
+                  {isConsultation && (
+                    <>
+                      <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                        <UnderlineInput label="Location" />
+                        <UnderlineInput label="Project Type" />
+                      </div>
+
+                      <UnderlineInput label="Project Details" />
+
+                      <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+                        <UnderlineInput label="Date" />
+                        <FileDrop label="Additional Informations (PDF, Drawings, Project Brief)" />
+                      </div>
+                    </>
+                  )}
+
+                  <div>
+                    <p className="mb-3 text-xs text-neutral-500">
+                      Send us a message
+                    </p>
+                    <textarea
+                      rows={4}
+                      className="w-full bg-transparent text-sm text-neutral-800 outline-none"
+                    />
+                    <div className="mt-3 border-b border-neutral-400" />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="mx-auto block rounded-full bg-black px-12 py-3 text-sm font-medium tracking-wide text-white hover:bg-neutral-900"
+                    >
+                      {buttonText}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </section>
   );
 }
@@ -205,9 +204,7 @@ function FileDrop({ label }) {
       <label className="relative flex h-[160px] w-full cursor-pointer flex-col items-center justify-center rounded-sm border border-dashed border-neutral-400 bg-transparent text-center">
         <input type="file" className="hidden" multiple />
         <p className="text-xs text-neutral-500">Drop files here or</p>
-        <p className="mt-2 text-sm font-medium text-neutral-700">
-          Select Files
-        </p>
+        <p className="mt-2 text-sm font-medium text-neutral-700">Select Files</p>
       </label>
     </div>
   );
