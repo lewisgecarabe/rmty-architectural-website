@@ -14,14 +14,18 @@ import Contact from "./pages/Contact";
 import Services from "./pages/services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
-import About from "./pages/About"; 
+import About from "./pages/About";
 
 // Admin Imports
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
+<<<<<<< HEAD
 import AdminContentServices from "./pages/admin/AdminContentServices";; 
 
+=======
+import AdminContentServices from "./pages/admin/AdminContentServices";
+>>>>>>> d10410f3466e3d7d2ea1fa03d3643ea86fe9aafe
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -42,7 +46,10 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="content/services" element={<AdminContentServices />} />
       </Route>
+<<<<<<< HEAD
 
+=======
+>>>>>>> d10410f3466e3d7d2ea1fa03d3643ea86fe9aafe
     </Routes>
   </BrowserRouter>
 );
