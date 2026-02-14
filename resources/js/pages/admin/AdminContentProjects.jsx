@@ -1,0 +1,569 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+
+/* ---------------- CONFIG ---------------- */
+const PAGE_SIZE = 6;
+
+/* ---------------- COMPONENT ---------------- */
+export default function AdminDashboard() {
+  const [projects, setProjects] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [deleteId, setDeleteId] = useState(null);
+
+  const [form, setForm] = useState({
+    title: "",
+    category_id: "",
+    location: "",
+    description: "",
+    cover_image: null,
+    gallery: [],
+    is_published: true,
+  });
+
+  /* ---------------- FETCH ---------------- */
+  useEffect(() => {
+    const init = async () => {
+      await fetch('/sanctum/csrf-cookie', {
+        credentials: 'include'
+      });
+      await fetchAll();
+    };
+    init();
+  }, []);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    await Promise.all([fetchProjects(), fetchCategories()]);
+    setLoading(false);
+  };
+
+  const fetchProjects = async () => {
+    const res = await fetch("/api/projects");
+    const data = await res.json();
+    setProjects(data);
+  };
+
+  const fetchCategories = async () => {
+    const res = await fetch("/api/categories");
+    const data = await res.json();
+    setCategories(data);
+  };
+
+  /* ---------------- FORM ---------------- */
+  const resetForm = () => {
+    setForm({
+      title: "",
+      category_id: "",
+      location: "",
+      description: "",
+      cover_image: null,
+      gallery: [],
+      is_published: true,
+    });
+    setEditing(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (project) => {
+    setEditing(project);
+    setForm({
+      title: project.title,
+      category_id: project.category_id,
+      location: project.location || "",
+      description: project.description || "",
+      cover_image: null,
+      gallery: [],
+      is_published: project.is_published,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const fd = new FormData();
+    Object.entries(form).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach(v => fd.append(`${key}[]`, v));
+      } else if (key === "is_published") {
+        fd.append(key, value ? 1 : 0);
+      } else if (value !== null) {
+        fd.append(key, value);
+      }
+    });
+
+    const url = editing
+      ? `/api/projects/${editing.id}`
+      : "/api/projects";
+
+    const method = editing ? "POST" : "POST";
+    if (editing) fd.append("_method", "PUT");
+
+    const res = await fetch(url, {
+      method,
+      body: fd,
+      credentials: 'include',
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      alert("Something went wrong");
+      return;
+    }
+
+    await fetchProjects();
+    resetForm();
+  };
+
+  const handleDelete = async (id) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    await fetch(`/api/projects/${deleteId}`, { method: "DELETE", credentials: 'include' });
+    fetchProjects();
+    setDeleteId(null);
+  };
+
+  /* ---------------- PAGINATION ---------------- */
+  const totalPages = Math.ceil(projects.length / PAGE_SIZE);
+  const paginated = projects.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-300 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ---------------- UI ---------------- */
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+
+        {/* HEADER */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
+        >
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
+            <p className="text-gray-600 mt-2">Manage your projects and content</p>
+          </div>
+          <div className="flex gap-3">
+            <Link 
+              to="/projects" 
+              className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 border border-gray-200 transition-all hover:shadow-md"
+            >
+              View Site
+            </Link>
+            <button 
+              onClick={() => {
+                setShowForm(!showForm);
+                if (showForm) resetForm();
+              }} 
+              className="px-5 py-2.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all hover:shadow-lg flex items-center gap-2"
+            >
+              {showForm ? (
+                <>
+                  <span>✕</span>
+                  <span>Close</span>
+                </>
+              ) : (
+                <>
+                  <span>+</span>
+                  <span>New Project</span>
+                </>
+              )}
+            </button>
+          </div>
+        </motion.div>
+
+        {/* STATS */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+        >
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Total Projects</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{projects.length}</p>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Published</p>
+            <p className="text-3xl font-bold text-green-600 mt-1">
+              {projects.filter(p => p.is_published).length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Drafts</p>
+            <p className="text-3xl font-bold text-orange-600 mt-1">
+              {projects.filter(p => !p.is_published).length}
+            </p>
+          </div>
+        </motion.div>
+
+        {/* FORM */}
+        <AnimatePresence>
+          {showForm && (
+            <motion.form
+              onSubmit={handleSubmit}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-white rounded-2xl p-8 mb-8 shadow-lg border border-gray-200"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editing ? "Edit Project" : "Create New Project"}
+                </h2>
+                {editing && (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    Editing
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Title *
+                  </label>
+                  <input
+                    required
+                    placeholder="Enter project title"
+                    value={form.title}
+                    onChange={e => setForm({ ...form, title: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Category *
+                  </label>
+                  <select
+                    required
+                    value={form.category_id}
+                    onChange={e => setForm({ ...form, category_id: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none bg-white"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Location
+                  </label>
+                  <input
+                    placeholder="Project location"
+                    value={form.location}
+                    onChange={e => setForm({ ...form, location: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    rows="4"
+                    placeholder="Project description"
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Cover Image
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="text-center">
+                        <svg className="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <p className="text-sm text-gray-600">
+                          {form.cover_image ? form.cover_image.name : "Click to upload"}
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={e => setForm({ ...form, cover_image: e.target.files[0] })}
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Gallery Images
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="text-center">
+                        <svg className="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-sm text-gray-600">
+                          {form.gallery.length > 0 ? `${form.gallery.length} files` : "Click to upload"}
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept="image/*"
+                        onChange={e => setForm({ ...form, gallery: [...e.target.files] })}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="published"
+                    checked={form.is_published}
+                    onChange={e => setForm({ ...form, is_published: e.target.checked })}
+                    className="w-5 h-5 text-black border-gray-300 rounded focus:ring-2 focus:ring-black cursor-pointer"
+                  />
+                  <label htmlFor="published" className="text-sm font-medium text-gray-700 cursor-pointer">
+                    Publish project immediately
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
+                <button 
+                  className="flex-1 px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-all hover:shadow-lg" 
+                  type="submit"
+                >
+                  {editing ? "Update Project" : "Create Project"}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={resetForm} 
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.form>
+          )}
+        </AnimatePresence>
+
+        {/* TABLE */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p className="text-lg font-medium">No projects yet</p>
+                        <p className="text-sm mt-1">Create your first project to get started</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginated.map(p => (
+                    <motion.tr 
+                      key={p.id} 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {p.cover_image && (
+                            <img 
+                              src={p.cover_image} 
+                              alt={p.title}
+                              className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                            />
+                          )}
+                          <span className="font-semibold text-gray-900">{p.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {p.category?.name}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {p.is_published ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Published
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                            <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                            Draft
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleEdit(p)} 
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(p.id)} 
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PAGINATION */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 py-6 px-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex gap-2">
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i + 1)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      page === i + 1 
+                        ? "bg-black text-white shadow-md" 
+                        : "border border-gray-300 text-gray-700 hover:bg-white"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </motion.div>
+
+      </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteId(null)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 flex items-center justify-center z-50 px-4"
+            >
+              <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Delete Project?</h3>
+                <p className="text-gray-600 text-center mb-6">
+                  This action cannot be undone. This will permanently delete the project and all associated data.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteId(null)}
+                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </main>
+  );
+}

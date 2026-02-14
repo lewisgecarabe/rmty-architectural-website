@@ -20,12 +20,9 @@ import About from "./pages/About";
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
-<<<<<<< HEAD
-import AdminContentServices from "./pages/admin/AdminContentServices";; 
-
-=======
 import AdminContentServices from "./pages/admin/AdminContentServices";
->>>>>>> d10410f3466e3d7d2ea1fa03d3643ea86fe9aafe
+import AdminContentProjects from "./pages/admin/AdminContentProjects";
+
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -45,11 +42,9 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="content/services" element={<AdminContentServices />} />
-      </Route>
-<<<<<<< HEAD
+                <Route path="content/projects" element={<AdminContentProjects />} />
 
-=======
->>>>>>> d10410f3466e3d7d2ea1fa03d3643ea86fe9aafe
+      </Route>
     </Routes>
   </BrowserRouter>
 );

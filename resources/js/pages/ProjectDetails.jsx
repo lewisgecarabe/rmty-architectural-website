@@ -41,24 +41,59 @@ export default function ProjectDetails() {
   const [project, setProject] = useState(null);
   const [prevProject, setPrevProject] = useState(null);
   const [nextProject, setNextProject] = useState(null);
+const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
 
-    const index = PROJECTS_DATA.findIndex((p) => p.id === id);
-    
-    if (index !== -1) {
+  const loadProject = async () => {
+    try {
+      const res = await fetch(`/api/projects/${id}`);
+      if (!res.ok) throw new Error("API failed");
+
+      const data = await res.json();
+
+      // Build navigation from API list
+      const listRes = await fetch("/api/projects");
+      const list = await listRes.json();
+
+      const index = list.findIndex(p => p.slug === id);
+
+      setProject({
+        id: data.slug,
+        title: data.title,
+        location: data.location,
+        description: data.description,
+        image: data.image,
+      });
+
+      if (index !== -1) {
+        const prev = index === 0 ? list[list.length - 1] : list[index - 1];
+        const next = index === list.length - 1 ? list[0] : list[index + 1];
+
+        setPrevProject({ id: prev.slug });
+        setNextProject({ id: next.slug });
+      }
+    } catch (error) {
+      // 🔁 FALLBACK TO MOCK DATA
+      const index = PROJECTS_DATA.findIndex(p => p.id === id);
+
+      if (index === -1) {
+        navigate("/projects");
+        return;
+      }
+
       setProject(PROJECTS_DATA[index]);
-      
-      const prevIndex = index === 0 ? PROJECTS_DATA.length - 1 : index - 1;
-      const nextIndex = index === PROJECTS_DATA.length - 1 ? 0 : index + 1;
-      
-      setPrevProject(PROJECTS_DATA[prevIndex]);
-      setNextProject(PROJECTS_DATA[nextIndex]);
-    } else {
-      navigate("/projects");
+      setPrevProject(PROJECTS_DATA[index === 0 ? PROJECTS_DATA.length - 1 : index - 1]);
+      setNextProject(PROJECTS_DATA[index === PROJECTS_DATA.length - 1 ? 0 : index + 1]);
+    } finally {
+      setLoading(false);
     }
-  }, [id, navigate]);
+  };
+
+  loadProject();
+}, [id, navigate]);
+
 
   if (!project) return null;
 
@@ -109,7 +144,16 @@ export default function ProjectDetails() {
 
             {/* RIGHT COLUMN: Main Image */}
             <div className="lg:col-span-7 h-[50vh] lg:h-[600px]">
-              <ProjectPlaceholder />
+             {project.image ? (
+  <img
+    src={`/storage/${project.image}`}
+    alt={project.title}
+    className="w-full h-full object-cover"
+  />
+) : (
+  <ProjectPlaceholder />
+)}
+
             </div>
 
           </div>
@@ -130,12 +174,29 @@ export default function ProjectDetails() {
 
             {/* MIDDLE */}
             <div className="w-full h-full">
-              <ProjectPlaceholder />
+              {project.image ? (
+  <img
+    src={`/storage/${project.image}`}
+    alt={project.title}
+    className="w-full h-full object-cover"
+  />
+) : (
+  <ProjectPlaceholder />
+)}
+
             </div>
 
             {/* NEXT */}
             <Link to={`/projects/${nextProject?.id}`} className="relative w-full h-full block group">
-              <ProjectPlaceholder />
+{project.image ? (
+  <img
+    src={`/storage/${project.image}`}
+    alt={project.title}
+    className="w-full h-full object-cover"
+  />
+) : (
+  <ProjectPlaceholder />
+)}
               <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                 <div className="border-2 border-black/80 bg-white/10 backdrop-blur-sm p-4 hover:bg-black hover:border-black hover:text-white transition-all duration-300">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">

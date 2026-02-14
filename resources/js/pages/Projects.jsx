@@ -47,11 +47,20 @@ const ProjectCard = ({ project }) => {
       exit={{ opacity: 0 }}
       className={`group ${project.colSpan || 'col-span-1'}`}
     >
-      <Link to={`/projects/${project.id}`} className="block cursor-pointer h-full">
+      <Link to={`/projects/${project.slug}`} className="block cursor-pointer h-full">
         {/* Dynamic Aspect Ratio Container */}
         <div className={`w-full ${project.aspect} mb-4 overflow-hidden bg-gray-200`}>
-          <PlaceholderImage />
-        </div>
+  {project.image ? (
+    <img
+      src={`/storage/${project.image}`}
+      alt={project.title}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <PlaceholderImage />
+  )}
+</div>
+
         
         {/* Card Text Info */}
         <div className="flex flex-col items-start border-t border-black/10 pt-4">
@@ -59,7 +68,7 @@ const ProjectCard = ({ project }) => {
             {project.title}
           </h3>
           <p className="text-xs text-gray-500 uppercase tracking-wider mt-1">
-            {project.category}
+            {project.category?.name}
           </p>
         </div>
       </Link>
@@ -68,12 +77,15 @@ const ProjectCard = ({ project }) => {
 };
 
 export default function Projects() {
+    const [projects, setProjects] = useState([]);
+
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const filteredProjects = selectedCategories.length === 0
-    ? ALL_PROJECTS
-    : ALL_PROJECTS.filter(p => selectedCategories.includes(p.category));
+  ? projects
+  : projects.filter(p => selectedCategories.includes(p.category?.name));
+
 
   const toggleCategory = (category) => {
     setSelectedCategories(prev => 
@@ -84,6 +96,17 @@ export default function Projects() {
   };
 
   useEffect(() => {
+    const fetchProjects = async () => {
+    try {
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+    }
+  };
+
+  fetchProjects();
     window.scrollTo(0, 0);
   }, []);
 
