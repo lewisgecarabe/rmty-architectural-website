@@ -21,6 +21,8 @@ return new class extends Migration
     $table->string('image')->nullable();
     $table->timestamps();
     $table->foreignId('category_id')->constrained()->onDelete('cascade');
+    $table->boolean('is_published')->default(true);
+
 
 });
 

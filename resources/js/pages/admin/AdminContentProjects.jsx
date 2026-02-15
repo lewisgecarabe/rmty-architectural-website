@@ -26,6 +26,9 @@ export default function AdminDashboard() {
     gallery: [],
     is_published: true,
   });
+  
+  const [activeTab, setActiveTab] = useState("published"); 
+  const [successMessage, setSuccessMessage] = useState("");
 
   /* ---------------- FETCH ---------------- */
   useEffect(() => {
@@ -45,7 +48,9 @@ export default function AdminDashboard() {
   };
 
   const fetchProjects = async () => {
-    const res = await fetch("/api/projects");
+    const res = await fetch("/api/admin/projects", {
+      credentials: 'include'
+    });
     const data = await res.json();
     setProjects(data);
   };
@@ -121,22 +126,61 @@ export default function AdminDashboard() {
 
     await fetchProjects();
     resetForm();
+    
+    setSuccessMessage(editing ? "Project Updated Successfully" : "Project Created Successfully");
+    setTimeout(() => setSuccessMessage(""), 3000);
   };
 
-  const handleDelete = async (id) => {
+  const handleArchive = async (id) => {
     setDeleteId(id);
   };
 
-  const confirmDelete = async () => {
+  const confirmArchive = async () => {
     if (!deleteId) return;
-    await fetch(`/api/projects/${deleteId}`, { method: "DELETE", credentials: 'include' });
+
+    const fd = new FormData();
+    fd.append("_method", "PUT");
+    fd.append("is_published", 0);
+
+    await fetch(`/api/projects/${deleteId}`, {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+
+    setSuccessMessage("Project Archived Successfully");
     fetchProjects();
     setDeleteId(null);
+
+    setTimeout(() => setSuccessMessage(""), 3000);
   };
 
+  const handleRestore = async (id) => {
+    const fd = new FormData();
+    fd.append("_method", "PUT");
+    fd.append("is_published", 1);
+
+    await fetch(`/api/projects/${id}`, {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+
+    setSuccessMessage("Project Restored Successfully");
+    fetchProjects();
+
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  /* ---------------- COMPUTED DATA ---------------- */
+  const publishedProjects = projects.filter(p => p.is_published);
+  const archivedProjects = projects.filter(p => !p.is_published);
+
+  const displayedProjects = activeTab === "published" ? publishedProjects : archivedProjects;
+
   /* ---------------- PAGINATION ---------------- */
-  const totalPages = Math.ceil(projects.length / PAGE_SIZE);
-  const paginated = projects.slice(
+  const totalPages = Math.ceil(displayedProjects.length / PAGE_SIZE);
+  const paginated = displayedProjects.slice(
     (page - 1) * PAGE_SIZE,
     page * PAGE_SIZE
   );
@@ -146,7 +190,7 @@ export default function AdminDashboard() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-gray-300 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg font-medium">Loading dashboard...</p>
+          <p className="text-gray-600 text-lg font-medium">Loading Projects Content...</p>
         </div>
       </div>
     );
@@ -157,6 +201,23 @@ export default function AdminDashboard() {
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
 
+        {/* SUCCESS MESSAGE */}
+        <AnimatePresence>
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-6 right-6 bg-green-600 text-white px-6 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {successMessage}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* HEADER */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
@@ -164,7 +225,7 @@ export default function AdminDashboard() {
           className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
         >
           <div>
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Projects Content Management</h1>
             <p className="text-gray-600 mt-2">Manage your projects and content</p>
           </div>
           <div className="flex gap-3">
@@ -210,13 +271,13 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <p className="text-sm text-gray-600 font-medium">Published</p>
             <p className="text-3xl font-bold text-green-600 mt-1">
-              {projects.filter(p => p.is_published).length}
+              {publishedProjects.length}
             </p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-600 font-medium">Drafts</p>
-            <p className="text-3xl font-bold text-orange-600 mt-1">
-              {projects.filter(p => !p.is_published).length}
+            <p className="text-sm text-gray-600 font-medium">Archived</p>
+            <p className="text-3xl font-bold text-gray-600 mt-1">
+              {archivedProjects.length}
             </p>
           </div>
         </motion.div>
@@ -345,19 +406,6 @@ export default function AdminDashboard() {
                     </label>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="published"
-                    checked={form.is_published}
-                    onChange={e => setForm({ ...form, is_published: e.target.checked })}
-                    className="w-5 h-5 text-black border-gray-300 rounded focus:ring-2 focus:ring-black cursor-pointer"
-                  />
-                  <label htmlFor="published" className="text-sm font-medium text-gray-700 cursor-pointer">
-                    Publish project immediately
-                  </label>
-                </div>
               </div>
 
               <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
@@ -378,6 +426,31 @@ export default function AdminDashboard() {
             </motion.form>
           )}
         </AnimatePresence>
+
+        {/* TABS */}
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => { setActiveTab("published"); setPage(1); }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === "published"
+                ? "bg-black text-white shadow-md"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Published ({publishedProjects.length})
+          </button>
+
+          <button
+            onClick={() => { setActiveTab("archived"); setPage(1); }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === "archived"
+                ? "bg-black text-white shadow-md"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Archived ({archivedProjects.length})
+          </button>
+        </div>
 
         {/* TABLE */}
         <motion.div 
@@ -412,8 +485,14 @@ export default function AdminDashboard() {
                         <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <p className="text-lg font-medium">No projects yet</p>
-                        <p className="text-sm mt-1">Create your first project to get started</p>
+                        <p className="text-lg font-medium">
+                          {activeTab === "published" ? "No published projects" : "No archived projects"}
+                        </p>
+                        <p className="text-sm mt-1">
+                          {activeTab === "published" 
+                            ? "Create your first project to get started" 
+                            : "Archived projects will appear here"}
+                        </p>
                       </div>
                     </td>
                   </tr>
@@ -449,26 +528,38 @@ export default function AdminDashboard() {
                             Published
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
-                            <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                            Draft
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                            Archived
                           </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => handleEdit(p)} 
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(p.id)} 
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
-                          >
-                            Delete
-                          </button>
+                          {activeTab === "published" ? (
+                            <>
+                              <button
+                                onClick={() => handleEdit(p)}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                onClick={() => handleArchive(p.id)}
+                                className="px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                              >
+                                Archive
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRestore(p.id)}
+                              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Restore
+                            </button>
+                          )}
                         </div>
                       </td>
                     </motion.tr>
@@ -518,7 +609,7 @@ export default function AdminDashboard() {
 
       </div>
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* ARCHIVE CONFIRMATION MODAL */}
       <AnimatePresence>
         {deleteId && (
           <>
@@ -536,15 +627,18 @@ export default function AdminDashboard() {
               className="fixed inset-0 flex items-center justify-center z-50 px-4"
             >
               <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-                <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-                  <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                <div className="flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mx-auto mb-4">
+                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">Delete Project?</h3>
+                <h3 className="text-2xl font-bold text-gray-900 text-center mb-2">
+                  Archive Project?
+                </h3>
                 <p className="text-gray-600 text-center mb-6">
-                  This action cannot be undone. This will permanently delete the project and all associated data.
+                  The project will be moved to Archived and hidden from the website. You can restore it later.
                 </p>
+
                 <div className="flex gap-3">
                   <button
                     onClick={() => setDeleteId(null)}
@@ -553,10 +647,10 @@ export default function AdminDashboard() {
                     Cancel
                   </button>
                   <button
-                    onClick={confirmDelete}
-                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                    onClick={confirmArchive}
+                    className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-colors"
                   >
-                    Delete
+                    Archive
                   </button>
                 </div>
               </div>
