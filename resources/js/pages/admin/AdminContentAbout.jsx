@@ -2,78 +2,27 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-const SLOTS = [
-  {
-    key: 0,
-    label: "1. Hero",
-    description: "Main title, hero image, and intro paragraph (with year on the right).",
-    fields: ["title", "content", "image", "published"],
-  },
-  {
-    key: 1,
-    label: "2. Purpose — Left text",
-    description: "Short paragraph under “Our Purpose” (left column).",
-    fields: ["content", "published"],
-  },
-  {
-    key: 2,
-    label: "3. Purpose — Center text",
-    description: "Longer paragraph (center column).",
-    fields: ["content", "published"],
-  },
-  {
-    key: 3,
-    label: "4. Purpose — Image",
-    description: "Image in the “Our Purpose” section (right column).",
-    fields: ["image", "published"],
-  },
-  {
-    key: 4,
-    label: "5. Mission",
-    description: "Mission heading, image, and text.",
-    fields: ["content", "image", "published"],
-  },
-  {
-    key: 5,
-    label: "6. Vision",
-    description: "Vision heading, image, and text.",
-    fields: ["content", "image", "published"],
-  },
-  {
-    key: 6,
-    label: "7. About the Artist",
-    description: "Artist image, heading, and paragraphs (use two line breaks for second paragraph).",
-    fields: ["title", "content", "image", "published"],
-  },
-];
-
-const SLOT_TITLES = [
-  "Hero",
-  "Purpose (Left)",
-  "Purpose (Center)",
-  "Purpose Image",
-  "Mission",
-  "Vision",
-  "About the Artist",
-];
+const PAGE_SIZE = 6;
 
 function imageUrl(path) {
   if (!path) return null;
   return path.startsWith("http") ? path : `/storage/${path}`;
 }
 
-const emptySlotForm = () => ({
-  title: "",
-  content: "",
-  cover_image: null,
-  is_published: true,
-});
-
 export default function AdminContentAbout() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [slotForms, setSlotForms] = useState(() => SLOTS.map(() => emptySlotForm()));
-  const [savingSlot, setSavingSlot] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [page, setPage] = useState(1);
+  const [deleteId, setDeleteId] = useState(null);
+  const [form, setForm] = useState({
+    title: "",
+    content: "",
+    cover_image: null,
+    is_published: true,
+  });
+  const [activeTab, setActiveTab] = useState("published");
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
@@ -83,22 +32,6 @@ export default function AdminContentAbout() {
     };
     init();
   }, []);
-
-  useEffect(() => {
-    if (!Array.isArray(sections)) return;
-    setSlotForms((prev) =>
-      SLOTS.map((slot, i) => {
-        const section = sections.find((s) => Number(s.sort_order) === i) ?? null;
-        if (!section) return prev[i] ?? emptySlotForm();
-        return {
-          title: section.title ?? "",
-          content: section.content ?? "",
-          cover_image: null,
-          is_published: section.is_published ?? true,
-        };
-      })
-    );
-  }, [sections]);
 
   const fetchSections = async () => {
     setLoading(true);
@@ -113,52 +46,89 @@ export default function AdminContentAbout() {
     }
   };
 
-  const getSectionBySlotIndex = (i) =>
-    sections.find((s) => Number(s.sort_order) === i) ?? null;
-
-  const updateSlotForm = (slotIndex, updates) => {
-    setSlotForms((prev) =>
-      prev.map((form, i) => (i === slotIndex ? { ...form, ...updates } : form))
-    );
+  const resetForm = () => {
+    setForm({ title: "", content: "", cover_image: null, is_published: true });
+    setEditing(null);
+    setShowForm(false);
   };
 
-  const saveSlot = async (slotIndex) => {
-    const form = slotForms[slotIndex];
-    const section = getSectionBySlotIndex(slotIndex);
-    const fd = new FormData();
+  const handleEdit = (section) => {
+    setEditing(section);
+    setForm({
+      title: section.title,
+      content: section.content || "",
+      cover_image: null,
+      is_published: section.is_published,
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    const title = form.title?.trim() || SLOT_TITLES[slotIndex];
-    fd.append("title", title);
-    fd.append("content", form.content ?? "");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const fd = new FormData();
+    fd.append("title", form.title);
+    fd.append("content", form.content);
     fd.append("is_published", form.is_published ? 1 : 0);
-    fd.append("sort_order", slotIndex);
     if (form.cover_image) fd.append("cover_image", form.cover_image);
 
-    setSavingSlot(slotIndex);
+    const url = editing ? `/api/about/${editing.id}` : "/api/about";
+    if (editing) fd.append("_method", "PUT");
 
-    const url = section ? `/api/about/${section.id}` : "/api/about";
-    if (section) {
-      fd.append("_method", "PUT");
+    const res = await fetch(url, {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      alert("Something went wrong");
+      return;
     }
 
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) {
-        alert("Something went wrong saving this section.");
-        return;
-      }
-      await fetchSections();
-      setSuccessMessage(`"${SLOT_TITLES[slotIndex]}" saved.`);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } finally {
-      setSavingSlot(null);
-    }
+    await fetchSections();
+    resetForm();
+    setSuccessMessage(
+      editing ? "About section updated successfully" : "About section created successfully"
+    );
+    setTimeout(() => setSuccessMessage(""), 3000);
   };
+
+  const handleArchive = async (id) => {
+    const fd = new FormData();
+    fd.append("_method", "PUT");
+    fd.append("is_published", 0);
+    await fetch(`/api/about/${id}`, {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+    setSuccessMessage("Section archived successfully");
+    fetchSections();
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const handleRestore = async (id) => {
+    const fd = new FormData();
+    fd.append("_method", "PUT");
+    fd.append("is_published", 1);
+    await fetch(`/api/about/${id}`, {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+    setSuccessMessage("Section restored successfully");
+    fetchSections();
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const published = sections.filter((s) => s.is_published);
+  const archived = sections.filter((s) => !s.is_published);
+  const displayed = activeTab === "published" ? published : archived;
+  const totalPages = Math.ceil(displayed.length / PAGE_SIZE);
+  const paginated = displayed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (loading) {
     return (
@@ -173,7 +143,7 @@ export default function AdminContentAbout() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 pt-24 pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <AnimatePresence>
           {successMessage && (
             <motion.div
@@ -193,134 +163,337 @@ export default function AdminContentAbout() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
         >
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">
-            About Us Content
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Edit each part of the About page below. Changes match the layout on the site.
-          </p>
-          <Link
-            to="/about"
-            className="inline-block mt-4 px-5 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 border border-gray-200 transition-all hover:shadow-md"
-          >
-            View About Page →
-          </Link>
+          <div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">
+              About Us Content Management
+            </h1>
+            <p className="text-gray-600 mt-2">Manage your About sections and content.</p>
+          </div>
+          <div className="flex gap-3">
+            <Link
+              to="/about"
+              className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 border border-gray-200 transition-all hover:shadow-md"
+            >
+              View Site
+            </Link>
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                if (showForm) resetForm();
+              }}
+              className="px-5 py-2.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all hover:shadow-lg flex items-center gap-2"
+            >
+              {showForm ? (
+                <>
+                  <span>✕</span>
+                  <span>Close</span>
+                </>
+              ) : (
+                <>
+                  <span>+</span>
+                  <span>New Section</span>
+                </>
+              )}
+            </button>
+          </div>
         </motion.div>
 
-        <div className="space-y-6">
-          {SLOTS.map((slot, slotIndex) => {
-            const form = slotForms[slotIndex] ?? emptySlotForm();
-            const section = getSectionBySlotIndex(slotIndex);
-            const isSaving = savingSlot === slotIndex;
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
+        >
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Total Sections</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{sections.length}</p>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Published</p>
+            <p className="text-3xl font-bold text-green-600 mt-1">{published.length}</p>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-600 font-medium">Archived</p>
+            <p className="text-3xl font-bold text-gray-600 mt-1">{archived.length}</p>
+          </div>
+        </motion.div>
 
-            return (
-              <motion.section
-                key={slot.key}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: slotIndex * 0.03 }}
-                className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
-              >
-                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                  <h2 className="text-xl font-bold text-gray-900">{slot.label}</h2>
-                  <p className="text-sm text-gray-600 mt-0.5">{slot.description}</p>
+        <AnimatePresence>
+          {showForm && (
+            <motion.form
+              onSubmit={handleSubmit}
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-white rounded-2xl p-8 mb-8 shadow-lg border border-gray-200"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editing ? "Edit Section" : "Create New Section"}
+                </h2>
+                {editing && (
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                    Editing
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Title *</label>
+                  <input
+                    required
+                    placeholder="Section title (e.g. ABOUT US, Our Purpose)"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
+                  />
                 </div>
 
-                <div className="p-6 space-y-4">
-                  {slot.fields.includes("title") && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Title</label>
-                      <input
-                        type="text"
-                        value={form.title}
-                        onChange={(e) => updateSlotForm(slotIndex, { title: e.target.value })}
-                        placeholder={slotIndex === 0 ? "ABOUT US" : slotIndex === 6 ? "ABOUT THE ARTIST." : ""}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none"
-                      />
-                    </div>
-                  )}
-
-                  {slot.fields.includes("content") && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Content</label>
-                      <textarea
-                        rows={slotIndex === 6 ? 5 : 3}
-                        value={form.content}
-                        onChange={(e) => updateSlotForm(slotIndex, { content: e.target.value })}
-                        placeholder="Enter text for this section..."
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none resize-none"
-                      />
-                      {slotIndex === 6 && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Use two line breaks to separate the two paragraphs on the page.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {slot.fields.includes("image") && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Image</label>
-                      {section?.image && !form.cover_image && (
-                        <div className="mb-2">
-                          <img
-                            src={imageUrl(section.image)}
-                            alt=""
-                            className="w-32 h-24 object-cover rounded-lg border border-gray-200"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Current image (upload a new file to replace)</p>
-                        </div>
-                      )}
-                      <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                        <span className="text-sm text-gray-600">
-                          {form.cover_image ? form.cover_image.name : "Click to upload image"}
-                        </span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={(e) =>
-                            updateSlotForm(slotIndex, { cover_image: e.target.files[0] ?? null })
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
-
-                  {slot.fields.includes("published") && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`published-${slotIndex}`}
-                        checked={form.is_published}
-                        onChange={(e) =>
-                          updateSlotForm(slotIndex, { is_published: e.target.checked })
-                        }
-                        className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
-                      />
-                      <label htmlFor={`published-${slotIndex}`} className="text-sm font-medium text-gray-700">
-                        Published (show on site)
-                      </label>
-                    </div>
-                  )}
-
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => saveSlot(slotIndex)}
-                      disabled={isSaving}
-                      className="px-5 py-2.5 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? "Saving..." : "Save this section"}
-                    </button>
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Content</label>
+                  <textarea
+                    rows="4"
+                    placeholder="Section content..."
+                    value={form.content}
+                    onChange={(e) => setForm({ ...form, content: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none resize-none"
+                  />
                 </div>
-              </motion.section>
-            );
-          })}
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Cover Image</label>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600">
+                        {form.cover_image ? form.cover_image.name : "Click to upload"}
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => setForm({ ...form, cover_image: e.target.files[0] })}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_published"
+                    checked={form.is_published}
+                    onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
+                    Published (visible on site)
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
+                <button
+                  className="flex-1 px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-all hover:shadow-lg"
+                  type="submit"
+                >
+                  {editing ? "Update Section" : "Create Section"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.form>
+          )}
+        </AnimatePresence>
+
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => {
+              setActiveTab("published");
+              setPage(1);
+            }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === "published"
+                ? "bg-black text-white shadow-md"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Published ({published.length})
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("archived");
+              setPage(1);
+            }}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === "archived"
+                ? "bg-black text-white shadow-md"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Archived ({archived.length})
+          </button>
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <svg
+                          className="w-16 h-16 text-gray-300 mb-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <p className="text-lg font-medium">
+                          {activeTab === "published" ? "No published sections" : "No archived sections"}
+                        </p>
+                        <p className="text-sm mt-1">
+                          {activeTab === "published"
+                            ? "Create your first section to get started"
+                            : "Archived sections will appear here"}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginated.map((s) => (
+                    <motion.tr
+                      key={s.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {s.image && (
+                            <img
+                              src={imageUrl(s.image)}
+                              alt={s.title}
+                              className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                            />
+                          )}
+                          <span className="font-semibold text-gray-900">{s.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {s.is_published ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                            Published
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                            Archived
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end gap-2">
+                          {s.is_published ? (
+                            <>
+                              <button
+                                onClick={() => handleEdit(s)}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleArchive(s.id)}
+                                className="px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                              >
+                                Archive
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRestore(s.id)}
+                              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Restore
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 py-6 px-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <div className="flex gap-2">
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i + 1)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      page === i + 1
+                        ? "bg-black text-white shadow-md"
+                        : "border border-gray-300 text-gray-700 hover:bg-white"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </motion.div>
       </div>
     </main>
   );

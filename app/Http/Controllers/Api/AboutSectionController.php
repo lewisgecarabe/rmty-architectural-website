@@ -37,7 +37,8 @@ class AboutSectionController extends Controller
             $data['is_published'] = true;
         }
         if (!array_key_exists('sort_order', $data)) {
-            $data['sort_order'] = AboutSection::max('sort_order') + 1;
+            $max = AboutSection::max('sort_order');
+            $data['sort_order'] = is_null($max) ? 0 : $max + 1;
         }
 
         if ($request->hasFile('cover_image')) {
