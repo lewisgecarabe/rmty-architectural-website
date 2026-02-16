@@ -30,10 +30,14 @@ class AboutSectionController extends Controller
             'content' => 'nullable|string',
             'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'is_published' => 'sometimes|boolean',
+            'sort_order' => 'sometimes|integer|min:0',
         ]);
 
         if (!isset($data['is_published'])) {
             $data['is_published'] = true;
+        }
+        if (!array_key_exists('sort_order', $data)) {
+            $data['sort_order'] = AboutSection::max('sort_order') + 1;
         }
 
         if ($request->hasFile('cover_image')) {
@@ -54,6 +58,7 @@ class AboutSectionController extends Controller
             'content' => 'nullable|string',
             'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'is_published' => 'sometimes|boolean',
+            'sort_order' => 'sometimes|integer|min:0',
         ]);
 
         if ($request->hasFile('cover_image')) {

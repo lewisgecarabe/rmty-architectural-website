@@ -29,14 +29,15 @@ export default function About() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Map CMS sections to the original layout: [0]=hero, [1]=purpose left, [2]=purpose center, [3]=purpose image, [4]=mission, [5]=vision, [6]=artist
-  const hero = sections[0];
-  const purposeLeft = sections[1];
-  const purposeCenter = sections[2];
-  const purposeImage = sections[3];
-  const mission = sections[4];
-  const vision = sections[5];
-  const artist = sections[6];
+  // Map CMS sections by sort_order to match admin slots: 0=hero, 1=purpose left, 2=purpose center, 3=purpose image, 4=mission, 5=vision, 6=artist
+  const bySort = (i) => sections.find((s) => Number(s.sort_order) === i) ?? null;
+  const hero = bySort(0);
+  const purposeLeft = bySort(1);
+  const purposeCenter = bySort(2);
+  const purposeImage = bySort(3);
+  const mission = bySort(4);
+  const vision = bySort(5);
+  const artist = bySort(6);
 
   const defaultHeroText =
     "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias";
