@@ -29,10 +29,15 @@ export default function AdminContentServices() {
 
   const fetchServices = async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/services", { credentials: "include" });
-    const data = await res.json();
-    setServices(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/services", { credentials: "include" });
+      const data = res.ok ? await res.json() : [];
+      setServices(Array.isArray(data) ? data : []);
+    } catch {
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetForm = () => {
