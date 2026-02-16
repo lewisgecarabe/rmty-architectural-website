@@ -1,4 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+
+function imageUrl(path) {
+  if (!path) return null;
+  return path.startsWith("http") ? path : `/storage/${path}`;
+}
 
 function ImagePlaceholder({ className = "", label = "Image" }) {
   return (
@@ -13,143 +18,92 @@ function ImagePlaceholder({ className = "", label = "Image" }) {
 }
 
 export default function About() {
+  const [sections, setSections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/about")
+      .then((res) => res.json())
+      .then((data) => setSections(Array.isArray(data) ? data : []))
+      .catch(() => setSections([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const hero = sections[0];
+  const restSections = sections.slice(1);
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
-      {/* Offset for fixed header */}
       <div className="pt-28 md:pt-32">
-        {/* GLOBAL CONTAINER – SMALL SIDE SPACING */}
         <div className="mx-auto max-w-7xl xl:max-w-[88rem] px-5 md:px-8">
-          {/* HERO */}
-          <section className="pb-10">
-            <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-              ABOUT US
-            </h1>
+          {loading ? (
+            <div className="py-20 text-center text-neutral-500">Loading...</div>
+          ) : sections.length === 0 ? (
+            <div className="py-20 text-center text-neutral-500">No content yet.</div>
+          ) : (
+            <>
+              {/* First section as hero */}
+              <section className="pb-10">
+                <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                  {hero?.title || "ABOUT US"}
+                </h1>
 
-            <div className="mt-8 overflow-hidden rounded-sm">
-              <ImagePlaceholder
-                label="HERO IMAGE"
-                className="h-[240px] w-full md:h-[320px]"
-              />
-            </div>
-
-            <div className="mt-6 flex items-start justify-between gap-8">
-              <p className="max-w-lg text-xs leading-relaxed text-neutral-700 md:text-sm">
-                At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                blanditiis praesentium voluptatum deleniti atque corrupti quos
-                dolores et quas molestias
-              </p>
-              <span className="shrink-0 text-xs text-neutral-700 md:text-sm">
-                2024
-              </span>
-            </div>
-          </section>
-
-          {/* PURPOSE */}
-          <section className="py-14">
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Our Purpose
-            </h2>
-
-            <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-12 md:items-start">
-              <div className="md:col-span-3">
-                <p className="text-xs leading-relaxed text-neutral-700 md:text-sm">
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                </p>
-              </div>
-
-              <div className="md:col-span-4">
-                <p className="text-xs leading-relaxed text-neutral-700 md:text-sm">
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                </p>
-              </div>
-
-              <div className="md:col-span-5">
-                <div className="overflow-hidden rounded-sm">
-                  <ImagePlaceholder
-                    label="PURPOSE IMAGE"
-                    className="h-[180px] w-full md:h-[210px]"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* MISSION / VISION */}
-          <section className="py-10 bg-neutral-50">
-            <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
-              <div>
-                <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
-                  MISSION
-                </h3>
-
-                <div className="mt-6 overflow-hidden rounded-sm">
-                  <ImagePlaceholder
-                    label="MISSION IMAGE"
-                    className="h-[170px] w-full md:h-[190px]"
-                  />
+                <div className="mt-8 overflow-hidden rounded-sm">
+                  {hero?.image ? (
+                    <img
+                      src={imageUrl(hero.image)}
+                      alt={hero.title}
+                      className="h-[240px] w-full object-cover md:h-[320px]"
+                    />
+                  ) : (
+                    <ImagePlaceholder
+                      label="HERO IMAGE"
+                      className="h-[240px] w-full md:h-[320px]"
+                    />
+                  )}
                 </div>
 
-                <p className="mt-6 text-xs leading-relaxed text-neutral-700 md:text-sm">
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                  blanditiis praesentium voluptatum deleniti atque corrupti quos
-                  dolores et quas molestias
-                </p>
-              </div>
+                {hero?.content && (
+                  <div className="mt-6 flex items-start justify-between gap-8">
+                    <p className="max-w-lg text-xs leading-relaxed text-neutral-700 md:text-sm">
+                      {hero.content}
+                    </p>
+                  </div>
+                )}
+              </section>
 
-              <div>
-                <h3 className="text-xl font-semibold tracking-tight md:text-2xl">
-                  VISION
-                </h3>
+              {/* Remaining sections */}
+              {restSections.map((section, idx) => (
+                <section
+                  key={section.id}
+                  className={`py-14 ${idx % 2 === 1 ? "bg-neutral-50" : ""}`}
+                >
+                  <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                    {section.title}
+                  </h2>
 
-                <div className="mt-6 overflow-hidden rounded-sm">
-                  <ImagePlaceholder
-                    label="VISION IMAGE"
-                    className="h-[170px] w-full md:h-[190px]"
-                  />
-                </div>
-
-                <p className="mt-6 text-xs leading-relaxed text-neutral-700 md:text-sm">
-                  At vero eos et accusamus et iusto odio dignissimos ducimus qui
-                  blanditiis praesentium voluptatum deleniti atque corrupti quos
-                  dolores et quas molestias
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* ABOUT THE ARTIST */}
-          <section className="py-16">
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-12 items-start">
-              <div className="md:col-span-5">
-                <ImagePlaceholder
-                  label="ARTIST IMAGE"
-                  className="h-[320px] w-full md:h-[360px]"
-                />
-              </div>
-
-              <div className="md:col-span-7">
-                <h3 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                  ABOUT THE ARTIST.
-                </h3>
-
-                <div className="mt-8 space-y-6">
-                  <p className="text-xs leading-relaxed text-neutral-700 md:text-sm">
-                    At vero eos et accusamus et iusto odio dignissimos ducimus
-                    qui blanditiis praesentium voluptatum deleniti atque
-                    corrupti quos dolores et quas molestias
-                  </p>
-
-                  <p className="text-xs leading-relaxed text-neutral-700 md:text-sm">
-                    At vero eos et accusamus et iusto odio dignissimos ducimus
-                    qui blanditiis praesentium voluptatum deleniti atque
-                    corrupti quos dolores et quas molestias
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
+                  <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-12 md:items-start">
+                    <div className={section.image ? "md:col-span-7" : "md:col-span-12"}>
+                      <p className="text-xs leading-relaxed text-neutral-700 md:text-sm whitespace-pre-line">
+                        {section.content || ""}
+                      </p>
+                    </div>
+                    {section.image && (
+                      <div className="md:col-span-5">
+                        <div className="overflow-hidden rounded-sm">
+                          <img
+                            src={imageUrl(section.image)}
+                            alt={section.title}
+                            className="h-[180px] w-full object-cover md:h-[210px]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </main>

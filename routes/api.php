@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\AboutSectionController;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -32,3 +33,10 @@ Route::post('/services', [ServiceController::class, 'store']);
 Route::put('/services/{id}', [ServiceController::class, 'update']);
 Route::post('/services/{id}', [ServiceController::class, 'update']);
 Route::delete('/services/{id}', [ServiceController::class, 'destroy']);
+
+Route::get('/about', [AboutSectionController::class, 'index']);
+Route::get('/admin/about', [AboutSectionController::class, 'adminIndex']);
+Route::post('/about', [AboutSectionController::class, 'store']);
+Route::put('/about/{id}', [AboutSectionController::class, 'update']);
+Route::post('/about/{id}', [AboutSectionController::class, 'update']);
+Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);

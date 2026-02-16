@@ -22,6 +22,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
 import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";
+import AdminContentAbout from "./pages/admin/AdminContentAbout";
 
 
 ReactDOM.createRoot(document.getElementById("app")).render(
@@ -42,8 +43,8 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="content/services" element={<AdminContentServices />} />
-                <Route path="content/projects" element={<AdminContentProjects />} />
-
+        <Route path="content/projects" element={<AdminContentProjects />} />
+        <Route path="content/about" element={<AdminContentAbout />} />
       </Route>
     </Routes>
   </BrowserRouter>
