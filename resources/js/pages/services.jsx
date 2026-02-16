@@ -1,15 +1,24 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getServicesContent } from "../stores/servicesContent";
 
 export default function Services() {
   const [openIndex, setOpenIndex] = useState(null);
-  const content = useMemo(() => getServicesContent(), []);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  const content = useMemo(() => getServicesContent(), []);
   const hero = content.hero ?? {};
   const section = content.section ?? {};
-  const services = content.services ?? [];
   const cta = content.cta ?? {};
+
+  useEffect(() => {
+    fetch("/api/services")
+      .then((res) => res.json())
+      .then((data) => setServices(Array.isArray(data) ? data : []))
+      .catch(() => setServices([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <section className="w-full bg-transparent">
@@ -65,34 +74,39 @@ export default function Services() {
               </p>
 
               <div className="mt-10">
-                {services.map((item, idx) => {
-                  const isOpen = openIndex === idx;
+                {loading ? (
+                  <p className="text-sm text-neutral-500 py-4">Loading services…</p>
+                ) : services.length === 0 ? (
+                  <p className="text-sm text-neutral-500 py-4">No services available.</p>
+                ) : (
+                  services.map((item, idx) => {
+                    const isOpen = openIndex === idx;
+                    return (
+                      <div key={item.id ?? idx} className="border-b border-neutral-300">
+                        <button
+                          type="button"
+                          onClick={() => setOpenIndex(isOpen ? null : idx)}
+                          className="flex w-full items-center justify-between py-4 text-left"
+                        >
+                          <span className="text-xs font-normal tracking-widest text-neutral-800">
+                            {item.title}
+                          </span>
+                          <span className="text-xl font-light text-neutral-800">
+                            {isOpen ? "–" : "+"}
+                          </span>
+                        </button>
 
-                  return (
-                    <div key={idx} className="border-b border-neutral-300">
-                      <button
-                        type="button"
-                        onClick={() => setOpenIndex(isOpen ? null : idx)}
-                        className="flex w-full items-center justify-between py-4 text-left"
-                      >
-                        <span className="text-xs font-normal tracking-widest text-neutral-800">
-                          {item.title}
-                        </span>
-                        <span className="text-xl font-light text-neutral-800">
-                          {isOpen ? "–" : "+"}
-                        </span>
-                      </button>
-
-                      {isOpen && (
-                        <div className="pb-5 pr-8">
-                          <p className="text-sm leading-relaxed text-neutral-700">
-                            {item.content}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        {isOpen && (
+                          <div className="pb-5 pr-8">
+                            <p className="text-sm leading-relaxed text-neutral-700">
+                              {item.content}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
