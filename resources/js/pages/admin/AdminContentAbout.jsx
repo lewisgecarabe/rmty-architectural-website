@@ -21,6 +21,7 @@ export default function AdminContentAbout() {
     content: "",
     cover_image: null,
     is_published: true,
+    sort_order: 0,
   });
   const [activeTab, setActiveTab] = useState("published");
   const [successMessage, setSuccessMessage] = useState("");
@@ -47,7 +48,13 @@ export default function AdminContentAbout() {
   };
 
   const resetForm = () => {
-    setForm({ title: "", content: "", cover_image: null, is_published: true });
+    setForm({
+      title: "",
+      content: "",
+      cover_image: null,
+      is_published: true,
+      sort_order: 0,
+    });
     setEditing(null);
     setShowForm(false);
   };
@@ -59,6 +66,7 @@ export default function AdminContentAbout() {
       content: section.content || "",
       cover_image: null,
       is_published: section.is_published,
+      sort_order: Number(section.sort_order) || 0,
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -71,6 +79,7 @@ export default function AdminContentAbout() {
     fd.append("title", form.title);
     fd.append("content", form.content);
     fd.append("is_published", form.is_published ? 1 : 0);
+    fd.append("sort_order", form.sort_order);
     if (form.cover_image) fd.append("cover_image", form.cover_image);
 
     const url = editing ? `/api/about/${editing.id}` : "/api/about";
@@ -122,6 +131,68 @@ export default function AdminContentAbout() {
     setSuccessMessage("Section restored successfully");
     fetchSections();
     setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  const slotLabel = (sort) => {
+    const index = Number(sort);
+    switch (index) {
+      case 0:
+        return {
+          key: "hero",
+          name: "Hero Header",
+          description:
+            "Top section of the page. Includes the ABOUT US title, big hero image, and introductory paragraph.",
+        };
+      case 1:
+        return {
+          key: "purpose-left",
+          name: "Purpose – Left Text",
+          description:
+            "Short paragraph on the left under Our Purpose. Use for a concise statement.",
+        };
+      case 2:
+        return {
+          key: "purpose-center",
+          name: "Purpose – Center Text",
+          description:
+            "Longer paragraph in the middle under Our Purpose. Use for detailed explanation.",
+        };
+      case 3:
+        return {
+          key: "purpose-image",
+          name: "Purpose – Image",
+          description:
+            "Image on the right of the Our Purpose section. Upload a visual that represents your purpose.",
+        };
+      case 4:
+        return {
+          key: "mission",
+          name: "Mission",
+          description:
+            "Mission block with image and paragraph on the left in the Mission / Vision section.",
+        };
+      case 5:
+        return {
+          key: "vision",
+          name: "Vision",
+          description:
+            "Vision block with image and paragraph on the right in the Mission / Vision section.",
+        };
+      case 6:
+        return {
+          key: "artist",
+          name: "About the Artist",
+          description:
+            "Bottom section with large image and two paragraphs about the artist.",
+        };
+      default:
+        return {
+          key: "other",
+          name: "Unassigned Section",
+          description:
+            "This section does not have a specific slot yet. Choose the correct slot when editing.",
+        };
+    }
   };
 
   const published = sections.filter((s) => s.is_published);
@@ -241,7 +312,61 @@ export default function AdminContentAbout() {
                 )}
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-6">
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Section Slot
+                  </h3>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Choose which part of the About page this content belongs to. Each slot controls a specific
+                    section on the live site.
+                  </p>
+                  <select
+                    value={form.sort_order}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        sort_order: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none bg-white"
+                  >
+                    <option value={0}>Hero Header</option>
+                    <option value={1}>Purpose – Left Text</option>
+                    <option value={2}>Purpose – Center Text</option>
+                    <option value={3}>Purpose – Image</option>
+                    <option value={4}>Mission</option>
+                    <option value={5}>Vision</option>
+                    <option value={6}>About the Artist</option>
+                  </select>
+
+                  <div className="mt-4 space-y-3 text-[11px] text-gray-600">
+                    <div className="border-t border-dashed border-gray-200 pt-3">
+                      <p className="font-semibold text-gray-800">Hero Header</p>
+                      <p>Header title, big hero image, and short introduction at the top of the page.</p>
+                    </div>
+                    <div className="border-t border-dashed border-gray-200 pt-3">
+                      <p className="font-semibold text-gray-800">Our Purpose – Left &amp; Center</p>
+                      <p>
+                        Left: short key message. Center: longer supporting text that explains your purpose in
+                        detail.
+                      </p>
+                    </div>
+                    <div className="border-t border-dashed border-gray-200 pt-3">
+                      <p className="font-semibold text-gray-800">Our Purpose – Image</p>
+                      <p>Right-side image that visually represents your purpose section.</p>
+                    </div>
+                    <div className="border-t border-dashed border-gray-200 pt-3">
+                      <p className="font-semibold text-gray-800">Mission &amp; Vision</p>
+                      <p>Each slot has its own image and paragraph inside the Mission / Vision block.</p>
+                    </div>
+                    <div className="border-t border-dashed border-gray-200 pt-3">
+                      <p className="font-semibold text-gray-800">About the Artist</p>
+                      <p>Large image and two paragraphs that tell the story of the artist.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Title *</label>
                   <input
@@ -354,7 +479,10 @@ export default function AdminContentAbout() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Title
+                    Section
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Slot
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                     Status
@@ -412,6 +540,16 @@ export default function AdminContentAbout() {
                           )}
                           <span className="font-semibold text-gray-900">{s.title}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        <span className="inline-flex flex-col">
+                          <span className="font-semibold text-gray-900">
+                            {slotLabel(s.sort_order).name}
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            {slotLabel(s.sort_order).description}
+                          </span>
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         {s.is_published ? (
