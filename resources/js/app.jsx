@@ -17,6 +17,8 @@ import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About";
 
 // Admin Imports
+import ForgotPassword from "./pages/admin/Forgotpasswordcomponents";
+
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
@@ -38,6 +40,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
       </Route>
 
       <Route path="/admin/login" element={<AuthPage />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />

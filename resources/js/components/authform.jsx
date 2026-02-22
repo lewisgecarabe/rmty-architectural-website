@@ -62,6 +62,12 @@ export default function AuthForm({ type = "signin" }) {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-300"
         />
+         <a
+    href="/admin/forgot-password"
+    className="text-sm text-blue-600 hover:text-blue-800"
+  >
+    Forgot Password?
+  </a>
       </div>
 
       {/* BUTTON */}

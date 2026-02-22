@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\AboutSectionController;
+use App\Http\Controllers\Api\PasswordResetController;
+
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -40,3 +42,7 @@ Route::post('/about', [AboutSectionController::class, 'store']);
 Route::put('/about/{id}', [AboutSectionController::class, 'update']);
 Route::post('/about/{id}', [AboutSectionController::class, 'update']);
 Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
+
+ Route::post('/password/send-otp', [PasswordResetController::class, 'sendOtp']);
+ Route::post('/password/verify-otp', [PasswordResetController::class, 'verifyOtp']);
+Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
