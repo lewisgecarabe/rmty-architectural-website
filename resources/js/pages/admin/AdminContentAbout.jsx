@@ -1,30 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-
-const PAGE_SIZE = 6;
 
 function imageUrl(path) {
   if (!path) return null;
   return path.startsWith("http") ? path : `/storage/${path}`;
 }
 
+const IMAGE_SLOTS = [
+  { sortOrder: 0, name: "Hero Image", description: "Large image at the top of the About page." },
+  { sortOrder: 3, name: "Purpose Image", description: "Image on the right in the Our Purpose section." },
+  { sortOrder: 4, name: "Mission Image", description: "Image in the Mission block." },
+  { sortOrder: 5, name: "Vision Image", description: "Image in the Vision block." },
+  { sortOrder: 6, name: "Artist Image", description: "Large image in the About the Artist section." },
+];
+
+const DEFAULT_TITLES = {
+  0: "ABOUT US",
+  3: "Purpose Image",
+  4: "Mission",
+  5: "Vision",
+  6: "About the Artist",
+};
+
 export default function AdminContentAbout() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [page, setPage] = useState(1);
-  const [deleteId, setDeleteId] = useState(null);
-  const [form, setForm] = useState({
-    title: "",
-    content: "",
-    cover_image: null,
-    is_published: true,
-    sort_order: 0,
-  });
-  const [activeTab, setActiveTab] = useState("published");
   const [successMessage, setSuccessMessage] = useState("");
+  const [uploadingSlot, setUploadingSlot] = useState(null);
+  const [popup, setPopup] = useState({ open: false, slot: null, section: null, file: null });
+  const previewUrlRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
@@ -47,159 +52,76 @@ export default function AdminContentAbout() {
     }
   };
 
-  const resetForm = () => {
-    setForm({
-      title: "",
-      content: "",
-      cover_image: null,
-      is_published: true,
-      sort_order: 0,
-    });
-    setEditing(null);
-    setShowForm(false);
+  const getSectionBySort = (sortOrder) =>
+    sections.find((s) => Number(s.sort_order) === sortOrder) ?? null;
+
+  const openPopup = (slot, file) => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = URL.createObjectURL(file);
+    const section = getSectionBySort(slot.sortOrder);
+    setPopup({ open: true, slot, section, file });
   };
 
-  const handleEdit = (section) => {
-    setEditing(section);
-    setForm({
-      title: section.title,
-      content: section.content || "",
-      cover_image: null,
-      is_published: section.is_published,
-      sort_order: Number(section.sort_order) || 0,
-    });
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const closePopup = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPopup({ open: false, slot: null, section: null, file: null });
+    setUploadingSlot(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleImageChange = (slot, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    openPopup(slot, file);
+    e.target.value = "";
+  };
+
+  const confirmUpdateImage = async () => {
+    if (!popup.slot || !popup.file) return;
+    const { slot, section, file } = popup;
+    setUploadingSlot(slot.sortOrder);
 
     const fd = new FormData();
-    fd.append("title", form.title);
-    fd.append("content", form.content);
-    fd.append("is_published", form.is_published ? 1 : 0);
-    fd.append("sort_order", form.sort_order);
-    if (form.cover_image) fd.append("cover_image", form.cover_image);
+    fd.append("cover_image", file);
 
-    const url = editing ? `/api/about/${editing.id}` : "/api/about";
-    if (editing) fd.append("_method", "PUT");
-
-    const res = await fetch(url, {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!res.ok) {
-      alert("Something went wrong");
-      return;
+    if (section) {
+      fd.append("_method", "PUT");
+      const res = await fetch(`/api/about/${section.id}`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        alert("Something went wrong");
+        setUploadingSlot(null);
+        return;
+      }
+    } else {
+      fd.append("title", DEFAULT_TITLES[slot.sortOrder] ?? slot.name);
+      fd.append("content", "");
+      fd.append("sort_order", slot.sortOrder);
+      fd.append("is_published", 1);
+      const res = await fetch("/api/about", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        alert("Something went wrong");
+        setUploadingSlot(null);
+        return;
+      }
     }
 
     await fetchSections();
-    resetForm();
-    setSuccessMessage(
-      editing ? "About section updated successfully" : "About section created successfully"
-    );
+    setSuccessMessage(`${slot.name} updated successfully`);
     setTimeout(() => setSuccessMessage(""), 3000);
+    closePopup();
   };
-
-  const handleArchive = async (id) => {
-    const fd = new FormData();
-    fd.append("_method", "PUT");
-    fd.append("is_published", 0);
-    await fetch(`/api/about/${id}`, {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-    });
-    setSuccessMessage("Section archived successfully");
-    fetchSections();
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
-
-  const handleRestore = async (id) => {
-    const fd = new FormData();
-    fd.append("_method", "PUT");
-    fd.append("is_published", 1);
-    await fetch(`/api/about/${id}`, {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-    });
-    setSuccessMessage("Section restored successfully");
-    fetchSections();
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
-
-  const slotLabel = (sort) => {
-    const index = Number(sort);
-    switch (index) {
-      case 0:
-        return {
-          key: "hero",
-          name: "Hero Header",
-          description:
-            "Top section of the page. Includes the ABOUT US title, big hero image, and introductory paragraph.",
-        };
-      case 1:
-        return {
-          key: "purpose-left",
-          name: "Purpose – Left Text",
-          description:
-            "Short paragraph on the left under Our Purpose. Use for a concise statement.",
-        };
-      case 2:
-        return {
-          key: "purpose-center",
-          name: "Purpose – Center Text",
-          description:
-            "Longer paragraph in the middle under Our Purpose. Use for detailed explanation.",
-        };
-      case 3:
-        return {
-          key: "purpose-image",
-          name: "Purpose – Image",
-          description:
-            "Image on the right of the Our Purpose section. Upload a visual that represents your purpose.",
-        };
-      case 4:
-        return {
-          key: "mission",
-          name: "Mission",
-          description:
-            "Mission block with image and paragraph on the left in the Mission / Vision section.",
-        };
-      case 5:
-        return {
-          key: "vision",
-          name: "Vision",
-          description:
-            "Vision block with image and paragraph on the right in the Mission / Vision section.",
-        };
-      case 6:
-        return {
-          key: "artist",
-          name: "About the Artist",
-          description:
-            "Bottom section with large image and two paragraphs about the artist.",
-        };
-      default:
-        return {
-          key: "other",
-          name: "Unassigned Section",
-          description:
-            "This section does not have a specific slot yet. Choose the correct slot when editing.",
-        };
-    }
-  };
-
-  const published = sections.filter((s) => s.is_published);
-  const archived = sections.filter((s) => !s.is_published);
-  const displayed = activeTab === "published" ? published : archived;
-  const totalPages = Math.ceil(displayed.length / PAGE_SIZE);
-  const paginated = displayed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (loading) {
     return (
@@ -238,401 +160,115 @@ export default function AdminContentAbout() {
         >
           <div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">
-              About Us Content Management
+              About Us — Images
             </h1>
-            <p className="text-gray-600 mt-2">Manage your About sections and content.</p>
+            <p className="text-gray-600 mt-2">Change hero, purpose, mission, vision, and artist images only.</p>
           </div>
-          <div className="flex gap-3">
-            <Link
-              to="/about"
-              className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 border border-gray-200 transition-all hover:shadow-md"
-            >
-              View Site
-            </Link>
-            <button
-              onClick={() => {
-                setShowForm(!showForm);
-                if (showForm) resetForm();
-              }}
-              className="px-5 py-2.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all hover:shadow-lg flex items-center gap-2"
-            >
-              {showForm ? (
-                <>
-                  <span>✕</span>
-                  <span>Close</span>
-                </>
-              ) : (
-                <>
-                  <span>+</span>
-                  <span>New Section</span>
-                </>
-              )}
-            </button>
-          </div>
+          <Link
+            to="/about"
+            className="px-5 py-2.5 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-50 border border-gray-200 transition-all hover:shadow-md"
+          >
+            View Site
+          </Link>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
-        >
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-600 font-medium">Total Sections</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{sections.length}</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-600 font-medium">Published</p>
-            <p className="text-3xl font-bold text-green-600 mt-1">{published.length}</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <p className="text-sm text-gray-600 font-medium">Archived</p>
-            <p className="text-3xl font-bold text-gray-600 mt-1">{archived.length}</p>
-          </div>
-        </motion.div>
-
-        <AnimatePresence>
-          {showForm && (
-            <motion.form
-              onSubmit={handleSubmit}
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={{ type: "spring", duration: 0.5 }}
-              className="bg-white rounded-2xl p-8 mb-8 shadow-lg border border-gray-200"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {editing ? "Edit Section" : "Create New Section"}
-                </h2>
-                {editing && (
-                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                    Editing
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-6">
-                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                    Section Slot
-                  </h3>
-                  <p className="text-xs text-gray-600 mb-3">
-                    Choose which part of the About page this content belongs to. Each slot controls a specific
-                    section on the live site.
-                  </p>
-                  <select
-                    value={form.sort_order}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        sort_order: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none bg-white"
-                  >
-                    <option value={0}>Hero Header</option>
-                    <option value={1}>Purpose – Left Text</option>
-                    <option value={2}>Purpose – Center Text</option>
-                    <option value={3}>Purpose – Image</option>
-                    <option value={4}>Mission</option>
-                    <option value={5}>Vision</option>
-                    <option value={6}>About the Artist</option>
-                  </select>
-
-                  <div className="mt-4 space-y-3 text-[11px] text-gray-600">
-                    <div className="border-t border-dashed border-gray-200 pt-3">
-                      <p className="font-semibold text-gray-800">Hero Header</p>
-                      <p>Header title, big hero image, and short introduction at the top of the page.</p>
-                    </div>
-                    <div className="border-t border-dashed border-gray-200 pt-3">
-                      <p className="font-semibold text-gray-800">Our Purpose – Left &amp; Center</p>
-                      <p>
-                        Left: short key message. Center: longer supporting text that explains your purpose in
-                        detail.
-                      </p>
-                    </div>
-                    <div className="border-t border-dashed border-gray-200 pt-3">
-                      <p className="font-semibold text-gray-800">Our Purpose – Image</p>
-                      <p>Right-side image that visually represents your purpose section.</p>
-                    </div>
-                    <div className="border-t border-dashed border-gray-200 pt-3">
-                      <p className="font-semibold text-gray-800">Mission &amp; Vision</p>
-                      <p>Each slot has its own image and paragraph inside the Mission / Vision block.</p>
-                    </div>
-                    <div className="border-t border-dashed border-gray-200 pt-3">
-                      <p className="font-semibold text-gray-800">About the Artist</p>
-                      <p>Large image and two paragraphs that tell the story of the artist.</p>
-                    </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {IMAGE_SLOTS.map((slot) => {
+            const section = getSectionBySort(slot.sortOrder);
+            const currentImage = section?.image;
+            const isUploading = uploadingSlot === slot.sortOrder;
+            return (
+              <motion.div
+                key={slot.sortOrder}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
+              >
+                <div className="p-5 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900">{slot.name}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{slot.description}</p>
+                </div>
+                <div className="p-5">
+                  <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                    {currentImage ? (
+                      <img
+                        src={imageUrl(currentImage)}
+                        alt={slot.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                        No image
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Title *</label>
-                  <input
-                    required
-                    placeholder="Section title (e.g. ABOUT US, Our Purpose)"
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Content</label>
-                  <textarea
-                    rows="4"
-                    placeholder="Section content..."
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Cover Image</label>
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="text-center">
-                      <p className="text-sm text-gray-600">
-                        {form.cover_image ? form.cover_image.name : "Click to upload"}
-                      </p>
-                    </div>
+                  <label className="mt-4 flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                    <span className="text-sm text-gray-600">
+                      {isUploading ? "Updating…" : "Click to choose image"}
+                    </span>
                     <input
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      onChange={(e) => setForm({ ...form, cover_image: e.target.files[0] })}
+                      disabled={isUploading}
+                      onChange={(e) => handleImageChange(slot, e)}
                     />
                   </label>
                 </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="is_published"
-                    checked={form.is_published}
-                    onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
-                    className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+      <AnimatePresence>
+        {popup.open && popup.slot && popup.file && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closePopup}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 flex items-center justify-center z-50 px-4"
+            >
+              <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Update {popup.slot.name}?</h3>
+                <p className="text-sm text-gray-600 mb-4">{popup.slot.description}</p>
+                <div className="aspect-video rounded-xl overflow-hidden bg-gray-100 mb-6">
+                  <img
+                    src={previewUrlRef.current}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
                   />
-                  <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
-                    Published (visible on site)
-                  </label>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closePopup}
+                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmUpdateImage}
+                    disabled={uploadingSlot !== null}
+                    className="flex-1 px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {uploadingSlot === popup.slot.sortOrder ? "Updating…" : "Update image"}
+                  </button>
                 </div>
               </div>
-
-              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
-                <button
-                  className="flex-1 px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-all hover:shadow-lg"
-                  type="submit"
-                >
-                  {editing ? "Update Section" : "Create Section"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.form>
-          )}
-        </AnimatePresence>
-
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => {
-              setActiveTab("published");
-              setPage(1);
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === "published"
-                ? "bg-black text-white shadow-md"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Published ({published.length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("archived");
-              setPage(1);
-            }}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              activeTab === "archived"
-                ? "bg-black text-white shadow-md"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Archived ({archived.length})
-          </button>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Section
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Slot
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center">
-                        <svg
-                          className="w-16 h-16 text-gray-300 mb-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        <p className="text-lg font-medium">
-                          {activeTab === "published" ? "No published sections" : "No archived sections"}
-                        </p>
-                        <p className="text-sm mt-1">
-                          {activeTab === "published"
-                            ? "Create your first section to get started"
-                            : "Archived sections will appear here"}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginated.map((s) => (
-                    <motion.tr
-                      key={s.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {s.image && (
-                            <img
-                              src={imageUrl(s.image)}
-                              alt={s.title}
-                              className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                            />
-                          )}
-                          <span className="font-semibold text-gray-900">{s.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
-                        <span className="inline-flex flex-col">
-                          <span className="font-semibold text-gray-900">
-                            {slotLabel(s.sort_order).name}
-                          </span>
-                          <span className="text-[11px] text-gray-500">
-                            {slotLabel(s.sort_order).description}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {s.is_published ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                            Published
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
-                            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-                            Archived
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end gap-2">
-                          {s.is_published ? (
-                            <>
-                              <button
-                                onClick={() => handleEdit(s)}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleArchive(s.id)}
-                                className="px-4 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-                              >
-                                Archive
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => handleRestore(s.id)}
-                              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              Restore
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 py-6 px-6 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <div className="flex gap-2">
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setPage(i + 1)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                      page === i + 1
-                        ? "bg-black text-white shadow-md"
-                        : "border border-gray-300 text-gray-700 hover:bg-white"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </motion.div>
-      </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
