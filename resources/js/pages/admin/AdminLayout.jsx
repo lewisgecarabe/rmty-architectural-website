@@ -21,17 +21,16 @@ function AdminSidebar() {
   const location = useLocation();
   const [contentOpen, setContentOpen] = React.useState(false);
   const [firstName, setFirstName] = React.useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
   const isActive = (to) => location.pathname === to;
 
-  const handleLogout = () => {
+  const confirmLogout = () => {
     const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
-    // Clear storage first so next load is definitely logged out
     localStorage.removeItem("admin_token");
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
 
-    // Call backend logout (fire-and-forget; don't block redirect)
     const apiBase = import.meta.env.VITE_API_URL || "";
     fetch(`${apiBase}/api/admin/logout`, {
       method: "POST",
@@ -42,7 +41,6 @@ function AdminSidebar() {
       },
     }).catch(() => {});
 
-    // Full page redirect so admin layout and state are fully cleared
     window.location.href = "/admin/login";
   };
 
@@ -189,7 +187,7 @@ function AdminSidebar() {
           <button
             type="button"
             className="w-full rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
           >
             <span className="inline-flex items-center gap-3">
               <GridIcon />
@@ -198,6 +196,32 @@ function AdminSidebar() {
           </button>
         </nav>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-6 shadow-xl">
+            <p className="text-center text-neutral-800 font-medium">
+              Are you sure you want to logout?
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="flex-1 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
