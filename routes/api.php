@@ -53,13 +53,15 @@ Route::middleware('auth:sanctum')->group(function () {
  Route::post('password/verify-otp', [PasswordResetController::class, 'verifyOtp']);
 Route::post('password/reset', [PasswordResetController::class, 'resetPassword']);
 
-// Admin CRUD operations
+// Admin CRUD operations (require login)
+Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admins', [AdminManagementController::class, 'index']);
     Route::get('/admins/{id}', [AdminManagementController::class, 'show']);
     Route::post('/admins', [AdminManagementController::class, 'store']);
     Route::put('/admins/{id}', [AdminManagementController::class, 'update']);
     Route::patch('/admins/{id}', [AdminManagementController::class, 'update']);
     Route::delete('/admins/{id}', [AdminManagementController::class, 'destroy']);
-    
-    // Check if can delete specific admin
     Route::get('/admins/{id}/can-delete', [AdminManagementController::class, 'canDelete']);
+    Route::post('/admins/{id}/archive', [AdminManagementController::class, 'archive']);
+    Route::post('/admins/{id}/restore', [AdminManagementController::class, 'restore']);
+});

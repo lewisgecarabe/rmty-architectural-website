@@ -49,6 +49,14 @@ class AdminAuthController extends Controller
             ], 403);
         }
 
+        // 4b. Block archived (resigned) admins from logging in
+        if ($user->archived_at) {
+            Auth::logout();
+            return response()->json([
+                'message' => 'This account has been archived and cannot sign in.'
+            ], 403);
+        }
+
         // 5️⃣ Create Sanctum token
         $token = $user->createToken('admin-token')->plainTextToken;
 

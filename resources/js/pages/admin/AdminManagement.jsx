@@ -5,6 +5,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const getAuthHeader = () => ({
+  Authorization: `Bearer ${localStorage.getItem('admin_token') || localStorage.getItem('token')}`
+});
+
 const AdminManagement = () => {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +17,7 @@ const AdminManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   const [currentAdmin, setCurrentAdmin] = useState(null);
+  const [showArchived, setShowArchived] = useState(false); // false = Active, true = Archived
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -21,22 +26,16 @@ const AdminManagement = () => {
     password_confirmation: ''
   });
 
-  // Fetch all admins on component mount
   useEffect(() => {
     fetchAdmins();
-  }, []);
+  }, [showArchived]);
 
   const fetchAdmins = async () => {
     setLoading(true);
     setError('');
-    
+    const url = showArchived ? '/api/admins?archived=1' : '/api/admins';
     try {
-      const response = await axios.get('/api/admins', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
+      const response = await axios.get(url, { headers: getAuthHeader() });
       if (response.data.success) {
         setAdmins(response.data.data);
       }
@@ -105,9 +104,7 @@ const AdminManagement = () => {
     try {
       if (modalMode === 'create') {
         const response = await axios.post('/api/admins', formData, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+          headers: getAuthHeader()
         });
 
         if (response.data.success) {
@@ -128,9 +125,7 @@ const AdminManagement = () => {
         }
 
         const response = await axios.put(`/api/admins/${currentAdmin.id}`, updateData, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+          headers: getAuthHeader()
         });
 
         if (response.data.success) {
@@ -144,8 +139,42 @@ const AdminManagement = () => {
     }
   };
 
+  const handleArchive = async (admin) => {
+    if (!window.confirm(`Are you sure you want to archive ${admin.first_name || admin.name}? They will not be able to log in until restored.`)) {
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const response = await axios.post(`/api/admins/${admin.id}/archive`, {}, { headers: getAuthHeader() });
+      if (response.data.success) {
+        setSuccess('Admin archived successfully');
+        fetchAdmins();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to archive admin');
+    }
+  };
+
+  const handleRestore = async (admin) => {
+    if (!window.confirm(`Restore ${admin.first_name || admin.name}? They will be able to log in again.`)) {
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const response = await axios.post(`/api/admins/${admin.id}/restore`, {}, { headers: getAuthHeader() });
+      if (response.data.success) {
+        setSuccess('Admin restored successfully');
+        fetchAdmins();
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to restore admin');
+    }
+  };
+
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this admin account?')) {
+    if (!window.confirm('Are you sure you want to permanently delete this admin account? This cannot be undone.')) {
       return;
     }
 
@@ -154,9 +183,7 @@ const AdminManagement = () => {
 
     try {
       const response = await axios.delete(`/api/admins/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeader()
       });
 
       if (response.data.success) {
@@ -175,9 +202,7 @@ const AdminManagement = () => {
   const checkCanDelete = async (id) => {
     try {
       const response = await axios.get(`/api/admins/${id}/can-delete`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeader()
       });
       return response.data.can_delete;
     } catch (err) {
@@ -196,17 +221,37 @@ const AdminManagement = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Admin Management</h1>
               <p className="text-gray-600 mt-1">Manage all admin accounts</p>
             </div>
-            <button
-              onClick={openCreateModal}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center gap-2"
-            >
-              <span>+</span> Create New Admin
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(false)}
+                  className={`rounded-md px-4 py-2 text-sm font-medium transition ${!showArchived ? 'bg-white text-gray-900 shadow' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(true)}
+                  className={`rounded-md px-4 py-2 text-sm font-medium transition ${showArchived ? 'bg-white text-gray-900 shadow' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Archived
+                </button>
+              </div>
+              {!showArchived && (
+                <button
+                  onClick={openCreateModal}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center gap-2"
+                >
+                  <span>+</span> Create New Admin
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -247,6 +292,11 @@ const AdminManagement = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
                   </th>
+                  {showArchived && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Archived At
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created At
                   </th>
@@ -265,7 +315,7 @@ const AdminManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {displayFirstName}
-                          {isCurrentUser && (
+                          {isCurrentUser && !showArchived && (
                             <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                               You
                             </span>
@@ -278,19 +328,42 @@ const AdminManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{admin.email}</div>
                       </td>
+                      {showArchived && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {admin.archived_at ? new Date(admin.archived_at).toLocaleDateString() : '—'}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">
                           {new Date(admin.created_at).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => openEditModal(admin)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          Edit
-                        </button>
-                       
+                        {showArchived ? (
+                          <button
+                            onClick={() => handleRestore(admin)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => openEditModal(admin)}
+                              className="text-blue-600 hover:text-blue-900 mr-4"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleArchive(admin)}
+                              disabled={isCurrentUser}
+                              className="text-amber-600 hover:text-amber-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={isCurrentUser ? 'You cannot archive your own account' : 'Archive this admin (e.g. resigned)'}
+                            >
+                              Archive
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -302,7 +375,7 @@ const AdminManagement = () => {
 
         {/* Total Count */}
         <div className="mt-4 text-center text-sm text-gray-600">
-          Total Admins: {admins.length}
+          {showArchived ? `Archived: ${admins.length}` : `Active admins: ${admins.length}`}
         </div>
       </div>
 

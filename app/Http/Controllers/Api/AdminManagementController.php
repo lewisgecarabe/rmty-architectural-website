@@ -13,16 +13,24 @@ use Illuminate\Validation\Rule;
 class AdminManagementController extends Controller
 {
     /**
-     * Get all admin accounts
-     * 
+     * Get all admin accounts (active or archived via ?archived=1)
+     *
+     * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $admins = User::select('id', 'name', 'first_name', 'last_name', 'email', 'created_at', 'updated_at')
-                         ->orderBy('created_at', 'desc')
-                         ->get();
+            $query = User::where('is_admin', true)
+                ->select('id', 'name', 'first_name', 'last_name', 'email', 'archived_at', 'created_at', 'updated_at');
+
+            if ($request->boolean('archived')) {
+                $query->whereNotNull('archived_at');
+            } else {
+                $query->whereNull('archived_at');
+            }
+
+            $admins = $query->orderBy('created_at', 'desc')->get();
 
             return response()->json([
                 'success' => true,
@@ -31,7 +39,7 @@ class AdminManagementController extends Controller
             ], 200);
         } catch (\Exception $e) {
             \Log::error('Failed to fetch admin accounts: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch admin accounts'
@@ -48,8 +56,9 @@ class AdminManagementController extends Controller
     public function show($id)
     {
         try {
-            $admin = User::select('id', 'name', 'first_name', 'last_name', 'email', 'created_at', 'updated_at')
-                        ->findOrFail($id);
+            $admin = User::where('is_admin', true)
+                ->select('id', 'name', 'first_name', 'last_name', 'email', 'archived_at', 'created_at', 'updated_at')
+                ->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -232,14 +241,14 @@ class AdminManagementController extends Controller
         }
 
         // Prevent self-deletion
-        if ($authenticatedUser->id == $id) {
+        if ($authenticatedUser->id == (int) $id) {
             return response()->json([
                 'success' => false,
                 'message' => 'You cannot delete your own account'
             ], 403);
         }
 
-        $admin = User::findOrFail($id);
+        $admin = User::where('is_admin', true)->findOrFail($id);
 
         // Only delete tokens if method exists (Sanctum safety)
         if (method_exists($admin, 'tokens')) {
@@ -326,6 +335,87 @@ class AdminManagementController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch activity history',
+            ], 500);
+        }
+    }
+
+    /**
+     * Archive an admin (e.g. resigned). They can no longer log in; can be restored later.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function archive(Request $request, $id)
+    {
+        try {
+            if (!$request->user()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. Please log in again.',
+                ], 401);
+            }
+
+            if ($request->user()->id == (int) $id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You cannot archive your own account',
+                ], 403);
+            }
+
+            $admin = User::where('is_admin', true)->findOrFail($id);
+            $admin->archived_at = now();
+            $admin->save();
+
+            if (method_exists($admin, 'tokens')) {
+                $admin->tokens()->delete();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin account has been archived.',
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin account not found',
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Archive admin error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to archive account',
+            ], 500);
+        }
+    }
+
+    /**
+     * Restore an archived admin so they can log in again.
+     *
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function restore($id)
+    {
+        try {
+            $admin = User::where('is_admin', true)->findOrFail($id);
+            $admin->archived_at = null;
+            $admin->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin account has been restored.',
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin account not found',
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Restore admin error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore account',
             ], 500);
         }
     }
