@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import { validateEmail, validateStrongPassword, PASSWORD_HINT, EMAIL_HINT } from "../lib/validation";
 
 export default function AuthForm({ type = "signin" }) {
   const navigate = useNavigate();
@@ -9,20 +10,33 @@ export default function AuthForm({ type = "signin" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setFieldErrors({ email: "", password: "" });
+
+    const emailErr = validateEmail(email);
+    const passwordErr = validateStrongPassword(password);
+    if (emailErr || passwordErr) {
+      setFieldErrors({
+        email: emailErr || "",
+        password: passwordErr || "",
+      });
+      return;
+    }
 
     try {
       const res = await api.post("/admin/login", {
-        email,
+        email: email.trim(),
         password,
       });
 
       localStorage.setItem("admin_token", res.data.token);
       navigate("/admin/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      setError(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || err.response?.data?.errors?.password?.[0] || "Login failed");
     }
   };
 
@@ -42,12 +56,15 @@ export default function AuthForm({ type = "signin" }) {
           Email
         </label>
         <input
-          type="email"
-          placeholder="admin@architect.com"
+          type="text"
+          inputMode="email"
+          placeholder="Email address"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-300"
+          onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, email: "" })); }}
+          className={`w-full rounded-md border bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400 ${fieldErrors.email ? "border-red-400" : "border-gray-200"}`}
         />
+        <p className="mt-1 text-[11px] text-gray-500">{EMAIL_HINT}</p>
+        {fieldErrors.email && <p className="mt-1 text-[11px] text-red-600">{fieldErrors.email}</p>}
       </div>
 
       {/* PASSWORD */}
@@ -57,11 +74,13 @@ export default function AuthForm({ type = "signin" }) {
         </label>
         <input
           type="password"
-          placeholder="Enter password"
+          placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-300"
+          onChange={(e) => { setPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, password: "" })); }}
+          className={`w-full rounded-md border bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400 ${fieldErrors.password ? "border-red-400" : "border-gray-200"}`}
         />
+        <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_HINT}</p>
+        {fieldErrors.password && <p className="mt-1 text-[11px] text-red-600">{fieldErrors.password}</p>}
          <a
     href="/admin/forgot-password"
     className="text-sm text-blue-600 hover:text-blue-800"

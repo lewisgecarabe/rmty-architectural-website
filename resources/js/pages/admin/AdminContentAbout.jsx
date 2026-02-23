@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAuthHeaders } from "../../lib/authHeaders";
 
 function imageUrl(path) {
   if (!path) return null;
@@ -42,7 +43,7 @@ export default function AdminContentAbout() {
   const fetchSections = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/about", { credentials: "include" });
+      const res = await fetch("/api/admin/about", { credentials: "include", headers: getAuthHeaders() });
       const data = res.ok ? await res.json() : [];
       setSections(Array.isArray(data) ? data : []);
     } catch {
@@ -92,7 +93,7 @@ export default function AdminContentAbout() {
         method: "POST",
         body: fd,
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers: { ...getAuthHeaders(), Accept: "application/json" },
       });
       if (!res.ok) {
         alert("Something went wrong");
@@ -108,7 +109,7 @@ export default function AdminContentAbout() {
         method: "POST",
         body: fd,
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers: { ...getAuthHeaders(), Accept: "application/json" },
       });
       if (!res.ok) {
         alert("Something went wrong");

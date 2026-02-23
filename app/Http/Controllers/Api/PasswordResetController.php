@@ -9,23 +9,43 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 use Carbon\Carbon;
 
 class PasswordResetController extends Controller
 {
+    /**
+     * Email validation: valid format, must have a domain (e.g. @yahoo.com), not only numbers.
+     */
+    protected function emailRules(): array
+    {
+        return [
+            'required',
+            'email',
+            'regex:/^[^@]*[A-Za-z][^@]*@.+\..+$/',
+        ];
+    }
+
+    protected function emailMessages(): array
+    {
+        return [
+            'email.regex' => 'Email must contain letters (not only numbers) and a valid domain (e.g. @yahoo.com).',
+        ];
+    }
+
     /**
      * Send OTP to admin's email
      */
     public function sendOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-        ]);
+            'email' => $this->emailRules(),
+        ], $this->emailMessages());
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid email format',
+                'message' => $validator->errors()->first('email') ?? 'Invalid email format',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -76,10 +96,18 @@ class PasswordResetController extends Controller
     public function resetPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
+            'email' => $this->emailRules(),
             'otp' => 'required|string|size:6',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                'min:8',
+                Password::min(8)->letters()->mixedCase()->numbers()->symbols(),
+            ],
+        ], array_merge($this->emailMessages(), [
+            'password' => 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.',
+        ]));
 
         if ($validator->fails()) {
             return response()->json([
@@ -151,9 +179,9 @@ class PasswordResetController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
+            'email' => $this->emailRules(),
             'otp' => 'required|string|size:6',
-        ]);
+        ], $this->emailMessages());
 
         if ($validator->fails()) {
             return response()->json([

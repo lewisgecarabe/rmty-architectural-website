@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAuthHeaders } from "../../lib/authHeaders";
 
 const PAGE_SIZE = 6;
 
@@ -30,7 +31,7 @@ export default function AdminContentServices() {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/services", { credentials: "include" });
+      const res = await fetch("/api/admin/services", { credentials: "include", headers: getAuthHeaders() });
       const data = res.ok ? await res.json() : [];
       setServices(Array.isArray(data) ? data : []);
     } catch {
@@ -72,7 +73,7 @@ export default function AdminContentServices() {
       method: "POST",
       body: fd,
       credentials: "include",
-      headers: { Accept: "application/json" },
+      headers: { ...getAuthHeaders(), Accept: "application/json" },
     });
 
     if (!res.ok) {
@@ -97,6 +98,7 @@ export default function AdminContentServices() {
       method: "POST",
       body: fd,
       credentials: "include",
+      headers: getAuthHeaders(),
     });
     setSuccessMessage("Service Archived Successfully");
     fetchServices();
@@ -112,6 +114,7 @@ export default function AdminContentServices() {
       method: "POST",
       body: fd,
       credentials: "include",
+      headers: getAuthHeaders(),
     });
     setSuccessMessage("Service Restored Successfully");
     fetchServices();

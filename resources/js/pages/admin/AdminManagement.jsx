@@ -14,7 +14,8 @@ const AdminManagement = () => {
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     password: '',
     password_confirmation: ''
@@ -57,7 +58,8 @@ const AdminManagement = () => {
   const openCreateModal = () => {
     setModalMode('create');
     setFormData({
-      name: '',
+      first_name: '',
+      last_name: '',
       email: '',
       password: '',
       password_confirmation: ''
@@ -71,7 +73,8 @@ const AdminManagement = () => {
     setModalMode('edit');
     setCurrentAdmin(admin);
     setFormData({
-      name: admin.name,
+      first_name: admin.first_name ?? (admin.name ? admin.name.split(' ')[0] : ''),
+      last_name: admin.last_name ?? (admin.name ? admin.name.split(' ').slice(1).join(' ') : ''),
       email: admin.email,
       password: '',
       password_confirmation: ''
@@ -85,7 +88,8 @@ const AdminManagement = () => {
     setShowModal(false);
     setCurrentAdmin(null);
     setFormData({
-      name: '',
+      first_name: '',
+      last_name: '',
       email: '',
       password: '',
       password_confirmation: ''
@@ -112,13 +116,12 @@ const AdminManagement = () => {
           closeModal();
         }
       } else {
-        // For edit, only send fields that are filled
         const updateData = {
-          name: formData.name,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
           email: formData.email,
         };
 
-        // Only include password if it's provided
         if (formData.password) {
           updateData.password = formData.password;
           updateData.password_confirmation = formData.password_confirmation;
@@ -236,7 +239,10 @@ const AdminManagement = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
+                    First Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
@@ -252,20 +258,22 @@ const AdminManagement = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {admins.map((admin) => {
                   const isCurrentUser = admin.id === getCurrentUserId();
-                  
+                  const displayFirstName = admin.first_name ?? (admin.name ? admin.name.split(' ')[0] : '—');
+                  const displayLastName = admin.last_name ?? (admin.name ? admin.name.split(' ').slice(1).join(' ') : '—');
                   return (
                     <tr key={admin.id} className={isCurrentUser ? 'bg-blue-50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="text-sm font-medium text-gray-900">
-                            {admin.name}
-                            {isCurrentUser && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                                You
-                              </span>
-                            )}
-                          </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {displayFirstName}
+                          {isCurrentUser && (
+                            <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                              You
+                            </span>
+                          )}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{displayLastName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{admin.email}</div>
@@ -310,12 +318,26 @@ const AdminManagement = () => {
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label className="block text-gray-700 text-sm font-semibold mb-2">
-                    Name
+                    First Name
                   </label>
                   <input
                     type="text"
-                    name="name"
-                    value={formData.name}
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-semibold mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={formData.last_name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -427,15 +449,20 @@ export const AdminTable = ({ onEdit, onDelete }) => {
     <table className="min-w-full">
       <thead>
         <tr>
-          <th>Name</th>
+          <th>First Name</th>
+          <th>Last Name</th>
           <th>Email</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {admins.map(admin => (
+        {admins.map(admin => {
+          const firstName = admin.first_name ?? (admin.name ? admin.name.split(' ')[0] : '—');
+          const lastName = admin.last_name ?? (admin.name ? admin.name.split(' ').slice(1).join(' ') : '—');
+          return (
           <tr key={admin.id}>
-            <td>{admin.name}</td>
+            <td>{firstName}</td>
+            <td>{lastName}</td>
             <td>{admin.email}</td>
             <td>
               <button onClick={() => onEdit(admin)}>Edit</button>
@@ -447,7 +474,8 @@ export const AdminTable = ({ onEdit, onDelete }) => {
               </button>
             </td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );

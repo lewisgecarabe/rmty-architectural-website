@@ -26,6 +26,7 @@ import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";
 import AdminContentAbout from "./pages/admin/AdminContentAbout";
 import AdminManagement from './pages/admin/AdminManagement';
+import AdminProfile from './pages/admin/AdminProfile';
 
 
 ReactDOM.createRoot(document.getElementById("app")).render(
@@ -50,6 +51,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="content/projects" element={<AdminContentProjects />} />
         <Route path="content/about" element={<AdminContentAbout />} />
         <Route path="users" element={<AdminManagement />} />
+        <Route path="profile" element={<AdminProfile />} />
 
       </Route>
     </Routes>

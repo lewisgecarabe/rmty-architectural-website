@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminActivity;
 use App\Models\Service;
 use Illuminate\Http\Request;
 
@@ -38,6 +39,17 @@ class ServiceController extends Controller
         }
 
         $service = Service::create($data);
+
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'created',
+                'subject_type' => 'service',
+                'subject_id' => $service->id,
+                'subject_title' => $service->title,
+            ]);
+        }
+
         return response()->json($service, 201);
     }
 
@@ -51,13 +63,38 @@ class ServiceController extends Controller
             'is_published' => 'sometimes|boolean',
         ]);
 
+        $title = $service->title;
         $service->update($data);
+
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'updated',
+                'subject_type' => 'service',
+                'subject_id' => $service->id,
+                'subject_title' => $service->title ?? $title,
+            ]);
+        }
+
         return response()->json($service);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        Service::findOrFail($id)->delete();
+        $service = Service::findOrFail($id);
+        $title = $service->title;
+        $service->delete();
+
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'deleted',
+                'subject_type' => 'service',
+                'subject_id' => (int) $id,
+                'subject_title' => $title,
+            ]);
+        }
+
         return response()->json(['message' => 'Deleted']);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminActivity;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,7 +20,7 @@ class AdminManagementController extends Controller
     public function index()
     {
         try {
-            $admins = User::select('id', 'name', 'email', 'created_at', 'updated_at')
+            $admins = User::select('id', 'name', 'first_name', 'last_name', 'email', 'created_at', 'updated_at')
                          ->orderBy('created_at', 'desc')
                          ->get();
 
@@ -47,7 +48,7 @@ class AdminManagementController extends Controller
     public function show($id)
     {
         try {
-            $admin = User::select('id', 'name', 'email', 'created_at', 'updated_at')
+            $admin = User::select('id', 'name', 'first_name', 'last_name', 'email', 'created_at', 'updated_at')
                         ->findOrFail($id);
 
             return response()->json([
@@ -78,7 +79,8 @@ class AdminManagementController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email|max:255',
             'password' => 'required|string|min:8|confirmed',
         ]);
@@ -92,11 +94,14 @@ class AdminManagementController extends Controller
         }
 
         try {
+            $name = trim($request->first_name . ' ' . $request->last_name);
             $admin = User::create([
-                'name' => $request->name,
+                'name' => $name,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'is_admin' => true, // Explicitly set as admin
+                'is_admin' => true,
             ]);
 
             return response()->json([
@@ -105,6 +110,8 @@ class AdminManagementController extends Controller
                 'data' => [
                     'id' => $admin->id,
                     'name' => $admin->name,
+                    'first_name' => $admin->first_name,
+                    'last_name' => $admin->last_name,
                     'email' => $admin->email,
                     'created_at' => $admin->created_at,
                 ]
@@ -132,7 +139,8 @@ class AdminManagementController extends Controller
             $admin = User::findOrFail($id);
 
             $validator = Validator::make($request->all(), [
-                'name' => 'sometimes|required|string|max:255',
+                'first_name' => 'sometimes|required|string|max:255',
+                'last_name' => 'sometimes|required|string|max:255',
                 'email' => [
                     'sometimes',
                     'required',
@@ -151,9 +159,14 @@ class AdminManagementController extends Controller
                 ], 422);
             }
 
-            // Update fields
-            if ($request->has('name')) {
-                $admin->name = $request->name;
+            if ($request->has('first_name')) {
+                $admin->first_name = $request->first_name;
+            }
+            if ($request->has('last_name')) {
+                $admin->last_name = $request->last_name;
+            }
+            if ($request->has('first_name') || $request->has('last_name')) {
+                $admin->name = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
             }
 
             if ($request->has('email')) {
@@ -176,6 +189,8 @@ class AdminManagementController extends Controller
                 'data' => [
                     'id' => $admin->id,
                     'name' => $admin->name,
+                    'first_name' => $admin->first_name,
+                    'last_name' => $admin->last_name,
                     'email' => $admin->email,
                     'updated_at' => $admin->updated_at,
                 ]
@@ -270,6 +285,8 @@ class AdminManagementController extends Controller
                 'data' => [
                     'id' => $currentAdmin->id,
                     'name' => $currentAdmin->name,
+                    'first_name' => $currentAdmin->first_name,
+                    'last_name' => $currentAdmin->last_name,
                     'email' => $currentAdmin->email,
                     'created_at' => $currentAdmin->created_at,
                     'updated_at' => $currentAdmin->updated_at,
@@ -281,6 +298,34 @@ class AdminManagementController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch current admin information'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get current admin's content change history (for profile page)
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getProfileActivities(Request $request)
+    {
+        try {
+            $activities = AdminActivity::where('user_id', $request->user()->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities,
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Failed to fetch profile activities: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch activity history',
             ], 500);
         }
     }

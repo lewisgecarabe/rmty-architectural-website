@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminActivity;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -58,6 +59,16 @@ class ProjectController extends Controller
 
         $project = Project::create($data);
 
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'created',
+                'subject_type' => 'project',
+                'subject_id' => $project->id,
+                'subject_title' => $project->title,
+            ]);
+        }
+
         return response()->json($project, 201);
     }
 
@@ -84,15 +95,39 @@ class ProjectController extends Controller
             $data['image'] = $path;
         }
 
+        $title = $project->title;
         $project->update($data);
+
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'updated',
+                'subject_type' => 'project',
+                'subject_id' => $project->id,
+                'subject_title' => $project->title ?? $title,
+            ]);
+        }
 
         return response()->json($project);
     }
 
     // DELETE
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        Project::findOrFail($id)->delete();
+        $project = Project::findOrFail($id);
+        $title = $project->title;
+        $project->delete();
+
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id' => $request->user()->id,
+                'action' => 'deleted',
+                'subject_type' => 'project',
+                'subject_id' => (int) $id,
+                'subject_title' => $title,
+            ]);
+        }
+
         return response()->json(['message' => 'Deleted']);
     }
 }

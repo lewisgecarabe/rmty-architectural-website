@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAuthHeaders } from "../../lib/authHeaders";
 
 /* ---------------- CONFIG ---------------- */
 const PAGE_SIZE = 6;
@@ -49,7 +50,8 @@ export default function AdminDashboard() {
 
   const fetchProjects = async () => {
     const res = await fetch("/api/admin/projects", {
-      credentials: 'include'
+      credentials: "include",
+      headers: getAuthHeaders(),
     });
     const data = await res.json();
     setProjects(data);
@@ -115,8 +117,8 @@ export default function AdminDashboard() {
     const res = await fetch(url, {
       method,
       body: fd,
-      credentials: 'include',
-      headers: { Accept: "application/json" },
+      credentials: "include",
+      headers: { ...getAuthHeaders(), Accept: "application/json" },
     });
 
     if (!res.ok) {
@@ -146,6 +148,7 @@ export default function AdminDashboard() {
       method: "POST",
       body: fd,
       credentials: "include",
+      headers: getAuthHeaders(),
     });
 
     setSuccessMessage("Project Archived Successfully");
@@ -164,6 +167,7 @@ export default function AdminDashboard() {
       method: "POST",
       body: fd,
       credentials: "include",
+      headers: getAuthHeaders(),
     });
 
     setSuccessMessage("Project Restored Successfully");

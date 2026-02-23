@@ -2,9 +2,9 @@
 // React Frontend Components for Forgot Password Flow
 // ============================================================================
 
-// ForgotPassword.jsx - Main component with two-step process
 import React, { useState } from 'react';
 import axios from 'axios';
+import { validateEmail, validateStrongPassword, PASSWORD_HINT, EMAIL_HINT } from '../../lib/validation';
 
 const ForgotPassword = () => {
   const [step, setStep] = useState(1); // 1: Enter Email, 2: Enter OTP & New Password
@@ -15,17 +15,26 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   // Step 1: Send OTP
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     setSuccess('');
+    setEmailError('');
 
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setEmailError(emailErr);
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await axios.post('/api/password/send-otp', {
-        email: email
+        email: email.trim()
       });
 
       if (response.data.success) {
@@ -42,23 +51,21 @@ const ForgotPassword = () => {
   // Step 2: Reset Password
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
-    setSuccess('');
+    setPasswordError('');
 
-    // Client-side validation
     if (password !== passwordConfirmation) {
-      setError('Passwords do not match');
-      setLoading(false);
+      setError('Passwords don\'t match. Please try again.');
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      setLoading(false);
+    const passwordErr = validateStrongPassword(password);
+    if (passwordErr) {
+      setPasswordError(passwordErr);
       return;
     }
 
+    setLoading(true);
     try {
       const response = await axios.post('/api/password/reset', {
         email: email,
@@ -111,14 +118,14 @@ const ForgotPassword = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}
 
         {/* Success Message */}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
             {success}
           </div>
         )}
@@ -131,14 +138,16 @@ const ForgotPassword = () => {
                 Admin Email Address
               </label>
               <input
-                type="email"
+                type="text"
+                inputMode="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="admin@example.com"
-                required
+                onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailError ? 'border-red-400' : 'border-gray-300'}`}
+                placeholder="Email address"
                 disabled={loading}
               />
+              <p className="mt-1 text-[11px] text-gray-500">{EMAIL_HINT}</p>
+              {emailError && <p className="mt-1 text-[11px] text-red-600">{emailError}</p>}
             </div>
 
             <button
@@ -168,8 +177,8 @@ const ForgotPassword = () => {
                 required
                 disabled={loading}
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Check your email for the 6-digit code
+              <p className="text-[11px] text-gray-500 mt-1">
+                Enter the 6-digit code we sent to your email.
               </p>
             </div>
 
@@ -180,13 +189,13 @@ const ForgotPassword = () => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter new password"
-                minLength={8}
-                required
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${passwordError ? 'border-red-400' : 'border-gray-300'}`}
+                placeholder="New password"
                 disabled={loading}
               />
+              <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_HINT}</p>
+              {passwordError && <p className="mt-1 text-[11px] text-red-600">{passwordError}</p>}
             </div>
 
             <div className="mb-6">
@@ -199,8 +208,6 @@ const ForgotPassword = () => {
                 onChange={(e) => setPasswordConfirmation(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Confirm new password"
-                minLength={8}
-                required
                 disabled={loading}
               />
             </div>

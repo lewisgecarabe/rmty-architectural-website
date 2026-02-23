@@ -20,8 +20,30 @@ export default function AdminLayout() {
 function AdminSidebar() {
   const location = useLocation();
   const [contentOpen, setContentOpen] = React.useState(false);
+  const [firstName, setFirstName] = React.useState(null);
 
   const isActive = (to) => location.pathname === to;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+        const res = await fetch("/api/admin/me", {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          const name = json?.data?.first_name ?? json?.data?.name?.split?.(" ")?.[0] ?? null;
+          setFirstName(name);
+        }
+      } catch {
+        if (!cancelled) setFirstName(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const mainNav = [
     { label: "Dashboard", to: "/admin/dashboard" },
@@ -58,7 +80,9 @@ function AdminSidebar() {
             className="h-10 w-10 rounded-full border border-neutral-200"
           />
           <div className="leading-tight">
-            <p className="text-sm font-medium text-neutral-900">Hello, Lewis!</p>
+            <p className="text-sm font-medium text-neutral-900">
+              Hello, {firstName != null ? firstName : "Admin"}!
+            </p>
             <p className="text-[11px] tracking-widest text-neutral-500">ADMIN</p>
           </div>
         </div>
