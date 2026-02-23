@@ -24,6 +24,28 @@ function AdminSidebar() {
 
   const isActive = (to) => location.pathname === to;
 
+  const handleLogout = () => {
+    const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+    // Clear storage first so next load is definitely logged out
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+
+    // Call backend logout (fire-and-forget; don't block redirect)
+    const apiBase = import.meta.env.VITE_API_URL || "";
+    fetch(`${apiBase}/api/admin/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }).catch(() => {});
+
+    // Full page redirect so admin layout and state are fully cleared
+    window.location.href = "/admin/login";
+  };
+
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -167,11 +189,11 @@ function AdminSidebar() {
           <button
             type="button"
             className="w-full rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-            onClick={() => alert("Secure Logout clicked")}
+            onClick={handleLogout}
           >
             <span className="inline-flex items-center gap-3">
               <GridIcon />
-              Secure Logout
+              Logout
             </span>
           </button>
         </nav>
