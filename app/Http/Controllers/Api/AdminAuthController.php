@@ -42,10 +42,15 @@ class AdminAuthController extends Controller
     
         // 6️⃣ Return token + user
         return response()->json([
-            'token' => $token,
-            'user' => $user,
-        ]);
-    }
+        'success' => true,
+        'token' => $token,
+        'user' => [
+            'id' => $user->id,  // ← Make sure to include this
+            'name' => $user->name,
+            'email' => $user->email,
+        ]
+    ]);
+}
     
 
     /**
