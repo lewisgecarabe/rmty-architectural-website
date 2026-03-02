@@ -10,7 +10,7 @@ import RootLayout from "./layouts/RootLayout";
 
 // Page Imports
 import Home from "./pages/Home";
-import Contact from "./pages/Contact";
+import Contact from "./pages/contact";
 import Services from "./pages/services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -22,6 +22,7 @@ import ForgotPassword from "./pages/admin/Forgotpasswordcomponents";
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
+import AdminBookingConsultations from "./pages/admin/AdminBookingConsultations";
 import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";
 import AdminContentAbout from "./pages/admin/AdminContentAbout";
@@ -47,6 +48,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="consultations" element={<AdminBookingConsultations />} />
         <Route path="content/services" element={<AdminContentServices />} />
         <Route path="content/projects" element={<AdminContentProjects />} />
         <Route path="content/about" element={<AdminContentAbout />} />
