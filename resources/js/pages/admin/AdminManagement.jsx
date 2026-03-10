@@ -96,11 +96,24 @@ const AdminManagement = () => {
     setError('');
   };
 
+const isStrongPassword = (password) => {
+  const regex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&^()_\-+=]).{8,}$/;
+  return regex.test(password);
+};
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+if (!isStrongPassword(formData.password) && modalMode === 'create') {
+  alert("Password must be at least 8 characters long and include letters, numbers, and symbols.");
+  return;
+}
 
+if (formData.password && !isStrongPassword(formData.password)) {
+  alert("Password must be at least 8 characters long and include letters, numbers, and symbols.");
+  return;
+}
     try {
       if (modalMode === 'create') {
         const response = await axios.post('/api/admins', formData, {
@@ -436,14 +449,16 @@ const AdminManagement = () => {
                     Password {modalMode === 'edit' && '(leave blank to keep current)'}
                   </label>
                   <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required={modalMode === 'create'}
-                    minLength={8}
-                  />
+  type="password"
+  name="password"
+  value={formData.password}
+  onChange={handleInputChange}
+  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  required={modalMode === 'create'}
+  minLength={8}
+  pattern="^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&^()_\-+=]).{8,}$"
+  title="Password must be at least 8 characters long and include letters, numbers, and symbols."
+/>
                 </div>
 
                 <div className="mb-6">
@@ -458,7 +473,10 @@ const AdminManagement = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required={modalMode === 'create' || formData.password}
                     minLength={8}
-                  />
+  pattern="^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&^()_\-+=]).{8,}$"
+  title="Password must be at least 8 characters long and include letters, numbers, and symbols."
+/>
+  
                 </div>
 
                 <div className="flex gap-3">
@@ -487,69 +505,3 @@ const AdminManagement = () => {
 
 export default AdminManagement;
 
-// ============================================================================
-// Simpler Table-Only Version (for existing dashboards)
-// ============================================================================
-
-export const AdminTable = ({ onEdit, onDelete }) => {
-  const [admins, setAdmins] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState(null);
-
-  useEffect(() => {
-    fetchAdmins();
-    setCurrentUserId(parseInt(localStorage.getItem('userId')));
-  }, []);
-
-  const fetchAdmins = async () => {
-    try {
-      const response = await axios.get('/api/admins', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setAdmins(response.data.data);
-    } catch (err) {
-      console.error('Failed to fetch admins:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-
-  return (
-    <table className="min-w-full">
-      <thead>
-        <tr>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>Email</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {admins.map(admin => {
-          const firstName = admin.first_name ?? (admin.name ? admin.name.split(' ')[0] : '—');
-          const lastName = admin.last_name ?? (admin.name ? admin.name.split(' ').slice(1).join(' ') : '—');
-          return (
-          <tr key={admin.id}>
-            <td>{firstName}</td>
-            <td>{lastName}</td>
-            <td>{admin.email}</td>
-            <td>
-              <button onClick={() => onEdit(admin)}>Edit</button>
-              <button 
-                onClick={() => onDelete(admin.id)}
-                disabled={admin.id === currentUserId}
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-};

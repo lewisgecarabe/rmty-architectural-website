@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'access_token'  => env('GOOGLE_ACCESS_TOKEN'),
+        'refresh_token' => env('GOOGLE_REFRESH_TOKEN'),
+        'pubsub_topic'  => env('GOOGLE_PUBSUB_TOPIC'),
+        'reply_from_email' => env('GOOGLE_REPLY_FROM_EMAIL'),
+'reply_from_name'  => env('GOOGLE_REPLY_FROM_NAME', 'RMTY Architectural'),
+        
+    ],
+
 ];

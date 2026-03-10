@@ -8,7 +8,11 @@ use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\AboutSectionController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\AdminManagementController;
-
+use App\Http\Controllers\Api\InquiryController;
+use App\Http\Controllers\Webhooks\GmailWebhookController;
+use App\Http\Controllers\Webhooks\MetaWebhookController;
+use App\Http\Controllers\Webhooks\TwilioWebhookController;
+use App\Http\Controllers\Webhooks\ViberWebhookController;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -52,7 +56,6 @@ Route::middleware('auth:sanctum')->group(function () {
  Route::post('password/send-otp', [PasswordResetController::class, 'sendOtp']);
  Route::post('password/verify-otp', [PasswordResetController::class, 'verifyOtp']);
 Route::post('password/reset', [PasswordResetController::class, 'resetPassword']);
-
 // Admin CRUD operations (require login)
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admins', [AdminManagementController::class, 'index']);
@@ -64,4 +67,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admins/{id}/can-delete', [AdminManagementController::class, 'canDelete']);
     Route::post('/admins/{id}/archive', [AdminManagementController::class, 'archive']);
     Route::post('/admins/{id}/restore', [AdminManagementController::class, 'restore']);
+    // Dashboard stats
+
+    Route::get('/inquiries/stats', [InquiryController::class, 'stats']);
+    Route::get('/inquiries', [InquiryController::class, 'index']);
+    Route::post('/inquiries', [InquiryController::class, 'store']);
+    Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show']);
+    Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
+    Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
+   Route::post('/inquiries/{inquiry}/reply', [InquiryController::class, 'reply']);
+});
+
+
+// ── Webhook Routes (public — verified by platform signatures) ──
+Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
+    Route::post('/gmail', [GmailWebhookController::class, 'handle']);
 });

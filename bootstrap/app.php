@@ -13,9 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) 
     {
+        $middleware->validateCsrfTokens(except: [
+        'api/webhooks/*',
+    ]);
          $middleware->api(prepend: [
         \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
     ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
