@@ -29,7 +29,7 @@ import AdminContentAbout from "./pages/admin/AdminContentAbout";
 import AdminManagement from './pages/admin/AdminManagement';
 import AdminProfile from './pages/admin/AdminProfile';
 import AdminInquiries from './pages/admin/AdminInquiries';
-
+import AdminPlatformSettings from './pages/admin/AdminPlatformSettings';
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <BrowserRouter>
@@ -55,7 +55,8 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="content/about" element={<AdminContentAbout />} />
         <Route path="users" element={<AdminManagement />} />
         <Route path="profile" element={<AdminProfile />} />
-        <Route path="Inquiries" element={<AdminInquiries />} />
+<Route path="inquiries" element={<AdminInquiries />} />
+<Route path="settings" element={<AdminPlatformSettings />} />
 
       </Route>
     </Routes>
