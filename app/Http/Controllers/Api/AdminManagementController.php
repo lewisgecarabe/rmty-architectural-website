@@ -285,31 +285,32 @@ class AdminManagementController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function getCurrentAdmin(Request $request)
-    {
-        try {
-            $currentAdmin = $request->user();
+{
+    try {
+        $currentAdmin = $request->user();
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $currentAdmin->id,
-                    'name' => $currentAdmin->name,
-                    'first_name' => $currentAdmin->first_name,
-                    'last_name' => $currentAdmin->last_name,
-                    'email' => $currentAdmin->email,
-                    'created_at' => $currentAdmin->created_at,
-                    'updated_at' => $currentAdmin->updated_at,
-                ]
-            ], 200);
-        } catch (\Exception $e) {
-            \Log::error('Failed to fetch current admin: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch current admin information'
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'                => $currentAdmin->id,
+                'name'              => $currentAdmin->name,
+                'first_name'        => $currentAdmin->first_name,
+                'last_name'         => $currentAdmin->last_name,
+                'email'             => $currentAdmin->email,
+                'profile_photo_url' => $currentAdmin->profile_photo_url,
+                'created_at'        => $currentAdmin->created_at,
+                'updated_at'        => $currentAdmin->updated_at,
+            ]
+        ], 200);
+    } catch (\Exception $e) {
+        \Log::error('Failed to fetch current admin: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch current admin information'
+        ], 500);
     }
+}
 
     /**
      * Get current admin's content change history (for profile page)

@@ -8,15 +8,21 @@ export default function ProjectCard({
   aspectRatio = "aspect-[4/3]", 
   className = "" 
 }) {
+  // If the image is already a full URL (from the cover_image accessor),
+  // use it directly. Otherwise prepend /storage/ for raw paths.
+  const imageSrc = image
+    ? (image.startsWith('/storage') || image.startsWith('http') ? image : `/storage/${image}`)
+    : null;
+
   return (
     <div className={`w-full flex flex-col gap-3 ${className}`}>
       
       <Link to={`/projects/${slug}`} className="group relative w-full overflow-hidden block">
         <div className={`w-full bg-[#d9d9d9] relative ${aspectRatio}`}>
           
-          {image ? (
+          {imageSrc ? (
             <img 
-              src={`/storage/${image}`} 
+              src={imageSrc}
               alt={title} 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
             />

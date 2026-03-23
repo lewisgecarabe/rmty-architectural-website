@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::get('/admin/me', [AdminManagementController::class, 'getCurrentAdmin']);
+    Route::post('/admin/profile', [AdminAuthController::class, 'updateProfile']);
     Route::get('/admin/profile/activities', [AdminManagementController::class, 'getProfileActivities']);
 });
 
@@ -41,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/{id}', [ProjectController::class, 'update']);
     Route::post('/projects/{id}', [ProjectController::class, 'update']);
     Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+    Route::delete('/projects/{id}/gallery/{imageId}', [ProjectController::class, 'deleteGalleryImage']);
 
     Route::get('/admin/services', [ServiceController::class, 'adminIndex']);
     Route::post('/services', [ServiceController::class, 'store']);

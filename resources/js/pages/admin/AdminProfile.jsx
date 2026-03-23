@@ -82,15 +82,18 @@ export default function AdminProfile() {
     [profile.first_name, profile.last_name].filter(Boolean).join(" ") ||
     profile.name ||
     "Admin";
-  const avatarSeed = profile.email || profile.id || "admin";
+
+  // Use the uploaded photo URL from the API — falls back to DiceBear if none
+  const avatarSrc = profile.profile_photo_url
+    || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.email || profile.id || "admin")}`;
 
   return (
     <div>
-      {/* Profile card - same container style as other admin pages */}
+      {/* Profile card */}
       <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-6 shadow-md">
         <div className="flex flex-wrap items-center gap-6">
           <img
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(avatarSeed)}`}
+            src={avatarSrc}
             alt="Profile"
             className="h-24 w-24 rounded-full border-2 border-neutral-200 object-cover"
           />
@@ -101,7 +104,7 @@ export default function AdminProfile() {
         </div>
       </div>
 
-      {/* Content changes table - same table style as Admin Management / Inquiries */}
+      {/* Content changes table */}
       <div className="rounded-lg border border-neutral-200 bg-white shadow-md overflow-hidden">
         <div className="border-b border-neutral-200 bg-white px-6 py-4">
           <h2 className="text-lg font-semibold text-neutral-900">Content changes</h2>
