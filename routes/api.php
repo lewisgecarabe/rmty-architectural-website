@@ -9,9 +9,11 @@ use App\Http\Controllers\Api\AboutSectionController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\AdminManagementController;
 use App\Http\Controllers\Api\InquiryController;
+use App\Http\Controllers\Api\GoogleOAuthController;
+use App\Http\Controllers\Api\FacebookOAuthController;
+use App\Http\Controllers\Api\ViberSettingsController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
-use App\Http\Controllers\Webhooks\TwilioWebhookController;
 use App\Http\Controllers\Webhooks\ViberWebhookController;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
@@ -79,7 +81,29 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 
+// ── OAuth Callbacks (public — no auth, Google/Facebook redirect here) ──
+Route::get('/admin/google/callback',   [GoogleOAuthController::class,   'handleCallback']);
+Route::get('/admin/facebook/callback', [FacebookOAuthController::class, 'handleCallback']);
+
+// ── Platform Settings (protected) ────────────────────────────
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/admin/google/auth-url',        [GoogleOAuthController::class,   'getAuthUrl']);
+    Route::get('/admin/google/status',          [GoogleOAuthController::class,   'status']);
+    Route::delete('/admin/google/disconnect',   [GoogleOAuthController::class,   'disconnect']);
+
+    Route::get('/admin/facebook/auth-url',      [FacebookOAuthController::class, 'getAuthUrl']);
+    Route::get('/admin/facebook/status',        [FacebookOAuthController::class, 'status']);
+    Route::delete('/admin/facebook/disconnect', [FacebookOAuthController::class, 'disconnect']);
+
+    Route::get('/admin/viber/status',           [ViberSettingsController::class, 'status']);
+    Route::post('/admin/viber/connect',         [ViberSettingsController::class, 'connect']);
+    Route::delete('/admin/viber/disconnect',    [ViberSettingsController::class, 'disconnect']);
+});
+
 // ── Webhook Routes (public — verified by platform signatures) ──
 Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
-    Route::post('/gmail', [GmailWebhookController::class, 'handle']);
+    Route::post('/gmail',  [GmailWebhookController::class, 'handle']);
+    Route::get('/meta',    [MetaWebhookController::class,  'verify']);
+    Route::post('/meta',   [MetaWebhookController::class,  'handle']);
+    Route::post('/viber',  [ViberWebhookController::class, 'handle']);
 });

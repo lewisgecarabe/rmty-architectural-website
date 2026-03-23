@@ -42,8 +42,20 @@ return [
         'refresh_token' => env('GOOGLE_REFRESH_TOKEN'),
         'pubsub_topic'  => env('GOOGLE_PUBSUB_TOPIC'),
         'reply_from_email' => env('GOOGLE_REPLY_FROM_EMAIL'),
-'reply_from_name'  => env('GOOGLE_REPLY_FROM_NAME', 'RMTY Architectural'),
+        'reply_from_name'  => env('GOOGLE_REPLY_FROM_NAME', 'RMTY Architectural'),
         
     ],
+
+    'meta' => [
+        'app_id'            => env('META_APP_ID'),
+        'app_secret'        => env('META_APP_SECRET'),
+        'verify_token'      => env('META_VERIFY_TOKEN'),
+        'page_access_token' => env('META_PAGE_ACCESS_TOKEN'),
+],
+
+'viber' => [
+    'token'    => env('VIBER_TOKEN'),
+    'bot_name' => env('VIBER_BOT_NAME', 'RMTY Architectural'),
+],
 
 ];

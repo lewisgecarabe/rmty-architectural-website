@@ -80,9 +80,12 @@ function AdminSidebar() {
   const secondNav = [{ label: "Analytics", to: "/admin/analytics" }];
 
   const systemNav = [
+      { label: "Platform Settings", to: "/admin/settings" },
+
     { label: "User Management", to: "/admin/users" },
     { label: "Profile", to: "/admin/profile" },
   ];
+
 
   React.useEffect(() => {
     if (location.pathname.startsWith("/admin/content")) {
