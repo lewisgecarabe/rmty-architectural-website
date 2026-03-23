@@ -10,18 +10,18 @@ import RootLayout from "./layouts/RootLayout";
 
 // Page Imports
 import Home from "./pages/Home";
-import Contact from "./pages/contact";
-import Services from "./pages/services";
+import Contact from "./pages/Contact";
+import Services from "./pages/Services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About";
 
 // Admin Imports
-import ForgotPassword from "./pages/admin/Forgotpasswordcomponents";
+import ForgotPassword from "./pages/admin/ForgotPassword";
 
-import AuthPage from "./pages/authpage";
+import AuthPage from "./pages/AuthPage";
 import AdminLayout from "./pages/admin/AdminLayout";
-import AdminDashboard from "./pages/admin/dashboard";
+import AdminDashboard from "./pages/admin/Dashboard";
 import AdminBookingConsultations from "./pages/admin/AdminBookingConsultations";
 import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";

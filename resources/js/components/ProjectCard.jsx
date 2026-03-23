@@ -1,22 +1,19 @@
 import { Link } from "react-router-dom";
 
 export default function ProjectCard({ 
-  title = "PROJECT 1", 
+  title = "PROJECT TITLE", 
   category = "Brief Details", 
-  slug = "", // Added for dynamic routing
-  image = "", // Added for dynamic images
-  colSpan = "md:col-span-6", 
+  slug = "",
+  image = "",
   aspectRatio = "aspect-[4/3]", 
   className = "" 
 }) {
   return (
-    <div className={`w-full flex flex-col gap-3 ${colSpan} ${className}`}>
+    <div className={`w-full flex flex-col gap-3 ${className}`}>
       
-      {/* Use the slug to link to the specific project */}
-      <Link to={`/projects/${slug}`} className="group relative w-full overflow-hidden block cursor-none">
+      <Link to={`/projects/${slug}`} className="group relative w-full overflow-hidden block">
         <div className={`w-full bg-[#d9d9d9] relative ${aspectRatio}`}>
           
-          {/* Render image if it exists, otherwise show the placeholder SVG */}
           {image ? (
             <img 
               src={`/storage/${image}`} 

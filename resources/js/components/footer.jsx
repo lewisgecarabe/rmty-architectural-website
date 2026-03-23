@@ -40,7 +40,7 @@ export default function Footer() {
 
           <div className="md:text-right text-[#666]">
             <p className="text-xl md:text-xl font-medium tracking-wide text-[#555]">
-              (+63) 923 432 0324
+              (+63) 915 896 2275
             </p>
 
             <p className="mt-3 text-sm leading-relaxed tracking-wide text-[#555]">
