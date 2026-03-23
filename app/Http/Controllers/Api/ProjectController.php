@@ -1,75 +1,89 @@
 <?php
+// app/Http/Controllers/Api/ProjectController.php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminActivity;
 use App\Models\Project;
+use App\Models\ProjectImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
 {
-    // READ ALL (Public - only published)
+    // Public — only published
     public function index()
     {
-        return Project::with('category')
+        return Project::with(['category', 'images'])
             ->where('is_published', true)
             ->latest()
             ->get();
     }
 
-    // READ ALL FOR ADMIN (includes archived)
+    // Admin — all projects including archived
     public function adminIndex()
     {
-        return Project::with('category')
+        return Project::with(['category', 'images'])
             ->latest()
             ->get();
     }
 
-    // READ SINGLE
+    // Single project by slug
     public function show($slug)
     {
-        return Project::where('slug', $slug)->firstOrFail();
+        return Project::with(['category', 'images'])
+            ->where('slug', $slug)
+            ->firstOrFail();
     }
 
     // CREATE
     public function store(Request $request)
     {
         $data = $request->validate([
-            'title' => 'required|string',
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'location' => 'nullable|string',
-            'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'is_published' => 'sometimes|boolean'
+            'title'        => 'required|string',
+            'category_id'  => 'required|exists:categories,id',
+            'location'     => 'nullable|string',
+            'description'  => 'nullable|string',
+            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery'      => 'nullable|array',
+            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:5120',
+            'is_published' => 'sometimes|boolean',
         ]);
 
         $data['slug'] = Str::slug($data['title']);
-        
-        // Set default if not provided
-        if (!isset($data['is_published'])) {
-            $data['is_published'] = true;
+        $data['is_published'] = $data['is_published'] ?? true;
+
+        // Cover image
+        if ($request->hasFile('cover_image')) {
+            $data['image'] = $request->file('cover_image')
+                ->store('projects/covers', 'public');
         }
 
-        // Handle image upload
-        if ($request->hasFile('cover_image')) {
-            $path = $request->file('cover_image')->store('projects', 'public');
-            $data['image'] = $path;
-        }
+        // Remove non-column keys before creating
+        unset($data['cover_image'], $data['gallery']);
 
         $project = Project::create($data);
 
-        if ($request->user()) {
-            AdminActivity::create([
-                'user_id' => $request->user()->id,
-                'action' => 'created',
-                'subject_type' => 'project',
-                'subject_id' => $project->id,
-                'subject_title' => $project->title,
-            ]);
+        // Gallery images
+        if ($request->hasFile('gallery')) {
+            foreach ($request->file('gallery') as $index => $file) {
+                $path = $file->store('projects/gallery', 'public');
+                ProjectImage::create([
+                    'project_id' => $project->id,
+                    'image_path' => $path,
+                    'sort_order' => $index,
+                ]);
+            }
         }
 
-        return response()->json($project, 201);
+        $this->logActivity($request, 'created', $project);
+
+        return response()->json(
+            $project->load(['category', 'images']),
+            201
+        );
     }
 
     // UPDATE
@@ -78,37 +92,51 @@ class ProjectController extends Controller
         $project = Project::findOrFail($id);
 
         $data = $request->validate([
-            'title' => 'sometimes|required|string',
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'location' => 'nullable|string',
-            'description' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp',
-            'is_published' => 'sometimes|boolean'
+            'title'        => 'sometimes|required|string',
+            'category_id'  => 'sometimes|required|exists:categories,id',
+            'location'     => 'nullable|string',
+            'description'  => 'nullable|string',
+            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery'      => 'nullable|array',
+            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:5120',
+            'is_published' => 'sometimes|boolean',
         ]);
 
         if (isset($data['title'])) {
             $data['slug'] = Str::slug($data['title']);
         }
 
+        // Cover image — delete old one first
         if ($request->hasFile('cover_image')) {
-            $path = $request->file('cover_image')->store('projects', 'public');
-            $data['image'] = $path;
+            if ($project->image) {
+                Storage::disk('public')->delete($project->image);
+            }
+            $data['image'] = $request->file('cover_image')
+                ->store('projects/covers', 'public');
         }
 
-        $title = $project->title;
+        // Remove non-column keys before updating
+        unset($data['cover_image'], $data['gallery']);
+
         $project->update($data);
 
-        if ($request->user()) {
-            AdminActivity::create([
-                'user_id' => $request->user()->id,
-                'action' => 'updated',
-                'subject_type' => 'project',
-                'subject_id' => $project->id,
-                'subject_title' => $project->title ?? $title,
-            ]);
+        // Gallery — append new images (does NOT delete existing ones)
+        if ($request->hasFile('gallery')) {
+            $lastOrder = $project->images()->max('sort_order') ?? -1;
+
+            foreach ($request->file('gallery') as $index => $file) {
+                $path = $file->store('projects/gallery', 'public');
+                ProjectImage::create([
+                    'project_id' => $project->id,
+                    'image_path' => $path,
+                    'sort_order' => $lastOrder + $index + 1,
+                ]);
+            }
         }
 
-        return response()->json($project);
+        $this->logActivity($request, 'updated', $project);
+
+        return response()->json($project->load(['category', 'images']));
     }
 
     // DELETE
@@ -116,18 +144,49 @@ class ProjectController extends Controller
     {
         $project = Project::findOrFail($id);
         $title = $project->title;
-        $project->delete();
 
-        if ($request->user()) {
-            AdminActivity::create([
-                'user_id' => $request->user()->id,
-                'action' => 'deleted',
-                'subject_type' => 'project',
-                'subject_id' => (int) $id,
-                'subject_title' => $title,
-            ]);
+        // Clean up stored files
+        if ($project->image) {
+            Storage::disk('public')->delete($project->image);
+        }
+        foreach ($project->images as $img) {
+            Storage::disk('public')->delete($img->image_path);
         }
 
+        $project->delete(); // cascade deletes project_images rows
+
+        $this->logActivity($request, 'deleted', $project, $id, $title);
+
         return response()->json(['message' => 'Deleted']);
+    }
+
+    // DELETE SINGLE GALLERY IMAGE
+public function deleteGalleryImage(Request $request, $id, $imageId)
+{
+    $project = Project::findOrFail($id);
+    $image   = ProjectImage::where('id', $imageId)
+                ->where('project_id', $project->id)
+                ->firstOrFail();
+
+    Storage::disk('public')->delete($image->image_path);
+    $image->delete();
+
+    $this->logActivity($request, 'updated', $project);
+
+    return response()->json(['message' => 'Gallery image deleted']);
+}
+
+    // Helper to reduce repetition
+    private function logActivity(Request $request, string $action, $project, $id = null, $title = null): void
+    {
+        if ($request->user()) {
+            AdminActivity::create([
+                'user_id'       => $request->user()->id,
+                'action'        => $action,
+                'subject_type'  => 'project',
+                'subject_id'    => $id ?? $project->id,
+                'subject_title' => $title ?? $project->title,
+            ]);
+        }
     }
 }
