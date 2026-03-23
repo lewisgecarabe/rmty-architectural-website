@@ -20,7 +20,7 @@ export default function Navbar({ onOpenMenu }) {
   });
 
   const navStyle = isScrolled 
-    ? "bg-[#e6e6e6] text-black shadow-sm" 
+    ? "bg-[#e6e6e6] text-black" 
     : isLightPage 
       ? "bg-transparent text-black"  
       : "bg-transparent text-white";    

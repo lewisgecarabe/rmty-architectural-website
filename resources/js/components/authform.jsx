@@ -1,101 +1,175 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion"; // <-- Added Framer Motion
 import api from "../api/axios";
-import { validateEmail, validateStrongPassword, PASSWORD_HINT, EMAIL_HINT } from "../lib/validation";
+import {
+    validateEmail,
+    validateStrongPassword,
+    PASSWORD_HINT,
+    EMAIL_HINT,
+} from "../lib/validation";
 
 export default function AuthForm({ type = "signin" }) {
-  const navigate = useNavigate();
-  const isLogin = type === "signin";
+    const navigate = useNavigate();
+    const isLogin = type === "signin";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setFieldErrors({ email: "", password: "" });
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setFieldErrors({ email: "", password: "" });
 
-    const emailErr = validateEmail(email);
-    const passwordErr = validateStrongPassword(password);
-    if (emailErr || passwordErr) {
-      setFieldErrors({
-        email: emailErr || "",
-        password: passwordErr || "",
-      });
-      return;
-    }
+        const emailErr = validateEmail(email);
+        const passwordErr = validateStrongPassword(password);
+        if (emailErr || passwordErr) {
+            setFieldErrors({
+                email: emailErr || "",
+                password: passwordErr || "",
+            });
+            return;
+        }
 
-    try {
-      const res = await api.post("/admin/login", {
-        email: email.trim(),
-        password,
-      });
+        try {
+            const res = await api.post("/admin/login", {
+                email: email.trim(),
+                password,
+            });
 
-      localStorage.setItem("admin_token", res.data.token);
-      navigate("/admin/dashboard");
-    } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || err.response?.data?.errors?.password?.[0] || "Login failed");
-    }
-  };
+            localStorage.setItem("admin_token", res.data.token);
+            navigate("/admin/dashboard");
+        } catch (err) {
+            setError(
+                err.response?.data?.message ||
+                    err.response?.data?.errors?.email?.[0] ||
+                    err.response?.data?.errors?.password?.[0] ||
+                    "Login failed",
+            );
+        }
+    };
 
-  return (
-    <form
-      className="[font-family:var(--font-neue)]"
-      onSubmit={handleSubmit}
-      action="javascript:void(0)"
-    >
-      {error && (
-        <p className="mb-4 text-sm text-red-600">{error}</p>
-      )}
+    return (
+        <form
+            className="[font-family:var(--font-neue)] w-full max-w-2xl flex flex-col gap-7 mx-auto"
+            onSubmit={handleSubmit}
+            action="javascript:void(0)"
+        >
+            {/* Top Level Error */}
+            <AnimatePresence>
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <p className="text-[10px] tracking-wide text-red-500 uppercase border border-red-500/20 bg-red-500/5 p-3">
+                            {error}
+                        </p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-      {/* EMAIL */}
-      <div className="mb-5">
-        <label className="block text-[10px] tracking-wider text-gray-500 uppercase mb-2">
-          Email
-        </label>
-        <input
-          type="text"
-          inputMode="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, email: "" })); }}
-          className={`w-full rounded-md border bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400 ${fieldErrors.email ? "border-red-400" : "border-gray-200"}`}
-        />
-        <p className="mt-1 text-[11px] text-gray-500">{EMAIL_HINT}</p>
-        {fieldErrors.email && <p className="mt-1 text-[11px] text-red-600">{fieldErrors.email}</p>}
-      </div>
+            {/* EMAIL */}
+            <div className="relative group">
+                <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                    <span>Email</span>
+                </label>
+                <input
+                    type="text"
+                    inputMode="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => {
+                        setEmail(e.target.value);
+                        setFieldErrors((prev) => ({ ...prev, email: "" }));
+                    }}
+                    /* BALANCED PADDING: py-3 is cleaner than py-4 */
+                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
+        ${fieldErrors.email ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+      `}
+                />
 
-      {/* PASSWORD */}
-      <div className="mb-4">
-        <label className="block text-[10px] tracking-wider text-gray-500 uppercase mb-2">
-          Password
-        </label>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, password: "" })); }}
-          className={`w-full rounded-md border bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-gray-400 ${fieldErrors.password ? "border-red-400" : "border-gray-200"}`}
-        />
-        <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_HINT}</p>
-        {fieldErrors.password && <p className="mt-1 text-[11px] text-red-600">{fieldErrors.password}</p>}
-         <a
-    href="/admin/forgot-password"
-    className="text-sm text-blue-600 hover:text-blue-800"
-  >
-    Forgot Password?
-  </a>
-      </div>
+                <AnimatePresence mode="wait">
+                    {fieldErrors.email ? (
+                        <motion.p
+                            key="error"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                        >
+                            {fieldErrors.email}
+                        </motion.p>
+                    ) : (
+                        <motion.p
+                            key="hint"
+                            className="mt-2 text-[10px] text-gray-400"
+                        >
+                            {EMAIL_HINT}
+                        </motion.p>
+                    )}
+                </AnimatePresence>
+            </div>
 
-      {/* BUTTON */}
-      <button
-        type="submit"
-        className="mt-6 w-full rounded-md bg-black py-3 text-[10px] font-medium tracking-widest text-white uppercase hover:opacity-90 transition"
-      >
-        SIGN IN →
-      </button>
-    </form>
-  );
+            {/* PASSWORD */}
+            <div className="relative group">
+                <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                    <span>Password</span>
+                    <Link
+                        to="/admin/forgot-password"
+                        size="text-[10px]"
+                        className="text-gray-400 hover:text-black transition-colors"
+                    >
+                        Forgot?
+                    </Link>
+                </label>
+                <input
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => {
+                        setPassword(e.target.value);
+                        setFieldErrors((prev) => ({ ...prev, password: "" }));
+                    }}
+                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
+        ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+      `}
+                />
+
+                <AnimatePresence mode="wait">
+                    {fieldErrors.password ? (
+                        <motion.p
+                            key="error"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                        >
+                            {fieldErrors.password}
+                        </motion.p>
+                    ) : (
+                        <motion.p
+                            key="hint"
+                            className="mt-2 text-[10px] text-gray-400"
+                        >
+                            {PASSWORD_HINT}
+                        </motion.p>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/* BUTTON */}
+            <button
+                type="submit"
+                /* COMPACT STRENGTH: py-4 with bold tracking */
+                className="mt-6 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98]"
+            >
+                Sign In
+            </button>
+        </form>
+    );
 }
