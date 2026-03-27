@@ -2,28 +2,31 @@ import React, { useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 /* ─────────────────────────────────────────
-   ROOT LAYOUT — holds shared profile state
+   ROOT LAYOUT
 ───────────────────────────────────────── */
 export default function AdminLayout() {
     return (
-        <div className="min-h-screen bg-white text-neutral-900">
-            <div className="flex">
-                <AdminSidebar />
-                <div className="flex-1">
-                    <AdminTopbar />
-                    <main className="min-h-[calc(100vh-72px)] bg-[#f3f3f3] p-6">
+        <div className="flex h-screen w-full bg-[#f7f7f8] font-sans overflow-hidden text-neutral-900">
+            <AdminSidebar />
+            <div className="flex flex-1 flex-col overflow-hidden relative">
+                <AdminTopbar />
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pt-0 md:pt-0 lg:pt-0">
+                    {/* Floating 'Bento' Style Content Area */}
+                    <div className="mx-auto h-full w-full max-w-7xl rounded-[2rem] bg-white p-6 md:p-10 shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-neutral-200/50 transition-all">
                         <Outlet />
-                    </main>
-                </div>
+                    </div>
+                </main>
             </div>
         </div>
     );
 }
 
+/* ─────────────────────────────────────────
+   SIDEBAR
+───────────────────────────────────────── */
 function AdminSidebar() {
     const location = useLocation();
     const [contentOpen, setContentOpen] = React.useState(false);
-    const [firstName, setFirstName] = React.useState(null);
     const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
     const isActive = (to) => location.pathname === to;
@@ -49,6 +52,250 @@ function AdminSidebar() {
         window.location.href = "/admin/login";
     };
 
+    const mainNav = [
+        { label: "Dashboard", to: "/admin/dashboard", icon: <DashboardIcon /> },
+        { label: "Inquiries", to: "/admin/inquiries", icon: <InboxIcon /> },
+        {
+            label: "Consultation",
+            to: "/admin/consultations",
+            icon: <CalendarIcon />,
+        },
+    ];
+
+    const contentNav = [
+        {
+            label: "Projects",
+            to: "/admin/content/projects",
+            icon: <FolderIcon />,
+        },
+        {
+            label: "Services",
+            to: "/admin/content/services",
+            icon: <LayersIcon />,
+        },
+        {
+            label: "About Us",
+            to: "/admin/content/about",
+            icon: <DocumentIcon />,
+        },
+    ];
+
+    const secondNav = [
+        { label: "Analytics", to: "/admin/analytics", icon: <ChartIcon /> },
+    ];
+
+    const systemNav = [
+        {
+            label: "Platform Settings",
+            to: "/admin/settings",
+            icon: <SettingsIcon />,
+        },
+        { label: "User Management", to: "/admin/users", icon: <UsersIcon /> },
+        { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
+    ];
+
+    React.useEffect(() => {
+        if (location.pathname.startsWith("/admin/content")) {
+            setContentOpen(true);
+        }
+    }, [location.pathname]);
+
+    return (
+        <aside className="flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] shadow-2xl transition-all duration-500 z-20">
+            {/* Logo Area */}
+            <div className="px-8 py-10">
+                <div className="flex items-center gap-3">
+                    <img
+                        src="/images/rmty-logo.jpg"
+                        alt="RMTY Logo"
+                        className="h-8 w-auto object-contain"
+                    />
+                    <div className="text-3xl font-black tracking-tighter text-white">
+                        RMTY<span></span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Scrollable Nav */}
+            <div className="flex-1 overflow-y-auto px-4 pb-8 no-scrollbar">
+                <div className="mb-8">
+                    <p className="mb-4 px-4 text-[10px] font-semibold tracking-widest text-white/30">
+                        OVERVIEW
+                    </p>
+                    <nav className="space-y-1">
+                        {mainNav.map((item) => (
+                            <SidebarLink
+                                key={item.to}
+                                to={item.to}
+                                active={isActive(item.to)}
+                                icon={item.icon}
+                            >
+                                {item.label}
+                            </SidebarLink>
+                        ))}
+                    </nav>
+                </div>
+
+                <div className="mb-8">
+                    <p className="mb-4 px-4 text-[10px] font-semibold tracking-widest text-white/30">
+                        CONTENT
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => setContentOpen((v) => !v)}
+                        className="group flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-medium text-[#888888] transition-all duration-300 hover:bg-white/5 hover:text-[#EDEDED] cursor-pointer"
+                    >
+                        <span className="inline-flex items-center gap-4 transition-transform duration-300 group-hover:translate-x-1">
+                            <ContentIcon />
+                            Manage Content
+                        </span>
+                        <span className="text-white/30 transition-transform duration-300">
+                            {contentOpen ? <ChevronDown /> : <ChevronRight />}
+                        </span>
+                    </button>
+
+                    <div
+                        className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                            contentOpen
+                                ? "max-h-60 opacity-100"
+                                : "max-h-0 opacity-0"
+                        }`}
+                    >
+                        <div className="mt-2 space-y-1 pl-10 pr-2">
+                            {contentNav.map((item) => (
+                                <Link
+                                    key={item.to}
+                                    to={item.to}
+                                    className={[
+                                        "flex items-center gap-3 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300",
+                                        isActive(item.to)
+                                            ? "bg-white/10 text-white"
+                                            : "text-[#666666] hover:bg-white/5 hover:text-white hover:translate-x-1",
+                                    ].join(" ")}
+                                >
+                                    <span className="opacity-50">
+                                        {item.icon}
+                                    </span>
+                                    {item.label}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="mt-2 space-y-1">
+                        {secondNav.map((item) => (
+                            <SidebarLink
+                                key={item.to}
+                                to={item.to}
+                                active={isActive(item.to)}
+                                icon={item.icon}
+                            >
+                                {item.label}
+                            </SidebarLink>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <p className="mb-4 px-4 text-[10px] font-semibold tracking-widest text-white/30">
+                        SETTINGS
+                    </p>
+                    <nav className="space-y-1">
+                        {systemNav.map((item) => (
+                            <SidebarLink
+                                key={item.to}
+                                to={item.to}
+                                active={isActive(item.to)}
+                                icon={item.icon}
+                            >
+                                {item.label}
+                            </SidebarLink>
+                        ))}
+
+                        <button
+                            type="button"
+                            className="group flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-[#888888] transition-all duration-300 hover:bg-red-500/10 hover:text-red-400"
+                            onClick={() => setShowLogoutConfirm(true)}
+                        >
+                            <span className="inline-flex items-center gap-4 transition-transform duration-300 group-hover:translate-x-1">
+                                <LogoutIcon />
+                                Logout
+                            </span>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            {/* Logout Confirm Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-opacity">
+                    <div className="w-full max-w-sm scale-100 rounded-3xl border border-neutral-200 bg-white p-8 shadow-2xl transition-transform">
+                        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+                            <LogoutIcon />
+                        </div>
+                        <h3 className="text-xl font-bold text-neutral-900">
+                            Ready to leave?
+                        </h3>
+                        <p className="mt-2 text-sm text-neutral-500">
+                            You are about to log out of the admin panel. You
+                            will need your credentials to return.
+                        </p>
+                        <div className="mt-8 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmLogout}
+                                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-700 hover:shadow-red-600/40"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </aside>
+    );
+}
+
+/* ─────────────────────────────────────────
+   TOPBAR - Minimalist Path-focused Design
+───────────────────────────────────────── */
+function AdminTopbar({ profile, onProfileUpdate }) {
+    const location = useLocation();
+    const [dropdownOpen, setDropdownOpen] = React.useState(false);
+    const [editModalOpen, setEditModalOpen] = React.useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+    const [fetchedName, setFetchedName] = React.useState(null);
+    const dropdownRef = useRef(null);
+
+    // Dynamic path title: takes "/admin/content/projects" and returns "Projects"
+    const getPageTitle = () => {
+        const pathSegments = location.pathname.split("/").filter(Boolean);
+        const lastSegment =
+            pathSegments[pathSegments.length - 1] || "Dashboard";
+        return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
+    };
+
+    React.useEffect(() => {
+        const handler = (e) => {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(e.target)
+            ) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    // Fetch user info for fallback
     React.useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -66,10 +313,10 @@ function AdminSidebar() {
                         json?.data?.first_name ??
                         json?.data?.name?.split?.(" ")?.[0] ??
                         null;
-                    setFirstName(name);
+                    setFetchedName(name);
                 }
             } catch {
-                if (!cancelled) setFirstName(null);
+                if (!cancelled) setFetchedName(null);
             }
         })();
         return () => {
@@ -77,359 +324,180 @@ function AdminSidebar() {
         };
     }, []);
 
-    const mainNav = [
-        { label: "Dashboard", to: "/admin/dashboard" },
-        { label: "Inquiries", to: "/admin/inquiries" },
-        { label: "Consultation", to: "/admin/consultations" },
-    ];
-
-    const contentNav = [
-        { label: "Projects", to: "/admin/content/projects" },
-        { label: "Services", to: "/admin/content/services" },
-        { label: "About Us", to: "/admin/content/about" },
-    ];
-
-    const secondNav = [{ label: "Analytics", to: "/admin/analytics" }];
-
-    const systemNav = [
-        { label: "Platform Settings", to: "/admin/settings" },
-
-        { label: "User Management", to: "/admin/users" },
-        { label: "Profile", to: "/admin/profile" },
-    ];
-
-    React.useEffect(() => {
-        if (location.pathname.startsWith("/admin/content")) {
-            setContentOpen(true);
-        }
-    }, [location.pathname]);
-
-    return (
-        <aside className="w-[260px] border-r border-neutral-200 bg-white">
-            <div className="px-5 py-6">
-                <div className="flex items-center gap-3">
-                    <img
-                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin"
-                        alt="Admin avatar"
-                        className="h-10 w-10 rounded-full border border-neutral-200"
-                    />
-                    <div className="leading-tight">
-                        <p className="text-sm font-medium text-neutral-900">
-                            Hello, {firstName != null ? firstName : "Admin"}!
-                        </p>
-                        <p className="text-[11px] tracking-widest text-neutral-500">
-                            ADMIN
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="border-t border-neutral-200" />
-
-            <div className="px-5 py-5">
-                <p className="mb-2 text-[10px] tracking-widest text-neutral-500">
-                    MAIN NAVIGATION
-                </p>
-                <nav className="space-y-1">
-                    {mainNav.map((item) => (
-                        <SidebarLink
-                            key={item.to}
-                            to={item.to}
-                            active={isActive(item.to)}
-                        >
-                            <GridIcon />
-                            {item.label}
-                        </SidebarLink>
-                    ))}
-                </nav>
-
-                <div className="my-5 border-t border-neutral-200" />
-
-                <p className="mb-2 text-[10px] tracking-widest text-neutral-500">
-                    SECOND NAVIGATION
-                </p>
-
-                <button
-                    type="button"
-                    onClick={() => setContentOpen((v) => !v)}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-                >
-                    <span className="inline-flex items-center gap-3">
-                        <GridIcon />
-                        Manage Content
-                    </span>
-                    <span className="text-neutral-500">
-                        {contentOpen ? <ChevronDown /> : <ChevronRight />}
-                    </span>
-                </button>
-
-                {contentOpen && (
-                    <div className="mt-1 space-y-1 pl-8">
-                        {contentNav.map((item) => (
-                            <Link
-                                key={item.to}
-                                to={item.to}
-                                className={[
-                                    "block rounded-md px-3 py-2 text-sm transition",
-                                    isActive(item.to)
-                                        ? "bg-neutral-100 text-neutral-900"
-                                        : "text-neutral-700 hover:bg-neutral-100",
-                                ].join(" ")}
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
-                    </div>
-                )}
-
-                <div className="mt-2 space-y-1">
-                    {secondNav.map((item) => (
-                        <SidebarLink
-                            key={item.to}
-                            to={item.to}
-                            active={isActive(item.to)}
-                        >
-                            <GridIcon />
-                            {item.label}
-                        </SidebarLink>
-                    ))}
-                </div>
-
-                <div className="my-5 border-t border-neutral-200" />
-
-                <p className="mb-2 text-[10px] tracking-widest text-neutral-500">
-                    SYSTEM / ACCOUNT
-                </p>
-                <nav className="space-y-1">
-                    {systemNav.map((item) => (
-                        <SidebarLink
-                            key={item.to}
-                            to={item.to}
-                            active={isActive(item.to)}
-                        >
-                            <GridIcon />
-                            {item.label}
-                        </SidebarLink>
-                    ))}
-
-                    <button
-                        type="button"
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100"
-                        onClick={() => setShowLogoutConfirm(true)}
-                    >
-                        <span className="inline-flex items-center gap-3">
-                            <GridIcon />
-                            Logout
-                        </span>
-                    </button>
-                </nav>
-            </div>
-
-            {showLogoutConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-6 shadow-xl">
-                        <p className="text-center text-neutral-800 font-medium">
-                            Are you sure you want to logout?
-                        </p>
-                        <div className="mt-6 flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowLogoutConfirm(false)}
-                                className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmLogout}
-                                className="flex-1 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-                            >
-                                Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </aside>
-    );
-}
-
-/* ─────────────────────────────────────────
-   TOPBAR
-───────────────────────────────────────── */
-function AdminTopbar({ profile, onProfileUpdate }) {
-    const [dropdownOpen, setDropdownOpen] = React.useState(false);
-    const [editModalOpen, setEditModalOpen] = React.useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
-    const dropdownRef = useRef(null);
-
-    // Close dropdown on outside click
-    React.useEffect(() => {
-        const handler = (e) => {
-            if (
-                dropdownRef.current &&
-                !dropdownRef.current.contains(e.target)
-            ) {
-                setDropdownOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, []);
-
     const confirmLogout = () => {
-        const token =
-            localStorage.getItem("admin_token") ||
-            localStorage.getItem("token");
         localStorage.removeItem("admin_token");
         localStorage.removeItem("token");
         localStorage.removeItem("userId");
-
         fetch("/api/admin/logout", {
             method: "POST",
             credentials: "include",
-            headers: {
-                Accept: "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
         }).catch(() => {});
-
         window.location.href = "/admin/login";
     };
 
+    const displayName = profile?.first_name || fetchedName || "Admin";
     const avatarSrc =
         profile?.profile_photo_url ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile?.first_name || "admin")}`;
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0A0A0A&color=ffffff&bold=true`;
 
     return (
         <>
-            <header className="h-[72px] border-b border-neutral-200 bg-white">
-                <div className="mx-auto flex h-full items-center justify-between px-6">
-                    <div className="text-lg font-medium tracking-wide">
-                        RMTY
+            <header className="h-[100px] w-full bg-transparent flex items-center z-10">
+                <div className="mx-auto flex w-full items-end justify-between px-8 md:px-12 pb-2">
+                    {/* Left: Dynamic Page Path/Title */}
+                    <div className="flex flex-col">
+                        <span className="text-[11px] font-bold tracking-[0.2em] text-neutral-400 uppercase mb-1">
+                            Current View
+                        </span>
+                        <h1 className="text-3xl font-black tracking-tight text-neutral-900">
+                            {getPageTitle()}
+                        </h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        {/* Search */}
-                        <div className="relative hidden md:block">
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
-                                <SearchIcon />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder=""
-                                className="h-9 w-[320px] rounded-full bg-neutral-100 pl-9 pr-4 text-sm outline-none"
-                            />
-                        </div>
-
-                        {/* Bell */}
-                        <button
-                            type="button"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
-                            aria-label="Notifications"
-                        >
-                            <BellIcon />
+                    {/* Right: Actions & Profile */}
+                    <div className="flex items-center gap-8 mb-2">
+                        {/* Minimalist Search Icon Only */}
+                        <button className="text-neutral-400 hover:text-black transition-colors duration-200">
+                            <SleekSearchIcon />
                         </button>
 
-                        {/* Profile button + dropdown */}
+                        {/* Minimalist Bell Icon Only */}
+                        <button className="relative text-neutral-400 hover:text-black transition-colors duration-200">
+                            <SleekBellIcon />
+                            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-[#f7f7f8]"></span>
+                        </button>
+
+                        {/* Profile Block */}
                         <div className="relative" ref={dropdownRef}>
                             <button
-                                type="button"
                                 onClick={() => setDropdownOpen((v) => !v)}
-                                className="inline-flex h-9 w-9 overflow-hidden rounded-full border border-neutral-200 hover:ring-2 hover:ring-neutral-300 transition-all"
-                                aria-label="Profile"
+                                className="flex items-center gap-3 group outline-none"
                             >
                                 <img
                                     src={avatarSrc}
-                                    alt="Profile avatar"
-                                    className="h-full w-full object-cover"
+                                    alt="User"
+                                    className="h-9 w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
                                 />
+                                <div className="hidden text-left md:block">
+                                    <p className="text-sm font-bold text-neutral-900 leading-none">
+                                        {displayName}
+                                    </p>
+                                </div>
+                                <div className="text-neutral-300 transition-transform group-hover:translate-y-0.5">
+                                    <ChevronDown />
+                                </div>
                             </button>
 
-                            {/* Dropdown */}
-                            {dropdownOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-52 rounded-lg border border-neutral-200 bg-white shadow-lg z-50 overflow-hidden">
-                                    <div className="px-4 py-3 border-b border-neutral-100">
-                                        <p className="text-sm font-medium text-neutral-900 truncate">
-                                            {profile?.first_name
-                                                ? `${profile.first_name} ${profile.last_name ?? ""}`.trim()
-                                                : "Admin"}
-                                        </p>
-                                        <p className="text-xs text-neutral-500 truncate">
-                                            {profile?.email}
-                                        </p>
-                                    </div>
-
-                                    <div className="py-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setDropdownOpen(false);
-                                                setEditModalOpen(true);
-                                            }}
-                                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
-                                        >
-                                            <PencilIcon />
-                                            Edit Profile
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setDropdownOpen(false);
-                                                setShowLogoutConfirm(true);
-                                            }}
-                                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                                        >
-                                            <LogoutIcon />
-                                            Logout
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Crisp Dropdown */}
+                            <div
+                                className={`absolute right-0 top-[calc(100%+12px)] z-50 w-[220px] origin-top-right rounded-2xl border border-neutral-100 bg-white p-1.5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                                    dropdownOpen
+                                        ? "translate-y-0 opacity-100 scale-100"
+                                        : "translate-y-2 opacity-0 scale-95 pointer-events-none"
+                                }`}
+                            >
+                                <button
+                                    onClick={() => {
+                                        setDropdownOpen(false);
+                                        setEditModalOpen(true);
+                                    }}
+                                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-neutral-600 hover:bg-neutral-50 hover:text-black transition-colors"
+                                >
+                                    Edit Profile
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setDropdownOpen(false);
+                                        setShowLogoutConfirm(true);
+                                    }}
+                                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-red-500 hover:bg-red-50 transition-colors"
+                                >
+                                    Logout
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
 
-            {/* Edit Profile Modal */}
+            {/* Modals remain the same but styled to match the new crispness */}
             {editModalOpen && (
                 <EditProfileModal
                     profile={profile}
                     onClose={() => setEditModalOpen(false)}
                     onSaved={(updated) => {
-                        onProfileUpdate(updated); // updates shared state → both sidebar + topbar re-render
+                        if (onProfileUpdate) onProfileUpdate(updated);
                         setEditModalOpen(false);
                     }}
                 />
             )}
 
-            {/* Logout Confirm */}
             {showLogoutConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-sm rounded-lg border border-neutral-200 bg-white p-6 shadow-xl">
-                        <p className="text-center text-neutral-800 font-medium">
-                            Are you sure you want to logout?
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-[320px] rounded-[2.5rem] bg-white p-8 shadow-2xl text-center">
+                        <h3 className="text-xl font-black text-neutral-900">
+                            Sign Out
+                        </h3>
+                        <p className="mt-2 text-sm text-neutral-500 font-medium">
+                            End your session securely?
                         </p>
-                        <div className="mt-6 flex gap-3">
+                        <div className="mt-8 flex flex-col gap-2">
                             <button
-                                type="button"
-                                onClick={() => setShowLogoutConfirm(false)}
-                                className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                                onClick={confirmLogout}
+                                className="w-full rounded-full bg-black py-4 text-sm font-bold text-white hover:bg-neutral-800 transition-all"
                             >
-                                Cancel
+                                Sign Out
                             </button>
                             <button
-                                type="button"
-                                onClick={confirmLogout}
-                                className="flex-1 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="w-full py-4 text-sm font-bold text-neutral-400 hover:text-black transition-all"
                             >
-                                Logout
+                                Cancel
                             </button>
                         </div>
                     </div>
                 </div>
             )}
         </>
+    );
+}
+
+// Icons with ultra-thin strokes for the premium look
+function SleekSearchIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <circle cx="11" cy="11" r="7" />
+            <path
+                d="M21 21l-4.35-4.35"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
+function SleekBellIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" strokeLinecap="round" />
+        </svg>
     );
 }
 
@@ -503,74 +571,69 @@ function EditProfileModal({ profile, onClose, onSaved }) {
         }
     };
 
+    const displayName = form.first_name || "Admin";
     const avatarSrc =
         preview ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(form.first_name || "admin")}`;
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            displayName,
+        )}&background=0A0A0A&color=ffffff&size=128&font-size=0.33&bold=true&rounded=true`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-                    <h2 className="text-base font-semibold text-neutral-900">
-                        Edit Profile
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 transition-all duration-300">
+            <div className="w-full max-w-md scale-100 rounded-[2rem] border border-neutral-100 bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden transition-transform">
+                <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-100/60 bg-white/50 backdrop-blur-md">
+                    <h2 className="text-xl font-bold tracking-tight text-neutral-900">
+                        Profile Settings
                     </h2>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-neutral-400 hover:text-neutral-600 transition-colors"
+                        className="rounded-full p-2 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
                     >
                         <svg
                             className="w-5 h-5"
                             fill="none"
                             stroke="currentColor"
+                            strokeWidth="1.5"
                             viewBox="0 0 24 24"
                         >
                             <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                strokeWidth="2"
                                 d="M6 18L18 6M6 6l12 12"
                             />
                         </svg>
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+                <form onSubmit={handleSubmit} className="px-8 py-8 space-y-6">
                     {/* Avatar picker */}
-                    <div className="flex flex-col items-center gap-3">
-                        <div className="relative">
+                    <div className="flex flex-col items-center gap-4">
+                        <div
+                            className="relative group cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
                             <img
                                 src={avatarSrc}
                                 alt="Profile"
-                                className="w-20 h-20 rounded-full object-cover border-2 border-neutral-200"
+                                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-xl transition-transform duration-500 group-hover:scale-105"
                             />
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="absolute bottom-0 right-0 w-6 h-6 bg-neutral-900 text-white rounded-full flex items-center justify-center hover:bg-neutral-700 transition-colors"
-                            >
+                            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
                                 <svg
-                                    className="w-3 h-3"
+                                    className="w-6 h-6 text-white"
                                     fill="none"
                                     stroke="currentColor"
+                                    strokeWidth="1.5"
                                     viewBox="0 0 24 24"
                                 >
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        strokeWidth="2"
                                         d="M12 4v16m8-8H4"
                                     />
                                 </svg>
-                            </button>
+                            </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="text-xs text-neutral-500 underline hover:text-neutral-700 transition-colors"
-                        >
-                            Change photo
-                        </button>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -580,48 +643,50 @@ function EditProfileModal({ profile, onClose, onSaved }) {
                         />
                     </div>
 
-                    {/* First name */}
-                    <div>
-                        <label className="block text-xs font-medium text-neutral-600 mb-1">
-                            First Name
-                        </label>
-                        <input
-                            type="text"
-                            value={form.first_name}
-                            onChange={(e) =>
-                                setForm((f) => ({
-                                    ...f,
-                                    first_name: e.target.value,
-                                }))
-                            }
-                            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-300 transition"
-                            placeholder="First name"
-                        />
-                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* First name */}
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                First Name
+                            </label>
+                            <input
+                                type="text"
+                                value={form.first_name}
+                                onChange={(e) =>
+                                    setForm((f) => ({
+                                        ...f,
+                                        first_name: e.target.value,
+                                    }))
+                                }
+                                className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
+                                placeholder="Jane"
+                            />
+                        </div>
 
-                    {/* Last name */}
-                    <div>
-                        <label className="block text-xs font-medium text-neutral-600 mb-1">
-                            Last Name
-                        </label>
-                        <input
-                            type="text"
-                            value={form.last_name}
-                            onChange={(e) =>
-                                setForm((f) => ({
-                                    ...f,
-                                    last_name: e.target.value,
-                                }))
-                            }
-                            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-300 transition"
-                            placeholder="Last name"
-                        />
+                        {/* Last name */}
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                Last Name
+                            </label>
+                            <input
+                                type="text"
+                                value={form.last_name}
+                                onChange={(e) =>
+                                    setForm((f) => ({
+                                        ...f,
+                                        last_name: e.target.value,
+                                    }))
+                                }
+                                className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
+                                placeholder="Doe"
+                            />
+                        </div>
                     </div>
 
                     {/* Email */}
-                    <div>
-                        <label className="block text-xs font-medium text-neutral-600 mb-1">
-                            Email
+                    <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                            Email Address
                         </label>
                         <input
                             type="email"
@@ -632,34 +697,38 @@ function EditProfileModal({ profile, onClose, onSaved }) {
                                     email: e.target.value,
                                 }))
                             }
-                            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-300 transition"
-                            placeholder="Email address"
+                            className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
+                            placeholder="jane@example.com"
                         />
                     </div>
 
-                    {error && (
-                        <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-md">
-                            {error}
-                        </p>
-                    )}
-                    {success && (
-                        <p className="text-xs text-green-700 bg-green-50 px-3 py-2 rounded-md">
-                            Profile updated successfully!
-                        </p>
-                    )}
+                    {/* Alerts */}
+                    <div className="min-h-[24px]">
+                        {error && (
+                            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
+                                {error}
+                            </p>
+                        )}
+                        {success && (
+                            <p className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 px-4 py-3 rounded-xl">
+                                Profile updated successfully!
+                            </p>
+                        )}
+                    </div>
 
-                    <div className="flex gap-3 pt-1">
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            className="flex-1 rounded-xl border border-neutral-200/80 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={saving}
-                            className="flex-1 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+                            className="flex-1 rounded-xl bg-[#0A0A0A] px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-black/20 transition-all hover:bg-neutral-800 hover:shadow-black/40 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
                         >
                             {saving ? "Saving..." : "Save Changes"}
                         </button>
@@ -671,34 +740,302 @@ function EditProfileModal({ profile, onClose, onSaved }) {
 }
 
 /* ─────────────────────────────────────────
-   SIDEBAR LINK
+   COMPONENTS & CUSTOM MODERN ICONS
 ───────────────────────────────────────── */
-function SidebarLink({ to, active, children }) {
+function SidebarLink({ to, active, icon, children }) {
     return (
         <Link
             to={to}
             className={[
-                "flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition",
+                "group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300",
                 active
-                    ? "bg-neutral-100 text-neutral-900"
-                    : "text-neutral-700 hover:bg-neutral-100",
+                    ? "bg-white/10 text-[#EDEDED] shadow-sm"
+                    : "text-[#888888] hover:bg-white/5 hover:text-[#EDEDED]",
             ].join(" ")}
         >
-            {children}
+            <div className="transition-transform duration-300 group-hover:translate-x-1 flex items-center gap-4 w-full">
+                {icon}
+                {children}
+            </div>
         </Link>
     );
 }
 
-function GridIcon() {
+// Custom Awwwards-style Icons (Premium 1.5 stroke width)
+function DashboardIcon() {
     return (
         <svg
             viewBox="0 0 24 24"
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        </svg>
+    );
+}
+function InboxIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M4 7.00005L10.2 11.65C11.2667 12.45 12.7333 12.45 13.8 11.65L20 7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <rect
+                x="3"
+                y="5"
+                width="18"
+                height="14"
+                rx="2"
+                strokeLinecap="round"
+            />
+        </svg>
+    );
+}
+function CalendarIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" strokeLinecap="round" />
+            <line x1="8" y1="2" x2="8" y2="6" strokeLinecap="round" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+    );
+}
+function ContentIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M21 8V21H3V3H16L21 8Z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path d="M16 3V8H21" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+function FolderIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function LayersIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <polygon
+                points="12 2 2 7 12 12 22 7 12 2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="2 12 12 17 22 12"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="2 17 12 22 22 17"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function DocumentIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="14 2 14 8 20 8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="16"
+                y1="13"
+                x2="8"
+                y2="13"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="16"
+                y1="17"
+                x2="8"
+                y2="17"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="10"
+                y1="9"
+                x2="8"
+                y2="9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function ChartIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <line
+                x1="18"
+                y1="20"
+                x2="18"
+                y2="10"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="12"
+                y1="20"
+                x2="12"
+                y2="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="6"
+                y1="20"
+                x2="6"
+                y2="14"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function SettingsIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <circle cx="12" cy="12" r="3" />
+            <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function UsersIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <circle
+                cx="9"
+                cy="7"
+                r="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M23 21v-2a4 4 0 0 0-3-3.87"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M16 3.13a4 4 0 0 1 0 7.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function UserIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <circle
+                cx="12"
+                cy="7"
+                r="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -709,9 +1046,13 @@ function SearchIcon() {
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M21 21l-4.3-4.3" />
+            <path
+                d="M21 21l-4.3-4.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
             <circle cx="11" cy="11" r="7" />
         </svg>
     );
@@ -723,11 +1064,19 @@ function BellIcon() {
             className="h-5 w-5"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M15 17H9" />
-            <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7Z" />
-            <path d="M13.7 21a2 2 0 01-3.4 0" />
+            <path d="M15 17H9" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+                d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7Z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M13.7 21a2 2 0 01-3.4 0"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -738,10 +1087,18 @@ function PencilIcon() {
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+            <path
+                d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -752,11 +1109,26 @@ function LogoutIcon() {
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
+            <path
+                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="16 17 21 12 16 7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="21"
+                y1="12"
+                x2="9"
+                y2="12"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -767,9 +1139,13 @@ function ChevronRight() {
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M9 18l6-6-6-6" />
+            <path
+                d="M9 18l6-6-6-6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
@@ -780,9 +1156,13 @@ function ChevronDown() {
             className="h-4 w-4"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
         >
-            <path d="M6 9l6 6 6-6" />
+            <path
+                d="M6 9l6 6 6-6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
         </svg>
     );
 }
