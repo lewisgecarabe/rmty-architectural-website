@@ -2,441 +2,1123 @@
 // React Frontend Components for Forgot Password Flow
 // ============================================================================
 
-import React, { useState } from 'react';
-import axios from 'axios';
-import { validateEmail, validateStrongPassword, PASSWORD_HINT, EMAIL_HINT } from '../../lib/validation';
+import React, { useState, useRef } from "react";
+import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import {
+    validateEmail,
+    validateStrongPassword,
+    PASSWORD_HINT,
+    EMAIL_HINT,
+} from "../../lib/validation";
 
-const ForgotPassword = () => {
-  const [step, setStep] = useState(1); // 1: Enter Email, 2: Enter OTP & New Password
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirmation, setPasswordConfirmation] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+// Custom OTP Box Component
+const OtpInput = ({ value, onChange, disabled, hasError }) => {
+    const inputRefs = useRef([]);
 
-  // Step 1: Send OTP
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setEmailError('');
+    const handleChange = (e, index) => {
+        const val = e.target.value.replace(/\D/g, "");
+        if (!val && e.target.value !== "") return;
 
-    const emailErr = validateEmail(email);
-    if (emailErr) {
-      setEmailError(emailErr);
-      return;
-    }
+        const otpArray = value.split("");
+        otpArray[index] = val.slice(-1); // Take only the last typed character
+        const newOtp = otpArray.join("").slice(0, 6);
+        onChange(newOtp);
 
-    setLoading(true);
-    try {
-      const response = await axios.post('/api/password/send-otp', {
-        email: email.trim()
-      });
+        // Move focus to next box
+        if (val && index < 5) {
+            inputRefs.current[index + 1].focus();
+        }
+    };
 
-      if (response.data.success) {
-        setSuccess(response.data.message);
-        setStep(2); // Move to next step
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleKeyDown = (e, index) => {
+        if (e.key === "Backspace") {
+            const otpArray = value.split("");
+            if (!value[index] && index > 0) {
+                // If empty, delete previous and move back
+                otpArray[index - 1] = "";
+                inputRefs.current[index - 1].focus();
+            } else {
+                // Clear current
+                otpArray[index] = "";
+            }
+            onChange(otpArray.join(""));
+        } else if (e.key === "ArrowLeft" && index > 0) {
+            inputRefs.current[index - 1].focus();
+        } else if (e.key === "ArrowRight" && index < 5) {
+            inputRefs.current[index + 1].focus();
+        }
+    };
 
-  // Step 2: Reset Password
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setError('');
-    setPasswordError('');
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pasteData = e.clipboardData
+            .getData("text")
+            .replace(/\D/g, "")
+            .slice(0, 6);
+        if (pasteData) {
+            onChange(pasteData);
+            // Focus the next empty box or the last box
+            const nextIndex = Math.min(pasteData.length, 5);
+            if (inputRefs.current[nextIndex]) {
+                inputRefs.current[nextIndex].focus();
+            } else {
+                inputRefs.current[5].focus();
+            }
+        }
+    };
 
-    if (password !== passwordConfirmation) {
-      setError('Passwords don\'t match. Please try again.');
-      return;
-    }
-
-    const passwordErr = validateStrongPassword(password);
-    if (passwordErr) {
-      setPasswordError(passwordErr);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await axios.post('/api/password/reset', {
-        email: email,
-        otp: otp,
-        password: password,
-        password_confirmation: passwordConfirmation
-      });
-
-      if (response.data.success) {
-        setSuccess(response.data.message);
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          window.location.href = '/admin/login';
-        }, 2000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reset password. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Resend OTP
-  const handleResendOtp = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await axios.post('/api/password/send-otp', {
-        email: email
-      });
-
-      if (response.data.success) {
-        setSuccess('New OTP sent to your email');
-        setOtp(''); // Clear current OTP input
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to resend OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Reset Password
-        </h2>
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Success Message */}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {success}
-          </div>
-        )}
-
-        {/* Step 1: Enter Email */}
-        {step === 1 && (
-          <form onSubmit={handleSendOtp}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                Admin Email Address
-              </label>
-              <input
-                type="text"
-                inputMode="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
-                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailError ? 'border-red-400' : 'border-gray-300'}`}
-                placeholder="Email address"
-                disabled={loading}
-              />
-              <p className="mt-1 text-[11px] text-gray-500">{EMAIL_HINT}</p>
-              {emailError && <p className="mt-1 text-[11px] text-red-600">{emailError}</p>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Sending...' : 'Send OTP'}
-            </button>
-          </form>
-        )}
-
-        {/* Step 2: Enter OTP & New Password */}
-        {step === 2 && (
-          <form onSubmit={handleResetPassword}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                Enter OTP
-              </label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
-                placeholder="000000"
-                maxLength={6}
-                required
-                disabled={loading}
-              />
-              <p className="text-[11px] text-gray-500 mt-1">
-                Enter the 6-digit code we sent to your email.
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                New Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
-                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${passwordError ? 'border-red-400' : 'border-gray-300'}`}
-                placeholder="New password"
-                disabled={loading}
-              />
-              <p className="mt-1 text-[11px] text-gray-500">{PASSWORD_HINT}</p>
-              {passwordError && <p className="mt-1 text-[11px] text-red-600">{passwordError}</p>}
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                value={passwordConfirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Confirm new password"
-                disabled={loading}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed mb-3"
-            >
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResendOtp}
-              disabled={loading}
-              className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition duration-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
-            >
-              Resend OTP
-            </button>
-          </form>
-        )}
-
-        {/* Back to Login Link */}
-        <div className="mt-6 text-center">
-          <a
-            href="/admin/login"
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            ← Back to Login
-          </a>
+    return (
+        <div className="flex gap-3 sm:gap-4 justify-between w-full">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+                <input
+                    key={index}
+                    ref={(el) => (inputRefs.current[index] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={value[index] || ""}
+                    onChange={(e) => handleChange(e, index)}
+                    onKeyDown={(e) => handleKeyDown(e, index)}
+                    onPaste={handlePaste}
+                    disabled={disabled}
+                    className={`w-full h-14 border px-0 text-center text-xl font-mono outline-none transition-colors rounded-none bg-transparent placeholder:text-gray-200
+                        ${
+                            hasError
+                                ? "border-red-500 text-red-500 focus:border-red-500"
+                                : value[index]
+                                  ? "border-black text-black focus:border-black"
+                                  : "border-gray-300 text-black focus:border-black"
+                        }
+                        disabled:bg-gray-50 disabled:text-gray-400`}
+                />
+            ))}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
-export default ForgotPassword;
+const ForgotPassword = () => {
+    const [step, setStep] = useState(1);
+    const [email, setEmail] = useState("");
+    const [otp, setOtp] = useState("");
+    const [password, setPassword] = useState("");
+    const [passwordConfirmation, setPasswordConfirmation] = useState("");
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({
+        email: "",
+        otp: "",
+        password: "",
+        passwordConfirmation: "",
+    });
+
+    // Visibility toggles
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        setError("");
+        setSuccess("");
+        setFieldErrors({
+            email: "",
+            otp: "",
+            password: "",
+            passwordConfirmation: "",
+        });
+
+        const emailErr = validateEmail(email);
+        if (emailErr) {
+            setFieldErrors((prev) => ({ ...prev, email: emailErr }));
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await axios.post("/api/password/send-otp", {
+                email: email.trim(),
+            });
+
+            if (response.data.success) {
+                setSuccess(response.data.message);
+                setStep(2);
+            }
+        } catch (err) {
+            // Map backend validation errors to fields to avoid broad generic errors
+            if (err.response?.data?.errors?.email) {
+                setFieldErrors((prev) => ({
+                    ...prev,
+                    email: err.response.data.errors.email[0],
+                }));
+            } else {
+                setError(
+                    err.response?.data?.message ||
+                        "Failed to send OTP. Please try again.",
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        setError("");
+        setFieldErrors({
+            email: "",
+            otp: "",
+            password: "",
+            passwordConfirmation: "",
+        });
+
+        let hasValidationErrors = false;
+
+        // 1. Validate OTP
+        if (otp.length < 6) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                otp: "Please enter the complete 6-digit security code.",
+            }));
+            hasValidationErrors = true;
+        }
+
+        // 2. Validate Password independently
+        const passwordErr = validateStrongPassword(password);
+        if (passwordErr) {
+            setFieldErrors((prev) => ({ ...prev, password: passwordErr }));
+            hasValidationErrors = true;
+        }
+
+        // 3. Validate Confirm Password independently
+        if (!passwordConfirmation) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                passwordConfirmation: "Please confirm your new password.",
+            }));
+            hasValidationErrors = true;
+        } else if (password !== passwordConfirmation) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                passwordConfirmation: "Passwords do not match.",
+            }));
+            hasValidationErrors = true;
+        }
+
+        if (hasValidationErrors) return;
+
+        setLoading(true);
+        try {
+            const response = await axios.post("/api/password/reset", {
+                email: email,
+                otp: otp,
+                password: password,
+                password_confirmation: passwordConfirmation,
+            });
+
+            if (response.data.success) {
+                setSuccess(response.data.message);
+                setTimeout(() => {
+                    window.location.href = "/admin/login";
+                }, 2000);
+            }
+        } catch (err) {
+            // Check if backend provided specific field errors (Laravel style)
+            const backendErrors = err.response?.data?.errors;
+            if (backendErrors) {
+                setFieldErrors((prev) => ({
+                    ...prev,
+                    email: backendErrors.email?.[0] || "",
+                    otp: backendErrors.otp?.[0] || "",
+                    password: backendErrors.password?.[0] || "",
+                }));
+                // Only show top level error if there are no field-specific errors mapped
+                if (
+                    !backendErrors.email &&
+                    !backendErrors.otp &&
+                    !backendErrors.password
+                ) {
+                    setError(
+                        err.response?.data?.message ||
+                            "Failed to reset password. Please try again.",
+                    );
+                }
+            } else {
+                setError(
+                    err.response?.data?.message ||
+                        "Failed to reset password. Please try again.",
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        setLoading(true);
+        setError("");
+        setFieldErrors((prev) => ({ ...prev, otp: "" }));
+
+        try {
+            const response = await axios.post("/api/password/send-otp", {
+                email: email,
+            });
+
+            if (response.data.success) {
+                setSuccess("New OTP sent to your email");
+                setOtp("");
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || "Failed to resend OTP");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4 sm:px-6">
+            <div className="w-full max-w-2xl mx-auto [font-family:var(--font-neue)] flex flex-col gap-7">
+                {/* Heading */}
+                <div className="mb-2">
+                    <h1 className="text-3xl font-normal tracking-tight text-black mb-2">
+                        {step === 1 ? "Recover Access" : "Set New Password"}
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                        {step === 1
+                            ? "Enter your admin email to receive a recovery code."
+                            : "Enter the 6-digit code sent to your email to set a new password."}
+                    </p>
+                </div>
+
+                {/* Top Level Alerts */}
+                <AnimatePresence>
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <p className="text-[10px] tracking-wide text-red-500 uppercase border border-red-500/20 bg-red-500/5 p-3">
+                                {error}
+                            </p>
+                        </motion.div>
+                    )}
+                    {success && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <p className="text-[10px] tracking-wide text-emerald-600 uppercase border border-emerald-500/20 bg-emerald-500/5 p-3">
+                                {success}
+                            </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Step 1: Enter Email */}
+                {step === 1 && (
+                    <form
+                        onSubmit={handleSendOtp}
+                        className="flex flex-col gap-7"
+                    >
+                        <div className="relative group">
+                            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                                <span
+                                    className={
+                                        fieldErrors.email ? "text-red-500" : ""
+                                    }
+                                >
+                                    Email
+                                </span>
+                            </label>
+                            <input
+                                type="text"
+                                inputMode="email"
+                                placeholder="Enter your email"
+                                maxLength={50}
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    setFieldErrors((prev) => ({
+                                        ...prev,
+                                        email: "",
+                                    }));
+                                }}
+                                disabled={loading}
+                                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                    ${fieldErrors.email ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                                `}
+                            />
+                            <AnimatePresence mode="wait">
+                                {fieldErrors.email ? (
+                                    <motion.p
+                                        key="error"
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                    >
+                                        {fieldErrors.email}
+                                    </motion.p>
+                                ) : (
+                                    <motion.p
+                                        key="hint"
+                                        className="mt-2 text-[10px] text-gray-400"
+                                    >
+                                        {EMAIL_HINT}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="mt-2 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            {loading ? "Sending..." : "Send Recovery Code"}
+                        </button>
+                    </form>
+                )}
+
+                {/* Step 2: Enter OTP & New Password */}
+                {step === 2 && (
+                    <form
+                        onSubmit={handleResetPassword}
+                        className="flex flex-col gap-7"
+                    >
+                        {/* OTP BOXES */}
+                        <div className="relative group pt-2">
+                            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-3">
+                                <span
+                                    className={
+                                        fieldErrors.otp ? "text-red-500" : ""
+                                    }
+                                >
+                                    Security Code
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleResendOtp}
+                                    disabled={loading}
+                                    className="text-[10px] tracking-widest text-gray-400 hover:text-black transition-colors uppercase outline-none cursor-pointer"
+                                >
+                                    Resend Code
+                                </button>
+                            </label>
+
+                            <OtpInput
+                                value={otp}
+                                onChange={(newOtp) => {
+                                    setOtp(newOtp);
+                                    setFieldErrors((prev) => ({
+                                        ...prev,
+                                        otp: "",
+                                    }));
+                                }}
+                                disabled={loading}
+                                hasError={!!fieldErrors.otp}
+                            />
+
+                            <AnimatePresence mode="wait">
+                                {fieldErrors.otp && (
+                                    <motion.p
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-[10px] tracking-wide text-red-500 mt-3 overflow-hidden"
+                                    >
+                                        {fieldErrors.otp}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        {/* NEW PASSWORD */}
+                        <div className="relative group">
+                            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                                <span
+                                    className={
+                                        fieldErrors.password
+                                            ? "text-red-500"
+                                            : ""
+                                    }
+                                >
+                                    New Password
+                                </span>
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Enter new password"
+                                    value={password}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        setFieldErrors((prev) => ({
+                                            ...prev,
+                                            password: "",
+                                        }));
+                                    }}
+                                    disabled={loading}
+                                    className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                        ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                                    `}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword(!showPassword)
+                                    }
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none cursor-pointer"
+                                >
+                                    {showPassword ? (
+                                        <EyeOffIcon />
+                                    ) : (
+                                        <EyeIcon />
+                                    )}
+                                </button>
+                            </div>
+                            <AnimatePresence mode="wait">
+                                {fieldErrors.password ? (
+                                    <motion.p
+                                        key="error"
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                    >
+                                        {fieldErrors.password}
+                                    </motion.p>
+                                ) : (
+                                    <motion.p
+                                        key="hint"
+                                        className="mt-2 text-[10px] text-gray-400"
+                                    >
+                                        {PASSWORD_HINT}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        {/* CONFIRM PASSWORD */}
+                        <div className="relative group">
+                            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                                <span
+                                    className={
+                                        fieldErrors.passwordConfirmation
+                                            ? "text-red-500"
+                                            : ""
+                                    }
+                                >
+                                    Confirm Password
+                                </span>
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={
+                                        showConfirmPassword
+                                            ? "text"
+                                            : "password"
+                                    }
+                                    placeholder="Re-enter password"
+                                    value={passwordConfirmation}
+                                    onChange={(e) => {
+                                        setPasswordConfirmation(e.target.value);
+                                        setFieldErrors((prev) => ({
+                                            ...prev,
+                                            passwordConfirmation: "",
+                                        }));
+                                    }}
+                                    disabled={loading}
+                                    className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                        ${fieldErrors.passwordConfirmation ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                                    `}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowConfirmPassword(
+                                            !showConfirmPassword,
+                                        )
+                                    }
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none cursor-pointer"
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeOffIcon />
+                                    ) : (
+                                        <EyeIcon />
+                                    )}
+                                </button>
+                            </div>
+                            <AnimatePresence mode="wait">
+                                {fieldErrors.passwordConfirmation && (
+                                    <motion.p
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                    >
+                                        {fieldErrors.passwordConfirmation}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="mt-2 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            {loading ? "Processing..." : "Set New Password"}
+                        </button>
+                    </form>
+                )}
+
+                {/* Back to Login Link */}
+                <div className="text-center mt-4">
+                    <Link
+                        to="/admin/login"
+                        className="text-[10px] tracking-widest text-gray-400 uppercase hover:text-black transition-colors"
+                    >
+                        Back to Login
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 // ============================================================================
 // Alternative: Single-Page Version (All fields visible)
 // ============================================================================
 
 const ForgotPasswordSinglePage = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    otp: '',
-    password: '',
-    password_confirmation: ''
-  });
-  const [otpSent, setOtpSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+    const [formData, setFormData] = useState({
+        email: "",
+        otp: "",
+        password: "",
+        password_confirmation: "",
+    });
+    const [otpSent, setOtpSent] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({
+        email: "",
+        otp: "",
+        password: "",
+        passwordConfirmation: "",
+    });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'otp' ? value.replace(/\D/g, '').slice(0, 6) : value
-    }));
-  };
+    // Visibility toggles
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
 
-    try {
-      const response = await axios.post('/api/password/send-otp', {
-        email: formData.email
-      });
+        // Clear specific errors on type
+        if (name === "password_confirmation") {
+            setFieldErrors((prev) => ({ ...prev, passwordConfirmation: "" }));
+        } else {
+            setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+        }
+        setError("");
+        setSuccess("");
+    };
 
-      if (response.data.success) {
-        setSuccess('OTP sent! Check your email.');
-        setOtpSent(true);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleOtpChange = (newOtp) => {
+        setFormData((prev) => ({ ...prev, otp: newOtp }));
+        setFieldErrors((prev) => ({ ...prev, otp: "" }));
+        setError("");
+        setSuccess("");
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    const handleSendOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
+        setFieldErrors({
+            email: "",
+            otp: "",
+            password: "",
+            passwordConfirmation: "",
+        });
 
-    if (!otpSent) {
-      return handleSendOtp(e);
-    }
+        const emailErr = validateEmail(formData.email);
+        if (emailErr) {
+            setFieldErrors((prev) => ({ ...prev, email: emailErr }));
+            setLoading(false);
+            return;
+        }
 
-    try {
-      const response = await axios.post('/api/password/reset', formData);
+        try {
+            const response = await axios.post("/api/password/send-otp", {
+                email: formData.email,
+            });
 
-      if (response.data.success) {
-        setSuccess('Password reset successfully! Redirecting...');
-        setTimeout(() => {
-          window.location.href = '/admin/login';
-        }, 2000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reset password');
-    } finally {
-      setLoading(false);
-    }
-  };
+            if (response.data.success) {
+                setSuccess("Security code sent! Check your inbox.");
+                setOtpSent(true);
+            }
+        } catch (err) {
+            if (err.response?.data?.errors?.email) {
+                setFieldErrors((prev) => ({
+                    ...prev,
+                    email: err.response.data.errors.email[0],
+                }));
+            } else {
+                setError(err.response?.data?.message || "Failed to send OTP");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Reset Password
-        </h2>
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError("");
+        setFieldErrors({
+            email: "",
+            otp: "",
+            password: "",
+            passwordConfirmation: "",
+        });
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        if (!otpSent) {
+            return handleSendOtp(e);
+        }
 
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
-            {success}
-          </div>
-        )}
+        let hasValidationErrors = false;
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-semibold mb-2">
-              Email Address
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="admin@example.com"
-                required
-                disabled={loading || otpSent}
-              />
-              {!otpSent && (
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={loading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 whitespace-nowrap disabled:bg-gray-400"
-                >
-                  {loading ? '...' : 'Send OTP'}
-                </button>
-              )}
+        // 1. Validate OTP length
+        if (formData.otp.length < 6) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                otp: "Please enter the complete 6-digit security code.",
+            }));
+            hasValidationErrors = true;
+        }
+
+        // 2. Validate Password
+        const passwordErr = validateStrongPassword(formData.password);
+        if (passwordErr) {
+            setFieldErrors((prev) => ({ ...prev, password: passwordErr }));
+            hasValidationErrors = true;
+        }
+
+        // 3. Validate Confirm Password independently
+        if (!formData.password_confirmation) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                passwordConfirmation: "Please confirm your new password.",
+            }));
+            hasValidationErrors = true;
+        } else if (formData.password !== formData.password_confirmation) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                passwordConfirmation: "Passwords do not match.",
+            }));
+            hasValidationErrors = true;
+        }
+
+        if (hasValidationErrors) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const response = await axios.post("/api/password/reset", formData);
+
+            if (response.data.success) {
+                setSuccess("Password secured! Redirecting to login...");
+                setTimeout(() => {
+                    window.location.href = "/admin/login";
+                }, 2000);
+            }
+        } catch (err) {
+            const backendErrors = err.response?.data?.errors;
+            if (backendErrors) {
+                setFieldErrors((prev) => ({
+                    ...prev,
+                    email: backendErrors.email?.[0] || "",
+                    otp: backendErrors.otp?.[0] || "",
+                    password: backendErrors.password?.[0] || "",
+                }));
+                if (
+                    !backendErrors.email &&
+                    !backendErrors.otp &&
+                    !backendErrors.password
+                ) {
+                    setError(
+                        err.response?.data?.message ||
+                            "Failed to reset password.",
+                    );
+                }
+            } else {
+                setError(
+                    err.response?.data?.message || "Failed to reset password.",
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-white px-4 sm:px-6">
+            <div className="w-full max-w-2xl mx-auto [font-family:var(--font-neue)] flex flex-col gap-7">
+                {/* Heading */}
+                <div className="mb-2">
+                    <h1 className="text-3xl font-normal tracking-tight text-black mb-2">
+                        Recover Access
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                        Securely reset your administrator password.
+                    </p>
+                </div>
+
+                {/* Alerts */}
+                <AnimatePresence>
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <p className="text-[10px] tracking-wide text-red-500 uppercase border border-red-500/20 bg-red-500/5 p-3">
+                                {error}
+                            </p>
+                        </motion.div>
+                    )}
+                    {success && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <p className="text-[10px] tracking-wide text-emerald-600 uppercase border border-emerald-500/20 bg-emerald-500/5 p-3">
+                                {success}
+                            </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+                    {/* EMAIL */}
+                    <div className="relative group">
+                        <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                            <span
+                                className={
+                                    fieldErrors.email ? "text-red-500" : ""
+                                }
+                            >
+                                Admin Email Address
+                            </span>
+                            {!otpSent && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendOtp}
+                                    disabled={loading || !formData.email}
+                                    className="text-[10px] tracking-widest text-black uppercase hover:text-gray-600 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                >
+                                    {loading ? "..." : "Send Code"}
+                                </button>
+                            )}
+                        </label>
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="admin@example.com"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            disabled={loading || otpSent}
+                            className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                ${fieldErrors.email ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                            `}
+                        />
+                        <AnimatePresence mode="wait">
+                            {fieldErrors.email && (
+                                <motion.p
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                >
+                                    {fieldErrors.email}
+                                </motion.p>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <AnimatePresence>
+                        {otpSent && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="flex flex-col gap-7 overflow-hidden"
+                            >
+                                {/* SECURITY CODE BOXES */}
+                                <div className="relative group pt-2">
+                                    <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-3">
+                                        <span
+                                            className={
+                                                fieldErrors.otp
+                                                    ? "text-red-500"
+                                                    : ""
+                                            }
+                                        >
+                                            Security Code
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleSendOtp}
+                                            disabled={loading}
+                                            className="text-[10px] tracking-widest text-gray-400 hover:text-black transition-colors uppercase outline-none"
+                                        >
+                                            Resend Code
+                                        </button>
+                                    </label>
+                                    <OtpInput
+                                        value={formData.otp}
+                                        onChange={handleOtpChange}
+                                        disabled={loading}
+                                        hasError={!!fieldErrors.otp}
+                                    />
+                                    <AnimatePresence mode="wait">
+                                        {fieldErrors.otp && (
+                                            <motion.p
+                                                initial={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    height: "auto",
+                                                }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="text-[10px] tracking-wide text-red-500 mt-3 overflow-hidden"
+                                            >
+                                                {fieldErrors.otp}
+                                            </motion.p>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* NEW PASSWORD */}
+                                <div className="relative group">
+                                    <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                                        <span
+                                            className={
+                                                fieldErrors.password
+                                                    ? "text-red-500"
+                                                    : ""
+                                            }
+                                        >
+                                            New Password
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={
+                                                showPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            name="password"
+                                            placeholder="Minimum 8 characters"
+                                            value={formData.password}
+                                            onChange={handleInputChange}
+                                            disabled={loading}
+                                            className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                                ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                                            `}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowPassword(!showPassword)
+                                            }
+                                            className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none"
+                                        >
+                                            {showPassword ? (
+                                                <EyeOffIcon />
+                                            ) : (
+                                                <EyeIcon />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <AnimatePresence mode="wait">
+                                        {fieldErrors.password ? (
+                                            <motion.p
+                                                key="error"
+                                                initial={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    height: "auto",
+                                                }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                            >
+                                                {fieldErrors.password}
+                                            </motion.p>
+                                        ) : (
+                                            <motion.p
+                                                key="hint"
+                                                className="mt-2 text-[10px] text-gray-400"
+                                            >
+                                                {PASSWORD_HINT}
+                                            </motion.p>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* CONFIRM PASSWORD */}
+                                <div className="relative group">
+                                    <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
+                                        <span
+                                            className={
+                                                fieldErrors.passwordConfirmation
+                                                    ? "text-red-500"
+                                                    : ""
+                                            }
+                                        >
+                                            Confirm Password
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={
+                                                showConfirmPassword
+                                                    ? "text"
+                                                    : "password"
+                                            }
+                                            name="password_confirmation"
+                                            placeholder="Re-enter password"
+                                            value={
+                                                formData.password_confirmation
+                                            }
+                                            onChange={handleInputChange}
+                                            disabled={loading}
+                                            className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 disabled:text-gray-400
+                                                ${fieldErrors.passwordConfirmation ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                                            `}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setShowConfirmPassword(
+                                                    !showConfirmPassword,
+                                                )
+                                            }
+                                            className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none"
+                                        >
+                                            {showConfirmPassword ? (
+                                                <EyeOffIcon />
+                                            ) : (
+                                                <EyeIcon />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <AnimatePresence mode="wait">
+                                        {fieldErrors.passwordConfirmation && (
+                                            <motion.p
+                                                initial={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    height: "auto",
+                                                }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
+                                            >
+                                                {
+                                                    fieldErrors.passwordConfirmation
+                                                }
+                                            </motion.p>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* BUTTON */}
+                    {otpSent && (
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="mt-2 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            {loading ? "Processing..." : "Secure & Login"}
+                        </button>
+                    )}
+                </form>
+
+                <div className="text-center mt-4 [font-family:var(--font-neue)]">
+                    <Link
+                        to="/admin/login"
+                        className="text-[10px] tracking-widest text-gray-400 uppercase hover:text-black transition-colors"
+                    >
+                        Return to Login
+                    </Link>
+                </div>
             </div>
-          </div>
-
-          {otpSent && (
-            <>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-semibold mb-2">
-                  OTP Code
-                </label>
-                <input
-                  type="text"
-                  name="otp"
-                  value={formData.otp}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-center text-2xl tracking-widest"
-                  placeholder="000000"
-                  maxLength={6}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-semibold mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Minimum 8 characters"
-                  minLength={8}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-gray-700 text-sm font-semibold mb-2">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  name="password_confirmation"
-                  value={formData.password_confirmation}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Re-enter password"
-                  minLength={8}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {loading ? 'Resetting...' : 'Reset Password'}
-              </button>
-            </>
-          )}
-        </form>
-
-        <div className="mt-6 text-center">
-          <a href="/admin/login" className="text-blue-600 hover:text-blue-800 text-sm">
-            ← Back to Login
-          </a>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export { ForgotPassword, ForgotPasswordSinglePage };
+export default ForgotPassword;
+
+// ============================================================================
+// SVG Utility Icons
+// ============================================================================
+function EyeIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+        >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    );
+}
+
+function EyeOffIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+        >
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+    );
+}

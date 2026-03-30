@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion"; // <-- Added Framer Motion
+import { motion, AnimatePresence } from "framer-motion";
 import api from "../api/axios";
 import {
     validateEmail,
@@ -15,6 +15,7 @@ export default function AuthForm({ type = "signin" }) {
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
@@ -82,12 +83,12 @@ export default function AuthForm({ type = "signin" }) {
                     type="text"
                     inputMode="email"
                     placeholder="Enter your email"
+                    maxLength={50}
                     value={email}
                     onChange={(e) => {
                         setEmail(e.target.value);
                         setFieldErrors((prev) => ({ ...prev, email: "" }));
                     }}
-                    /* BALANCED PADDING: py-3 is cleaner than py-4 */
                     className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
         ${fieldErrors.email ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
       `}
@@ -121,24 +122,43 @@ export default function AuthForm({ type = "signin" }) {
                     <span>Password</span>
                     <Link
                         to="/admin/forgot-password"
-                        size="text-[10px]"
-                        className="text-gray-400 hover:text-black transition-colors"
+                        className="text-[10px] text-gray-400 hover:text-black transition-colors"
                     >
                         Forgot?
                     </Link>
                 </label>
-                <input
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => {
-                        setPassword(e.target.value);
-                        setFieldErrors((prev) => ({ ...prev, password: "" }));
-                    }}
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
-        ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-      `}
-                />
+
+                {/* Input Wrapper for positioning the eye icon */}
+                <div className="relative">
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        maxLength={64} // <-- Added reasonable password length limit
+                        value={password}
+                        onChange={(e) => {
+                            setPassword(e.target.value);
+                            setFieldErrors((prev) => ({
+                                ...prev,
+                                password: "",
+                            }));
+                        }}
+                        className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
+                            ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
+                        `}
+                    />
+
+                    {/* Toggle Password Visibility Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none cursor-pointer"
+                        aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                        }
+                    >
+                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                </div>
 
                 <AnimatePresence mode="wait">
                     {fieldErrors.password ? (
@@ -165,11 +185,45 @@ export default function AuthForm({ type = "signin" }) {
             {/* BUTTON */}
             <button
                 type="submit"
-                /* COMPACT STRENGTH: py-4 with bold tracking */
                 className="mt-6 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98]"
             >
                 Sign In
             </button>
         </form>
+    );
+}
+
+// Minimal SVG Icons
+function EyeIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+        >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    );
+}
+
+function EyeOffIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+        >
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
     );
 }
