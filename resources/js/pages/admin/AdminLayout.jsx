@@ -1,18 +1,30 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 /* ─────────────────────────────────────────
    ROOT LAYOUT
 ───────────────────────────────────────── */
 export default function AdminLayout() {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
     return (
         <div className="flex h-screen w-full bg-[#f7f7f8] font-sans overflow-hidden text-neutral-900">
-            <AdminSidebar />
+            {/* Mobile/Tablet Backdrop Overlay */}
+            <div
+                className={`fixed inset-0 z-20 bg-black/20 backdrop-blur-sm transition-opacity duration-500 lg:hidden ${
+                    sidebarOpen
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none"
+                }`}
+                onClick={() => setSidebarOpen(false)}
+            />
+
+            <AdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+
             <div className="flex flex-1 flex-col overflow-hidden relative">
-                <AdminTopbar />
+                <AdminTopbar onMenuClick={() => setSidebarOpen(true)} />
                 <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pt-0 md:pt-0 lg:pt-0">
-                    {/* Floating 'Bento' Style Content Area */}
-                    <div className="mx-auto h-full w-full max-w-7xl rounded-[2rem] bg-white p-6 md:p-10 shadow-[0_8px_40px_rgba(0,0,0,0.03)] ring-1 ring-neutral-200/50 transition-all">
+                    <div className="mx-auto h-full w-full transition-all">
                         <Outlet />
                     </div>
                 </main>
@@ -24,12 +36,19 @@ export default function AdminLayout() {
 /* ─────────────────────────────────────────
    SIDEBAR
 ───────────────────────────────────────── */
-function AdminSidebar() {
+function AdminSidebar({ isOpen, setIsOpen }) {
     const location = useLocation();
-    const [contentOpen, setContentOpen] = React.useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+    const [contentOpen, setContentOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const isActive = (to) => location.pathname === to;
+
+    // Helper to close sidebar on mobile when a link is clicked
+    const handleLinkClick = () => {
+        if (window.innerWidth < 1024) {
+            setIsOpen(false);
+        }
+    };
 
     const confirmLogout = () => {
         const token =
@@ -94,16 +113,20 @@ function AdminSidebar() {
         { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
     ];
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (location.pathname.startsWith("/admin/content")) {
             setContentOpen(true);
         }
     }, [location.pathname]);
 
     return (
-        <aside className="flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] shadow-2xl transition-all duration-500 z-20">
+        <aside
+            className={`fixed inset-y-0 left-0 z-30 flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:static lg:translate-x-0 ${
+                isOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+        >
             {/* Logo Area */}
-            <div className="px-8 py-10">
+            <div className="px-8 py-10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <img
                         src="/images/rmty-logo.jpg"
@@ -114,6 +137,13 @@ function AdminSidebar() {
                         RMTY<span></span>
                     </div>
                 </div>
+                {/* Mobile Close Button */}
+                <button
+                    onClick={() => setIsOpen(false)}
+                    className="lg:hidden text-white/50 hover:text-white transition-colors outline-none"
+                >
+                    <CloseIcon />
+                </button>
             </div>
 
             {/* Scrollable Nav */}
@@ -129,6 +159,7 @@ function AdminSidebar() {
                                 to={item.to}
                                 active={isActive(item.to)}
                                 icon={item.icon}
+                                onClick={handleLinkClick}
                             >
                                 {item.label}
                             </SidebarLink>
@@ -166,6 +197,7 @@ function AdminSidebar() {
                                 <Link
                                     key={item.to}
                                     to={item.to}
+                                    onClick={handleLinkClick}
                                     className={[
                                         "flex items-center gap-3 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300",
                                         isActive(item.to)
@@ -189,6 +221,7 @@ function AdminSidebar() {
                                 to={item.to}
                                 active={isActive(item.to)}
                                 icon={item.icon}
+                                onClick={handleLinkClick}
                             >
                                 {item.label}
                             </SidebarLink>
@@ -207,6 +240,7 @@ function AdminSidebar() {
                                 to={item.to}
                                 active={isActive(item.to)}
                                 icon={item.icon}
+                                onClick={handleLinkClick}
                             >
                                 {item.label}
                             </SidebarLink>
@@ -266,15 +300,15 @@ function AdminSidebar() {
 /* ─────────────────────────────────────────
    TOPBAR - Minimalist Path-focused Design
 ───────────────────────────────────────── */
-function AdminTopbar({ profile, onProfileUpdate }) {
+function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     const location = useLocation();
-    const [dropdownOpen, setDropdownOpen] = React.useState(false);
-    const [editModalOpen, setEditModalOpen] = React.useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
-    const [fetchedName, setFetchedName] = React.useState(null);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [fetchedName, setFetchedName] = useState(null);
     const dropdownRef = useRef(null);
 
-    // Dynamic path title: takes "/admin/content/projects" and returns "Projects"
+    // Dynamic path title
     const getPageTitle = () => {
         const pathSegments = location.pathname.split("/").filter(Boolean);
         const lastSegment =
@@ -282,7 +316,7 @@ function AdminTopbar({ profile, onProfileUpdate }) {
         return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
     };
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handler = (e) => {
             if (
                 dropdownRef.current &&
@@ -296,7 +330,7 @@ function AdminTopbar({ profile, onProfileUpdate }) {
     }, []);
 
     // Fetch user info for fallback
-    React.useEffect(() => {
+    useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
@@ -342,22 +376,35 @@ function AdminTopbar({ profile, onProfileUpdate }) {
 
     return (
         <>
-            <header className="h-[100px] w-full bg-transparent flex items-center z-10">
-                <div className="mx-auto flex w-full items-end justify-between px-8 md:px-12 pb-2">
-                    {/* Left: Dynamic Page Path/Title */}
-                    <div className="flex flex-col">
-                        <span className="text-[11px] font-bold tracking-[0.2em] text-neutral-400 uppercase mb-1">
-                            Current View
-                        </span>
-                        <h1 className="text-3xl font-black tracking-tight text-neutral-900">
-                            {getPageTitle()}
-                        </h1>
+            <header className="h-[90px] md:h-[100px] w-full bg-transparent flex items-center z-10 shrink-0">
+                {/* 
+                    MATCHING PADDING: 
+                    px-4 md:px-6 lg:px-8 is used here to perfectly align with 
+                    the <main> section's padding below.
+                */}
+                <div className="mx-auto flex w-full items-end justify-between px-4 md:px-6 lg:px-8 pb-2">
+                    {/* Left: Hamburger (Mobile) + Dynamic Page Path/Title */}
+                    <div className="flex items-end gap-3 md:gap-4">
+                        <button
+                            onClick={onMenuClick}
+                            className="lg:hidden pb-1 pr-2 text-neutral-900 hover:text-neutral-600 transition-colors outline-none"
+                        >
+                            <MenuIcon />
+                        </button>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-neutral-400 uppercase mb-1">
+                                Current View
+                            </span>
+                            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900">
+                                {getPageTitle()}
+                            </h1>
+                        </div>
                     </div>
 
                     {/* Right: Actions & Profile */}
-                    <div className="flex items-center gap-8 mb-2">
+                    <div className="flex items-center gap-4 md:gap-8 mb-1 md:mb-2">
                         {/* Minimalist Search Icon Only */}
-                        <button className="text-neutral-400 hover:text-black transition-colors duration-200">
+                        <button className="hidden md:block text-neutral-400 hover:text-black transition-colors duration-200">
                             <SleekSearchIcon />
                         </button>
 
@@ -376,21 +423,21 @@ function AdminTopbar({ profile, onProfileUpdate }) {
                                 <img
                                     src={avatarSrc}
                                     alt="User"
-                                    className="h-9 w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
+                                    className="h-8 w-8 md:h-9 md:w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
                                 />
-                                <div className="hidden text-left md:block">
+                                <div className="hidden text-left lg:block">
                                     <p className="text-sm font-bold text-neutral-900 leading-none">
                                         {displayName}
                                     </p>
                                 </div>
-                                <div className="text-neutral-300 transition-transform group-hover:translate-y-0.5">
+                                <div className="hidden lg:block text-neutral-300 transition-transform group-hover:translate-y-0.5">
                                     <ChevronDown />
                                 </div>
                             </button>
 
                             {/* Crisp Dropdown */}
                             <div
-                                className={`absolute right-0 top-[calc(100%+12px)] z-50 w-[220px] origin-top-right rounded-2xl border border-neutral-100 bg-white p-1.5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                                className={`absolute right-0 top-[calc(100%+12px)] z-50 w-[200px] md:w-[220px] origin-top-right rounded-2xl border border-neutral-100 bg-white p-1.5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
                                     dropdownOpen
                                         ? "translate-y-0 opacity-100 scale-100"
                                         : "translate-y-2 opacity-0 scale-95 pointer-events-none"
@@ -420,7 +467,7 @@ function AdminTopbar({ profile, onProfileUpdate }) {
                 </div>
             </header>
 
-            {/* Modals remain the same but styled to match the new crispness */}
+            {/* Modals */}
             {editModalOpen && (
                 <EditProfileModal
                     profile={profile}
@@ -462,62 +509,21 @@ function AdminTopbar({ profile, onProfileUpdate }) {
     );
 }
 
-// Icons with ultra-thin strokes for the premium look
-function SleekSearchIcon() {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-        >
-            <circle cx="11" cy="11" r="7" />
-            <path
-                d="M21 21l-4.35-4.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
-function SleekBellIcon() {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-        >
-            <path
-                d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" strokeLinecap="round" />
-        </svg>
-    );
-}
-
 /* ─────────────────────────────────────────
    EDIT PROFILE MODAL
 ───────────────────────────────────────── */
 function EditProfileModal({ profile, onClose, onSaved }) {
     const fileInputRef = useRef(null);
-    const [form, setForm] = React.useState({
+    const [form, setForm] = useState({
         first_name: profile?.first_name ?? "",
         last_name: profile?.last_name ?? "",
         email: profile?.email ?? "",
         profile_photo: null,
     });
-    const [preview, setPreview] = React.useState(
-        profile?.profile_photo_url ?? null,
-    );
-    const [saving, setSaving] = React.useState(false);
-    const [error, setError] = React.useState(null);
-    const [success, setSuccess] = React.useState(false);
+    const [preview, setPreview] = useState(profile?.profile_photo_url ?? null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+    const [success, setSuccess] = useState(false);
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0];
@@ -742,10 +748,11 @@ function EditProfileModal({ profile, onClose, onSaved }) {
 /* ─────────────────────────────────────────
    COMPONENTS & CUSTOM MODERN ICONS
 ───────────────────────────────────────── */
-function SidebarLink({ to, active, icon, children }) {
+function SidebarLink({ to, active, icon, children, onClick }) {
     return (
         <Link
             to={to}
+            onClick={onClick}
             className={[
                 "group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300",
                 active
@@ -758,6 +765,42 @@ function SidebarLink({ to, active, icon, children }) {
                 {children}
             </div>
         </Link>
+    );
+}
+
+function MenuIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+            />
+        </svg>
+    );
+}
+
+function CloseIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+            />
+        </svg>
     );
 }
 
@@ -1039,66 +1082,39 @@ function UserIcon() {
         </svg>
     );
 }
-function SearchIcon() {
+function SleekSearchIcon() {
     return (
         <svg
             viewBox="0 0 24 24"
-            className="h-4 w-4"
+            className="h-6 w-6"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
         >
-            <path
-                d="M21 21l-4.3-4.3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
             <circle cx="11" cy="11" r="7" />
-        </svg>
-    );
-}
-function BellIcon() {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-        >
-            <path d="M15 17H9" strokeLinecap="round" strokeLinejoin="round" />
             <path
-                d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7Z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M13.7 21a2 2 0 01-3.4 0"
+                d="M21 21l-4.35-4.35"
                 strokeLinecap="round"
                 strokeLinejoin="round"
             />
         </svg>
     );
 }
-function PencilIcon() {
+function SleekBellIcon() {
     return (
         <svg
             viewBox="0 0 24 24"
-            className="h-4 w-4"
+            className="h-6 w-6"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
         >
             <path
-                d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
+                d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
             />
-            <path
-                d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" strokeLinecap="round" />
         </svg>
     );
 }
