@@ -34,7 +34,9 @@ export default function ProjectDetails() {
     const [nextProject, setNextProject] = useState(null);
     const [moreProjects, setMoreProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [carouselIndex, setCarouselIndex] = useState(0);
 
+    const pageBg = "#f5f5f5";
     const bgColor = "bg-[#f5f5f5]";
 
     useEffect(() => {
@@ -59,7 +61,10 @@ export default function ProjectDetails() {
                     location: data.location,
                     description: data.description,
                     image: data.image,
+                    gallery_images: data.gallery_images ?? [],
                 });
+
+                setCarouselIndex(0);
 
                 if (index !== -1) {
                     const prev =
@@ -93,6 +98,25 @@ export default function ProjectDetails() {
 
     if (loading || !project) return null;
 
+    const slides =
+        project.gallery_images?.length > 0
+            ? project.gallery_images
+            : project.image
+              ? [`/storage/${project.image}`]
+              : [];
+
+    const prevSlide = () =>
+        setCarouselIndex((i) => (i - 1 + slides.length) % slides.length);
+    const nextSlide = () => setCarouselIndex((i) => (i + 1) % slides.length);
+
+    const getSlidePos = (slideIdx) => {
+        const total = slides.length;
+        let pos = slideIdx - carouselIndex;
+        if (pos < -Math.floor(total / 2)) pos += total;
+        if (pos > Math.floor(total / 2)) pos -= total;
+        return pos;
+    };
+
     return (
         <main
             className={`w-full ${bgColor} min-h-screen pt-32 pb-32 [font-family:var(--font-neue)] text-black overflow-x-hidden`}
@@ -105,6 +129,7 @@ export default function ProjectDetails() {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                 >
+                    {/* --- TOP SECTION --- */}
                     <div className="max-w-screen-2xl mx-auto px-6">
                         <div className="w-full flex justify-end mb-8">
                             <Link
@@ -141,51 +166,145 @@ export default function ProjectDetails() {
                         </div>
                     </div>
 
-                    <div className="w-full mb-32 overflow-hidden">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[400px] md:h-[400px] lg:h-[500px]">
-                            <Link
-                                to={`/projects/${prevProject?.id}`}
-                                className="hidden md:block relative w-full h-full group bg-[#d9d9d9]"
+                    {/* --- CAROUSEL SECTION --- */}
+                    {slides.length > 0 && (
+                        <div className="w-full mb-32">
+                            {/* CAROUSEL TRACK */}
+                            <div
+                                className="relative overflow-hidden"
+                                style={{ height: "500px", background: pageBg }}
                             >
-                                {prevProject?.image && (
-                                    <img
-                                        src={`/storage/${prevProject.image}`}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                    />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#f5f5f5] via-transparent to-transparent opacity-90 z-10" />
-                                <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform group-hover:-translate-x-2">
-                                    <div className="border-2 border-black w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm">
-                                        <svg
-                                            className="w-6 h-6"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
-                                            />
-                                        </svg>
-                                    </div>
-                                </div>
-                            </Link>
-
-                            <div className="relative w-full h-full bg-[#d9d9d9] overflow-hidden">
-                                <img
-                                    src={`/storage/${project.image}`}
-                                    className="w-full h-full object-cover"
+                                {/* FADE — LEFT */}
+                                <div
+                                    className="absolute left-0 top-0 h-full z-20 pointer-events-none"
+                                    style={{
+                                        width: "18%",
+                                        background: `linear-gradient(to right, ${pageBg} 0%, transparent 100%)`,
+                                    }}
+                                />
+                                {/* FADE — RIGHT */}
+                                <div
+                                    className="absolute right-0 top-0 h-full z-20 pointer-events-none"
+                                    style={{
+                                        width: "18%",
+                                        background: `linear-gradient(to left, ${pageBg} 0%, transparent 100%)`,
+                                    }}
                                 />
 
+                                {/* LEFT ARROW */}
+                                <button
+                                    onClick={prevSlide}
+                                    className="absolute left-8 top-1/2 -translate-y-1/2 z-30 border-2 border-black w-12 h-12 flex items-center justify-center bg-white/60 backdrop-blur-sm hover:bg-white transition-colors"
+                                >
+                                    <svg
+                                        className="w-6 h-6 text-black"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
+                                        />
+                                    </svg>
+                                </button>
+
+                                {/* RIGHT ARROW */}
+                                <button
+                                    onClick={nextSlide}
+                                    className="absolute right-8 top-1/2 -translate-y-1/2 z-30 border-2 border-black w-12 h-12 flex items-center justify-center bg-white/60 backdrop-blur-sm hover:bg-white transition-colors"
+                                >
+                                    <svg
+                                        className="w-6 h-6 text-black"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                                        />
+                                    </svg>
+                                </button>
+
+                                {/* SLIDES */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    {slides.map((src, slideIdx) => {
+                                        const pos = getSlidePos(slideIdx);
+                                        const isCenter = pos === 0;
+                                        const isLeft = pos === -1;
+                                        const isRight = pos === 1;
+                                        const isHidden = Math.abs(pos) > 1;
+
+                                        const translateX = pos * 62;
+                                        const scale = isCenter ? 1 : 0.72;
+                                        const opacity = isCenter
+                                            ? 1
+                                            : isLeft || isRight
+                                              ? 0.45
+                                              : 0;
+                                        const zIndex = isCenter
+                                            ? 10
+                                            : isLeft || isRight
+                                              ? 5
+                                              : 0;
+
+                                        return (
+                                            <motion.div
+                                                key={slideIdx}
+                                                onClick={
+                                                    isLeft
+                                                        ? prevSlide
+                                                        : isRight
+                                                          ? nextSlide
+                                                          : undefined
+                                                }
+                                                animate={{
+                                                    x: `${translateX}%`,
+                                                    scale,
+                                                    opacity,
+                                                    zIndex,
+                                                }}
+                                                transition={{
+                                                    duration: 0.5,
+                                                    ease: [0.22, 1, 0.36, 1],
+                                                }}
+                                                className="absolute"
+                                                style={{
+                                                    width: "52%",
+                                                    height: "85%",
+                                                    cursor:
+                                                        isLeft || isRight
+                                                            ? "pointer"
+                                                            : "default",
+                                                    pointerEvents: isHidden
+                                                        ? "none"
+                                                        : "auto",
+                                                }}
+                                            >
+                                                <img
+                                                    src={src}
+                                                    alt={`Slide ${slideIdx + 1}`}
+                                                    className="w-full h-full object-cover"
+                                                    draggable={false}
+                                                />
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* MOBILE ARROWS */}
                                 <div className="absolute inset-0 flex justify-between items-center px-4 md:hidden z-30 pointer-events-none">
-                                    <Link
-                                        to={`/projects/${prevProject?.id}`}
-                                        className="pointer-events-auto border-2 border-black w-12 h-12 flex items-center justify-center bg-white/40 backdrop-blur-md"
+                                    <button
+                                        onClick={prevSlide}
+                                        className="pointer-events-auto border-2 border-black w-12 h-12 flex items-center justify-center bg-white/70 backdrop-blur-md"
                                     >
                                         <svg
-                                            className="w-5 h-5"
+                                            className="w-5 h-5 text-black"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -197,13 +316,13 @@ export default function ProjectDetails() {
                                                 d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
                                             />
                                         </svg>
-                                    </Link>
-                                    <Link
-                                        to={`/projects/${nextProject?.id}`}
-                                        className="pointer-events-auto border-2 border-black w-12 h-12 flex items-center justify-center bg-white/40 backdrop-blur-md"
+                                    </button>
+                                    <button
+                                        onClick={nextSlide}
+                                        className="pointer-events-auto border-2 border-black w-12 h-12 flex items-center justify-center bg-white/70 backdrop-blur-md"
                                     >
                                         <svg
-                                            className="w-5 h-5"
+                                            className="w-5 h-5 text-black"
                                             fill="none"
                                             stroke="currentColor"
                                             viewBox="0 0 24 24"
@@ -215,42 +334,45 @@ export default function ProjectDetails() {
                                                 d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
                                             />
                                         </svg>
-                                    </Link>
+                                    </button>
                                 </div>
                             </div>
 
-                            <Link
-                                to={`/projects/${nextProject?.id}`}
-                                className="hidden md:block relative w-full h-full group bg-[#d9d9d9]"
-                            >
-                                {nextProject?.image && (
-                                    <img
-                                        src={`/storage/${nextProject.image}`}
-                                        className="absolute inset-0 w-full h-full object-cover"
-                                    />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-l from-[#f5f5f5] via-transparent to-transparent opacity-90 z-10" />
-                                <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform group-hover:translate-x-2">
-                                    <div className="border-2 border-black w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm">
-                                        <svg
-                                            className="w-6 h-6"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                            {/* PICTURE COUNT + DOTS — outside overflow-hidden so they're always visible */}
+                            {slides.length > 1 && (
+                                <div className="flex flex-col items-center gap-2 mt-5">
+                                    <span className="text-xs font-semibold text-black/50 tracking-widest">
+                                        {carouselIndex + 1} / {slides.length}
+                                    </span>
+                                    <div className="flex gap-2 items-center">
+                                        {slides.map((_, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() =>
+                                                    setCarouselIndex(i)
+                                                }
+                                                className="transition-all duration-300"
+                                                style={{
+                                                    width:
+                                                        i === carouselIndex
+                                                            ? "24px"
+                                                            : "8px",
+                                                    height: "8px",
+                                                    borderRadius: "4px",
+                                                    background:
+                                                        i === carouselIndex
+                                                            ? "black"
+                                                            : "rgba(0,0,0,0.2)",
+                                                }}
                                             />
-                                        </svg>
+                                        ))}
                                     </div>
                                 </div>
-                            </Link>
+                            )}
                         </div>
-                    </div>
+                    )}
 
+                    {/* --- MORE PROJECTS --- */}
                     <div className="max-w-screen-2xl mx-auto px-6">
                         <hr className="border-black mb-12 opacity-20" />
                         <h2 className="text-2xl font-bold uppercase tracking-tight mb-8">

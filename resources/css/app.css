@@ -1,18 +1,20 @@
 /* ✅ Load the fonts you placed in /public/fonts */
 @font-face {
-  font-family: "Neue Haas Grotesk";
-  src: url("/fonts/NeueHaasGrotText-55Roman-Trial.otf") format("opentype");
-  font-weight: 400; /* Regular */
-  font-style: normal;
-  font-display: swap;
+    font-family: "Neue Haas Grotesk";
+    src: url("../../public/fonts/NeueHaasGrotText-55Roman-Trial.otf")
+        format("opentype");
+    font-weight: 400; /* Regular */
+    font-style: normal;
+    font-display: swap;
 }
 
 @font-face {
-  font-family: "Neue Haas Grotesk";
-  src: url("/fonts/NeueHaasGrotText-65Medium-Trial.otf") format("opentype");
-  font-weight: 400; /* Medium */
-  font-style: normal;
-  font-display: swap;
+    font-family: "Neue Haas Grotesk";
+    src: url("../../public/fonts/NeueHaasGrotText-65Medium-Trial.otf")
+        format("opentype");
+    font-weight: 400; /* Medium */
+    font-style: normal;
+    font-display: swap;
 }
 
 @import "tailwindcss";
@@ -26,21 +28,22 @@
 @source "../**/*.tsx";
 
 @theme {
-  --font-neue: "Neue Haas Grotesk", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, Arial, sans-serif;
+    --font-neue:
+        "Neue Haas Grotesk", ui-sans-serif, system-ui, -apple-system,
+        "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 /* ✅ MAKE IT GLOBAL (this is the missing part) */
 html,
 body {
-  font-family: var(--font-neue);
+    font-family: var(--font-neue);
 }
 
 /* --- CUSTOM SCROLLBAR --- */
 ::-webkit-scrollbar {
-  width: 8px; 
+    width: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(51, 51, 51); 
+    background: rgb(51, 51, 51);
 }

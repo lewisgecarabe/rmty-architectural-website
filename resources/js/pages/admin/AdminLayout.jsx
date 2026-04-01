@@ -1,5 +1,10 @@
 import React, { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, Outlet, useLocation } from "react-router-dom";
+
+const springTransition = { type: "spring", damping: 25, stiffness: 300 };
+const smoothEase = [0.22, 1, 0.36, 1];
 
 /* ─────────────────────────────────────────
    ROOT LAYOUT
@@ -11,7 +16,7 @@ export default function AdminLayout() {
         <div className="flex h-screen w-full bg-[#f7f7f8] font-sans overflow-hidden text-neutral-900">
             {/* Mobile/Tablet Backdrop Overlay */}
             <div
-                className={`fixed inset-0 z-20 bg-black/20 backdrop-blur-sm transition-opacity duration-500 lg:hidden ${
+                className={`fixed inset-0 z-20 bg-black/20 transition-opacity duration-500 lg:hidden cursor-pointer ${
                     sidebarOpen
                         ? "opacity-100 pointer-events-auto"
                         : "opacity-0 pointer-events-none"
@@ -43,7 +48,6 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 
     const isActive = (to) => location.pathname === to;
 
-    // Helper to close sidebar on mobile when a link is clicked
     const handleLinkClick = () => {
         if (window.innerWidth < 1024) {
             setIsOpen(false);
@@ -99,10 +103,6 @@ function AdminSidebar({ isOpen, setIsOpen }) {
         },
     ];
 
-    const secondNav = [
-        { label: "Analytics", to: "/admin/analytics", icon: <ChartIcon /> },
-    ];
-
     const systemNav = [
         {
             label: "Platform Settings",
@@ -121,7 +121,7 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-30 flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:static lg:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-30 flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:static lg:translate-x-0 ${
                 isOpen ? "translate-x-0" : "-translate-x-full"
             }`}
         >
@@ -140,9 +140,9 @@ function AdminSidebar({ isOpen, setIsOpen }) {
                 {/* Mobile Close Button */}
                 <button
                     onClick={() => setIsOpen(false)}
-                    className="lg:hidden text-white/50 hover:text-white transition-colors outline-none"
+                    className="lg:hidden text-white/50 hover:text-white transition-colors outline-none cursor-pointer"
                 >
-                    <CloseIcon />
+                    <CloseIcon className="w-6 h-6" />
                 </button>
             </div>
 
@@ -180,8 +180,10 @@ function AdminSidebar({ isOpen, setIsOpen }) {
                             <ContentIcon />
                             Manage Content
                         </span>
-                        <span className="text-white/30 transition-transform duration-300">
-                            {contentOpen ? <ChevronDown /> : <ChevronRight />}
+                        <span
+                            className={`text-white/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] flex items-center justify-center origin-center ${contentOpen ? "rotate-90" : "rotate-0"}`}
+                        >
+                            <ChevronRight />
                         </span>
                     </button>
 
@@ -199,7 +201,7 @@ function AdminSidebar({ isOpen, setIsOpen }) {
                                     to={item.to}
                                     onClick={handleLinkClick}
                                     className={[
-                                        "flex items-center gap-3 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300",
+                                        "flex items-center gap-3 rounded-lg px-4 py-2 text-[13px] font-medium transition-all duration-300 cursor-pointer",
                                         isActive(item.to)
                                             ? "bg-white/10 text-white"
                                             : "text-[#666666] hover:bg-white/5 hover:text-white hover:translate-x-1",
@@ -212,20 +214,6 @@ function AdminSidebar({ isOpen, setIsOpen }) {
                                 </Link>
                             ))}
                         </div>
-                    </div>
-
-                    <div className="mt-2 space-y-1">
-                        {secondNav.map((item) => (
-                            <SidebarLink
-                                key={item.to}
-                                to={item.to}
-                                active={isActive(item.to)}
-                                icon={item.icon}
-                                onClick={handleLinkClick}
-                            >
-                                {item.label}
-                            </SidebarLink>
-                        ))}
                     </div>
                 </div>
 
@@ -248,7 +236,7 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 
                         <button
                             type="button"
-                            className="group flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-[#888888] transition-all duration-300 hover:bg-red-500/10 hover:text-red-400"
+                            className="group flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-[#888888] transition-all duration-300 hover:bg-red-500/10 hover:text-red-400 cursor-pointer"
                             onClick={() => setShowLogoutConfirm(true)}
                         >
                             <span className="inline-flex items-center gap-4 transition-transform duration-300 group-hover:translate-x-1">
@@ -260,38 +248,60 @@ function AdminSidebar({ isOpen, setIsOpen }) {
                 </div>
             </div>
 
-            {/* Logout Confirm Modal */}
-            {showLogoutConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 transition-opacity">
-                    <div className="w-full max-w-sm scale-100 rounded-3xl border border-neutral-200 bg-white p-8 shadow-2xl transition-transform">
-                        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
-                            <LogoutIcon />
-                        </div>
-                        <h3 className="text-xl font-bold text-neutral-900">
-                            Ready to leave?
-                        </h3>
-                        <p className="mt-2 text-sm text-neutral-500">
-                            You are about to log out of the admin panel. You
-                            will need your credentials to return.
-                        </p>
-                        <div className="mt-8 flex gap-3">
-                            <button
-                                type="button"
+            {createPortal(
+                <AnimatePresence>
+                    {showLogoutConfirm && (
+                        <motion.div
+                            key="modal-logout-sidebar"
+                            className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <div
+                                className="absolute inset-0 bg-black/40 cursor-pointer"
                                 onClick={() => setShowLogoutConfirm(false)}
-                                className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                transition={springTransition}
+                                className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-200 text-center pointer-events-auto"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmLogout}
-                                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-700 hover:shadow-red-600/40"
-                            >
-                                Logout
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                                <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+                                    <LogoutIcon className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-black text-neutral-900 mb-2">
+                                    Sign Out?
+                                </h3>
+                                <p className="text-sm font-medium text-neutral-500 mb-8">
+                                    You are about to log out of the admin panel.
+                                    You will need your credentials to return.
+                                </p>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={confirmLogout}
+                                        className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 cursor-pointer"
+                                    >
+                                        Sign Out
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowLogoutConfirm(false)
+                                        }
+                                        className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer border border-neutral-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body,
             )}
         </aside>
     );
@@ -303,12 +313,18 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     const location = useLocation();
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [notifOpen, setNotifOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-    const [fetchedName, setFetchedName] = useState(null);
-    const dropdownRef = useRef(null);
 
-    // Dynamic path title
+    const [fetchedUser, setFetchedUser] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchToast, setSearchToast] = useState(false);
+    const [imageHash, setImageHash] = useState(Date.now());
+
+    const dropdownRef = useRef(null);
+    const notifRef = useRef(null);
+
     const getPageTitle = () => {
         const pathSegments = location.pathname.split("/").filter(Boolean);
         const lastSegment =
@@ -324,12 +340,14 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             ) {
                 setDropdownOpen(false);
             }
+            if (notifRef.current && !notifRef.current.contains(e.target)) {
+                setNotifOpen(false);
+            }
         };
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
 
-    // Fetch user info for fallback
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -343,20 +361,16 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                 });
                 if (res.ok && !cancelled) {
                     const json = await res.json();
-                    const name =
-                        json?.data?.first_name ??
-                        json?.data?.name?.split?.(" ")?.[0] ??
-                        null;
-                    setFetchedName(name);
+                    setFetchedUser(json?.data || null);
                 }
             } catch {
-                if (!cancelled) setFetchedName(null);
+                if (!cancelled) setFetchedUser(null);
             }
         })();
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [imageHash]);
 
     const confirmLogout = () => {
         localStorage.removeItem("admin_token");
@@ -369,25 +383,32 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
         window.location.href = "/admin/login";
     };
 
-    const displayName = profile?.first_name || fetchedName || "Admin";
-    const avatarSrc =
-        profile?.profile_photo_url ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0A0A0A&color=ffffff&bold=true`;
+    const handleSearchSubmit = (e) => {
+        if (e.key === "Enter" && searchQuery.trim()) {
+            setSearchToast(true);
+            setSearchQuery("");
+            e.target.blur();
+            setTimeout(() => setSearchToast(false), 3000);
+        }
+    };
+
+    const activeUser = profile || fetchedUser;
+    const displayName =
+        activeUser?.first_name ||
+        activeUser?.name?.split?.(" ")?.[0] ||
+        "Admin";
+    const initials = String(displayName).substring(0, 2).toUpperCase();
+    const displayImage = activeUser?.profile_photo_url || null;
 
     return (
         <>
-            <header className="h-[90px] md:h-[100px] w-full bg-transparent flex items-center z-10 shrink-0">
-                {/* 
-                    MATCHING PADDING: 
-                    px-4 md:px-6 lg:px-8 is used here to perfectly align with 
-                    the <main> section's padding below.
-                */}
+            <header className="h-[90px] md:h-[100px] w-full bg-transparent flex items-center z-10 shrink-0 [font-family:var(--font-neue)]">
                 <div className="mx-auto flex w-full items-end justify-between px-4 md:px-6 lg:px-8 pb-2">
                     {/* Left: Hamburger (Mobile) + Dynamic Page Path/Title */}
                     <div className="flex items-end gap-3 md:gap-4">
                         <button
                             onClick={onMenuClick}
-                            className="lg:hidden pb-1 pr-2 text-neutral-900 hover:text-neutral-600 transition-colors outline-none"
+                            className="lg:hidden pb-1 pr-2 text-neutral-900 hover:text-neutral-600 transition-colors outline-none cursor-pointer"
                         >
                             <MenuIcon />
                         </button>
@@ -403,107 +424,253 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 
                     {/* Right: Actions & Profile */}
                     <div className="flex items-center gap-4 md:gap-8 mb-1 md:mb-2">
-                        {/* Minimalist Search Icon Only */}
-                        <button className="hidden md:block text-neutral-400 hover:text-black transition-colors duration-200">
-                            <SleekSearchIcon />
-                        </button>
+                        {/* Functional Sleek Search Bar */}
+                        <div className="hidden md:flex relative group items-center">
+                            <SleekSearchIcon className="absolute left-3 w-4 h-4 text-neutral-400 group-focus-within:text-neutral-900 transition-colors cursor-pointer" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={handleSearchSubmit}
+                                placeholder="Search..."
+                                className="w-48 pl-9 pr-4 py-2 bg-transparent border border-neutral-300 rounded-full text-sm font-medium outline-none focus:border-neutral-900 transition-all placeholder-neutral-400"
+                            />
+                        </div>
 
-                        {/* Minimalist Bell Icon Only */}
-                        <button className="relative text-neutral-400 hover:text-black transition-colors duration-200">
-                            <SleekBellIcon />
-                            <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-[#f7f7f8]"></span>
-                        </button>
+                        {/* Notifications */}
+                        <div className="relative" ref={notifRef}>
+                            <button
+                                onClick={() => {
+                                    setNotifOpen(!notifOpen);
+                                    setDropdownOpen(false);
+                                }}
+                                className="relative text-neutral-400 hover:text-black transition-colors duration-200 outline-none cursor-pointer"
+                            >
+                                <SleekBellIcon />
+                                <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                            </button>
+                            <AnimatePresence>
+                                {notifOpen && (
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
+                                        transition={{
+                                            duration: 0.2,
+                                            ease: smoothEase,
+                                        }}
+                                        className="absolute right-0 top-[calc(100%+12px)] w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
+                                    >
+                                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-100">
+                                            <span className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                                Notifications
+                                            </span>
+                                            <button
+                                                onClick={() =>
+                                                    setNotifOpen(false)
+                                                }
+                                                className="text-neutral-400 hover:text-neutral-900 cursor-pointer outline-none"
+                                            >
+                                                <CloseIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                                            <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
+                                            <p className="text-sm font-medium text-neutral-500">
+                                                You're all caught up!
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
 
                         {/* Profile Block */}
                         <div className="relative" ref={dropdownRef}>
                             <button
-                                onClick={() => setDropdownOpen((v) => !v)}
-                                className="flex items-center gap-3 group outline-none"
+                                onClick={() => {
+                                    setDropdownOpen(!dropdownOpen);
+                                    setNotifOpen(false);
+                                }}
+                                className="flex items-center gap-3 group outline-none cursor-pointer"
                             >
-                                <img
-                                    src={avatarSrc}
-                                    alt="User"
-                                    className="h-8 w-8 md:h-9 md:w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
-                                />
+                                {displayImage ? (
+                                    <img
+                                        src={`${displayImage}?h=${imageHash}`} // Cache buster ensures it updates instantly
+                                        alt="User"
+                                        className="h-8 w-8 md:h-9 md:w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
+                                    />
+                                ) : (
+                                    <div className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-neutral-200 bg-white flex items-center justify-center transition-transform group-hover:scale-105">
+                                        <span className="text-[11px] font-black text-neutral-900 tracking-widest">
+                                            {initials}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="hidden text-left lg:block">
                                     <p className="text-sm font-bold text-neutral-900 leading-none">
                                         {displayName}
                                     </p>
                                 </div>
-                                <div className="hidden lg:block text-neutral-300 transition-transform group-hover:translate-y-0.5">
+                                <div className="hidden lg:block text-neutral-400 transition-transform group-hover:translate-y-0.5 group-hover:text-neutral-900">
                                     <ChevronDown />
                                 </div>
                             </button>
 
-                            {/* Crisp Dropdown */}
-                            <div
-                                className={`absolute right-0 top-[calc(100%+12px)] z-50 w-[200px] md:w-[220px] origin-top-right rounded-2xl border border-neutral-100 bg-white p-1.5 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-                                    dropdownOpen
-                                        ? "translate-y-0 opacity-100 scale-100"
-                                        : "translate-y-2 opacity-0 scale-95 pointer-events-none"
-                                }`}
-                            >
-                                <button
-                                    onClick={() => {
-                                        setDropdownOpen(false);
-                                        setEditModalOpen(true);
-                                    }}
-                                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-neutral-600 hover:bg-neutral-50 hover:text-black transition-colors"
-                                >
-                                    Edit Profile
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setDropdownOpen(false);
-                                        setShowLogoutConfirm(true);
-                                    }}
-                                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-red-500 hover:bg-red-50 transition-colors"
-                                >
-                                    Logout
-                                </button>
-                            </div>
+                            {/* Dropdown Menu */}
+                            <AnimatePresence>
+                                {dropdownOpen && (
+                                    <motion.div
+                                        initial={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
+                                        transition={{
+                                            duration: 0.2,
+                                            ease: smoothEase,
+                                        }}
+                                        className="absolute right-0 top-[calc(100%+12px)] z-50 w-[200px] md:w-[220px] origin-top-right rounded-2xl border border-neutral-200 bg-white p-1.5 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                                    >
+                                        <button
+                                            onClick={() => {
+                                                setDropdownOpen(false);
+                                                setEditModalOpen(true);
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-neutral-600 hover:bg-neutral-50 hover:text-black transition-colors cursor-pointer"
+                                        >
+                                            Edit Profile
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setDropdownOpen(false);
+                                                setShowLogoutConfirm(true);
+                                            }}
+                                            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-bold text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                        >
+                                            Logout
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
                 </div>
             </header>
 
-            {/* Modals */}
-            {editModalOpen && (
-                <EditProfileModal
-                    profile={profile}
-                    onClose={() => setEditModalOpen(false)}
-                    onSaved={(updated) => {
-                        if (onProfileUpdate) onProfileUpdate(updated);
-                        setEditModalOpen(false);
-                    }}
-                />
+            {/* Global Search Feedback Toast */}
+            {createPortal(
+                <AnimatePresence>
+                    {searchToast && (
+                        <motion.div
+                            key="toast-alert"
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                            transition={springTransition}
+                            className="fixed bottom-10 right-10 z-[110] pointer-events-none [font-family:var(--font-neue)]"
+                        >
+                            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border border-neutral-200 bg-white text-neutral-900">
+                                <SleekSearchIcon className="w-4 h-4 text-neutral-400" />
+                                <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5">
+                                    Global search coming soon
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body,
             )}
 
-            {showLogoutConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-[320px] rounded-[2.5rem] bg-white p-8 shadow-2xl text-center">
-                        <h3 className="text-xl font-black text-neutral-900">
-                            Sign Out
-                        </h3>
-                        <p className="mt-2 text-sm text-neutral-500 font-medium">
-                            End your session securely?
-                        </p>
-                        <div className="mt-8 flex flex-col gap-2">
-                            <button
-                                onClick={confirmLogout}
-                                className="w-full rounded-full bg-black py-4 text-sm font-bold text-white hover:bg-neutral-800 transition-all"
-                            >
-                                Sign Out
-                            </button>
-                            <button
+            {/* Edit Profile Modal Wrapped in Portal */}
+            {createPortal(
+                <AnimatePresence>
+                    {editModalOpen && (
+                        <EditProfileModal
+                            key="edit-profile-modal"
+                            profile={activeUser}
+                            onClose={() => setEditModalOpen(false)}
+                            onSaved={(updated) => {
+                                setFetchedUser(updated);
+                                setImageHash(Date.now()); // Bust cache instantly
+                                if (onProfileUpdate) onProfileUpdate(updated);
+                                setEditModalOpen(false);
+                            }}
+                        />
+                    )}
+                </AnimatePresence>,
+                document.body,
+            )}
+
+            {/* Logout Confirm Modal (Topbar) */}
+            {createPortal(
+                <AnimatePresence>
+                    {showLogoutConfirm && (
+                        <motion.div
+                            key="modal-logout-topbar"
+                            className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <div
+                                className="absolute inset-0 bg-black/40 cursor-pointer"
                                 onClick={() => setShowLogoutConfirm(false)}
-                                className="w-full py-4 text-sm font-bold text-neutral-400 hover:text-black transition-all"
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                transition={springTransition}
+                                className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-200 text-center pointer-events-auto"
                             >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                                <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+                                    <LogoutIcon className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-black text-neutral-900 mb-2">
+                                    Sign Out?
+                                </h3>
+                                <p className="text-sm font-medium text-neutral-500 mb-8">
+                                    You are about to log out of the admin panel.
+                                    You will need your credentials to return.
+                                </p>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={confirmLogout}
+                                        className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 cursor-pointer"
+                                    >
+                                        Sign Out
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowLogoutConfirm(false)
+                                        }
+                                        className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer border border-neutral-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body,
             )}
         </>
     );
@@ -515,15 +682,16 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 function EditProfileModal({ profile, onClose, onSaved }) {
     const fileInputRef = useRef(null);
     const [form, setForm] = useState({
-        first_name: profile?.first_name ?? "",
-        last_name: profile?.last_name ?? "",
-        email: profile?.email ?? "",
+        first_name: profile?.first_name || "",
+        last_name: profile?.last_name || "",
+        email: profile?.email || "",
         profile_photo: null,
     });
-    const [preview, setPreview] = useState(profile?.profile_photo_url ?? null);
+
+    const [preview, setPreview] = useState(profile?.profile_photo_url || null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0];
@@ -532,22 +700,53 @@ function EditProfileModal({ profile, onClose, onSaved }) {
         setPreview(URL.createObjectURL(file));
     };
 
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
+        if (formErrors[name]) {
+            setFormErrors((prev) => ({ ...prev, [name]: null }));
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Front-end Validation
+        const errors = {};
+        if (!form.first_name || !form.first_name.trim())
+            errors.first_name = "First name is required";
+        if (!form.last_name || !form.last_name.trim())
+            errors.last_name = "Last name is required";
+        if (!form.email || !form.email.trim()) {
+            errors.email = "Email address is required";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+            errors.email = "Please enter a valid email address";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            return;
+        }
+
         setSaving(true);
         setError(null);
+        setFormErrors({});
 
         try {
             const token =
                 localStorage.getItem("admin_token") ||
                 localStorage.getItem("token");
+
             const fd = new FormData();
-            fd.append("first_name", form.first_name);
-            fd.append("last_name", form.last_name);
-            fd.append("email", form.email);
+            fd.append("first_name", form.first_name.trim());
+            fd.append("last_name", form.last_name.trim());
+            fd.append("email", form.email.trim());
+
             if (form.profile_photo) {
                 fd.append("profile_photo", form.profile_photo);
             }
+
+            // REMOVED: fd.append("_method", "PUT");
 
             const res = await fetch("/api/admin/profile", {
                 method: "POST",
@@ -562,14 +761,20 @@ function EditProfileModal({ profile, onClose, onSaved }) {
             const json = await res.json();
 
             if (!res.ok) {
-                setError(json?.message ?? "Something went wrong.");
+                if (res.status === 422 && json.errors) {
+                    const bErrors = {};
+                    for (const key in json.errors) {
+                        bErrors[key] = json.errors[key][0];
+                    }
+                    setFormErrors(bErrors);
+                    setError("Please fix the highlighted errors.");
+                } else {
+                    setError(json?.message ?? "Something went wrong.");
+                }
                 return;
             }
 
-            setSuccess(true);
-            setTimeout(() => {
-                onSaved(json.data);
-            }, 800);
+            onSaved(json.data);
         } catch {
             setError("Network error. Please try again.");
         } finally {
@@ -577,171 +782,174 @@ function EditProfileModal({ profile, onClose, onSaved }) {
         }
     };
 
-    const displayName = form.first_name || "Admin";
-    const avatarSrc =
-        preview ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            displayName,
-        )}&background=0A0A0A&color=ffffff&size=128&font-size=0.33&bold=true&rounded=true`;
+    const initials = String(
+        form.first_name || profile?.name || profile?.email || "Ad",
+    )
+        .substring(0, 2)
+        .toUpperCase();
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 transition-all duration-300">
-            <div className="w-full max-w-md scale-100 rounded-[2rem] border border-neutral-100 bg-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden transition-transform">
-                <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-100/60 bg-white/50 backdrop-blur-md">
+        <motion.div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+        >
+            <div
+                className="absolute inset-0 bg-black/40 cursor-pointer"
+                onClick={onClose}
+            />
+            <motion.div
+                className="relative w-full max-w-md rounded-[2rem] border border-neutral-200 bg-white overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]"
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={springTransition}
+            >
+                <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-100/60 bg-white/50 backdrop-blur-md shrink-0">
                     <h2 className="text-xl font-bold tracking-tight text-neutral-900">
                         Profile Settings
                     </h2>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-full p-2 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
+                        className="rounded-full p-2 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-900 cursor-pointer"
                     >
-                        <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M6 18L18 6M6 6l12 12"
-                            />
-                        </svg>
+                        <CloseIcon className="w-5 h-5" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-8 py-8 space-y-6">
-                    {/* Avatar picker */}
-                    <div className="flex flex-col items-center gap-4">
-                        <div
-                            className="relative group cursor-pointer"
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <img
-                                src={avatarSrc}
-                                alt="Profile"
-                                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-xl transition-transform duration-500 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
-                                <svg
-                                    className="w-6 h-6 text-white"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 4v16m8-8H4"
+                <div className="p-8 overflow-y-auto no-scrollbar">
+                    <form
+                        id="editProfileForm"
+                        onSubmit={handleSubmit}
+                        className="space-y-6"
+                    >
+                        {/* Avatar picker with overlay */}
+                        <div className="flex flex-col items-center gap-4">
+                            <div
+                                className="relative group cursor-pointer w-24 h-24 rounded-full overflow-hidden border border-neutral-200 bg-neutral-100 flex items-center justify-center"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {preview ? (
+                                    <img
+                                        src={preview}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
-                                </svg>
+                                ) : (
+                                    <span className="text-2xl font-black text-neutral-400 uppercase tracking-widest">
+                                        {initials}
+                                    </span>
+                                )}
+
+                                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                                    <UploadIcon className="w-6 h-6 text-white mb-1" />
+                                    <span className="text-[10px] font-bold text-white uppercase tracking-widest">
+                                        Change
+                                    </span>
+                                </div>
+                            </div>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handlePhotoChange}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                        First Name *
+                                    </label>
+                                    {formErrors.first_name && (
+                                        <span className="text-[10px] font-bold text-red-500">
+                                            {formErrors.first_name}
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    name="first_name"
+                                    value={form.first_name}
+                                    onChange={handleInputChange}
+                                    className={`w-full rounded-xl border px-4 py-3 text-sm font-medium outline-none transition-all hover:bg-neutral-50 ${formErrors.first_name ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-red-900" : "border-neutral-200/60 bg-white focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"}`}
+                                    placeholder="Jane"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                        Last Name *
+                                    </label>
+                                    {formErrors.last_name && (
+                                        <span className="text-[10px] font-bold text-red-500">
+                                            {formErrors.last_name}
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    name="last_name"
+                                    value={form.last_name}
+                                    onChange={handleInputChange}
+                                    className={`w-full rounded-xl border px-4 py-3 text-sm font-medium outline-none transition-all hover:bg-neutral-50 ${formErrors.last_name ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-red-900" : "border-neutral-200/60 bg-white focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"}`}
+                                    placeholder="Doe"
+                                />
                             </div>
                         </div>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handlePhotoChange}
-                        />
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* First name */}
                         <div className="space-y-1.5">
-                            <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
-                                First Name
-                            </label>
+                            <div className="flex justify-between items-center">
+                                <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
+                                    Email Address *
+                                </label>
+                                {formErrors.email && (
+                                    <span className="text-[10px] font-bold text-red-500">
+                                        {formErrors.email}
+                                    </span>
+                                )}
+                            </div>
                             <input
-                                type="text"
-                                value={form.first_name}
-                                onChange={(e) =>
-                                    setForm((f) => ({
-                                        ...f,
-                                        first_name: e.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
-                                placeholder="Jane"
+                                type="email"
+                                name="email"
+                                value={form.email}
+                                onChange={handleInputChange}
+                                className={`w-full rounded-xl border px-4 py-3 text-sm font-medium outline-none transition-all hover:bg-neutral-50 ${formErrors.email ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-1 focus:ring-red-500 text-red-900" : "border-neutral-200/60 bg-white focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"}`}
+                                placeholder="jane@example.com"
                             />
                         </div>
 
-                        {/* Last name */}
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
-                                Last Name
-                            </label>
-                            <input
-                                type="text"
-                                value={form.last_name}
-                                onChange={(e) =>
-                                    setForm((f) => ({
-                                        ...f,
-                                        last_name: e.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
-                                placeholder="Doe"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Email */}
-                    <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            value={form.email}
-                            onChange={(e) =>
-                                setForm((f) => ({
-                                    ...f,
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="w-full rounded-xl border border-neutral-200/60 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white"
-                            placeholder="jane@example.com"
-                        />
-                    </div>
-
-                    {/* Alerts */}
-                    <div className="min-h-[24px]">
                         {error && (
-                            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
+                            <div className="text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-4 py-3 rounded-xl text-center">
                                 {error}
-                            </p>
+                            </div>
                         )}
-                        {success && (
-                            <p className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 px-4 py-3 rounded-xl">
-                                Profile updated successfully!
-                            </p>
-                        )}
-                    </div>
+                    </form>
+                </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 rounded-xl border border-neutral-200/80 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className="flex-1 rounded-xl bg-[#0A0A0A] px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-black/20 transition-all hover:bg-neutral-800 hover:shadow-black/40 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:ring-offset-2"
-                        >
-                            {saving ? "Saving..." : "Save Changes"}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 shrink-0 flex gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-black cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        form="editProfileForm"
+                        disabled={saving}
+                        className="flex-1 rounded-xl bg-[#0A0A0A] px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                    >
+                        {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                </div>
+            </motion.div>
+        </motion.div>
     );
 }
 
@@ -756,7 +964,7 @@ function SidebarLink({ to, active, icon, children, onClick }) {
             className={[
                 "group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300",
                 active
-                    ? "bg-white/10 text-[#EDEDED] shadow-sm"
+                    ? "bg-white/10 text-[#EDEDED]"
                     : "text-[#888888] hover:bg-white/5 hover:text-[#EDEDED]",
             ].join(" ")}
         >
@@ -786,11 +994,11 @@ function MenuIcon() {
     );
 }
 
-function CloseIcon() {
+function CloseIcon({ className = "h-6 w-6" }) {
     return (
         <svg
             viewBox="0 0 24 24"
-            className="h-6 w-6"
+            className={className}
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
@@ -804,7 +1012,6 @@ function CloseIcon() {
     );
 }
 
-// Custom Awwwards-style Icons (Premium 1.5 stroke width)
 function DashboardIcon() {
     return (
         <svg
@@ -970,42 +1177,6 @@ function DocumentIcon() {
         </svg>
     );
 }
-function ChartIcon() {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-        >
-            <line
-                x1="18"
-                y1="20"
-                x2="18"
-                y2="10"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <line
-                x1="12"
-                y1="20"
-                x2="12"
-                y2="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <line
-                x1="6"
-                y1="20"
-                x2="6"
-                y2="14"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
 function SettingsIcon() {
     return (
         <svg
@@ -1082,11 +1253,11 @@ function UserIcon() {
         </svg>
     );
 }
-function SleekSearchIcon() {
+function SleekSearchIcon({ className = "h-6 w-6 text-neutral-400" }) {
     return (
         <svg
             viewBox="0 0 24 24"
-            className="h-6 w-6"
+            className={className}
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
@@ -1176,6 +1347,36 @@ function ChevronDown() {
         >
             <path
                 d="M6 9l6 6 6-6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function UploadIcon({ className = "w-4 h-4" }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className={className}
+        >
+            <path
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="17 8 12 3 7 8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <line
+                x1="12"
+                y1="3"
+                x2="12"
+                y2="15"
                 strokeLinecap="round"
                 strokeLinejoin="round"
             />
