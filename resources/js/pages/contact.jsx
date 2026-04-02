@@ -19,6 +19,7 @@ export default function Contact() {
     const [projectType, setProjectType] = useState("");
     const [consultationMessage, setConsultationMessage] = useState("");
     const [consultationDate, setConsultationDate] = useState("");
+    const [consultationTime, setConsultationTime] = useState("");
     const [consultationFiles, setConsultationFiles] = useState([]);
 
     // Submission state
@@ -56,8 +57,12 @@ export default function Contact() {
             if (consultationMessage.trim()) {
                 formData.append("message", consultationMessage.trim());
             }
+            
             if (consultationDate) {
-                formData.append("consultation_date", consultationDate);
+            const datetime = consultationTime
+                ? `${consultationDate}T${consultationTime}`
+                : consultationDate;
+            formData.append("consultation_date", datetime);
             }
 
             consultationFiles.forEach((file) => {
@@ -75,8 +80,8 @@ export default function Contact() {
             if (res.ok) {
 
                 Swal.fire({
-                    title: "Consultation Booked",
-                    text: "We’ll be in touch with you soon.",
+                    title: "Booking Under Review",
+                    text: "Your consultation request has been received and is now under review. We’ll send you a confirmation text once it’s approved.",
                     icon: "success",
                     confirmButtonText: "OK",
 
@@ -342,19 +347,32 @@ export default function Contact() {
                                                     onValueChange={setConsultationMessage}
                                                 />
 
-                                                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                                    <UnderlineInput
-                                                        label="Consultation Date"
-                                                        type="date"
-                                                        value={consultationDate}
-                                                        onValueChange={setConsultationDate}
-                                                    />
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                {/* First row: Date + Time side by side */}
+                                                <UnderlineInput
+                                                    label="Consultation Date"
+                                                    type="date"
+                                                    value={consultationDate}
+                                                    onValueChange={setConsultationDate}
+                                                />
+
+                                                <UnderlineInput
+                                                    label="Consultation Time"
+                                                    type="time"
+                                                    value={consultationTime}
+                                                    onValueChange={setConsultationTime}
+                                                />
+
+                                                {/* Second row: Wide FileDrop spanning both columns */}
+                                                <div className="md:col-span-2">
                                                     <FileDrop
-                                                        label="Additional Information"
-                                                        files={consultationFiles}
-                                                        onFilesChange={setConsultationFiles}
+                                                    label="Additional Information"
+                                                    files={consultationFiles}
+                                                    onFilesChange={setConsultationFiles}
                                                     />
                                                 </div>
+                                                </div>
+
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
@@ -456,50 +474,90 @@ function UnderlineInput({
             </label>
 
             {options ? (
-                <select
-                    required
-                    onChange={(e) => {
-                        onValueChange?.(e.target.value);
-                        setError(
-                            !e.target.value
-                                ? "Please select a project type."
-                                : "",
-                        );
-                    }}
-                    value={value}
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 appearance-none ${
-                        error
-                            ? "border-red-500 text-red-500"
-                            : "border-gray-300 focus:border-black text-black"
-                    }`}
-                >
-                    <option value="" disabled hidden>
-                        Select Project Type
-                    </option>
-                    {options.map((opt) => (
-                        <option key={opt} value={opt} className="text-black">
-                            {opt}
+    
+                    <select
+                        required
+                        onChange={(e) => {
+                            onValueChange?.(e.target.value);
+                            setError(!e.target.value ? "Please select a project type." : "");
+                        }}
+                        value={value}
+                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
+                            error
+                                ? "border-red-500 text-red-500"
+                                : "border-gray-300 focus:border-black text-black"
+                        }`}
+                    >
+                        <option value="" disabled hidden>
+                            Select Project Type
                         </option>
-                    ))}
-                </select>
-            ) : (
-                <input
-                    type={type}
-                    value={value}
-                    onChange={handleChange}
-                    placeholder={placeholder}
-                    min={
-                        type === "date"
-                            ? new Date().toISOString().split("T")[0]
-                            : undefined
-                    }
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 ${
-                        error
-                            ? "border-red-500 text-red-500"
-                            : "border-gray-300 focus:border-black text-black"
-                    }`}
-                />
-            )}
+                        {options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                    </select>
+
+                ) : type === "time" ? (
+                    
+                    <select
+                        value={value}
+                        onChange={(e) => onValueChange?.(e.target.value)}
+                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
+                            error
+                                ? "border-red-500 text-red-500"
+                                : "border-gray-300 focus:border-black text-black"
+                        }`}
+                    >
+                        <option value="" disabled hidden>
+                            Select Time
+                        </option>
+
+                        {Array.from({ length: 17 }).map((_, i) => {
+                            const totalMinutes = 9 * 60 + i * 30;
+                            const hours = Math.floor(totalMinutes / 60);
+                            const minutes = totalMinutes % 60;
+
+                            const formattedHours12 = hours % 12 === 0 ? 12 : hours % 12;
+                            const ampm = hours < 12 ? "AM" : "PM";
+
+                            const label = `${formattedHours12}:${minutes === 0 ? "00" : minutes} ${ampm}`;
+                            const val = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+
+                            return (
+                                <option key={val} value={val}>
+                                    {label}
+                                </option>
+                            );
+                        })}
+                    </select>
+
+                ) : type === "date" ? (
+
+                    <input
+                        type="date"
+                        value={value}
+                        onChange={handleChange}
+                        min={new Date().toISOString().split("T")[0]}
+                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
+                            error
+                                ? "border-red-500 text-red-500"
+                                : "border-gray-300 focus:border-black text-black"
+                        }`}
+                    />
+
+                ) : (
+                    
+                    <input
+                        type={type}
+                        value={value}
+                        onChange={handleChange}
+                        placeholder={placeholder}
+                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
+                            error
+                                ? "border-red-500 text-red-500"
+                                : "border-gray-300 focus:border-black text-black"
+                        }`}
+                    />
+                )}
 
             <AnimatePresence mode="wait">
                 {error && (
