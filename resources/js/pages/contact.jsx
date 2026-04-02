@@ -471,6 +471,7 @@ function UnderlineInput({
                     value={value}
                     onChange={handleChange}
                     placeholder={placeholder}
+                    min={type === "date" ? new Date().toISOString().split("T")[0] : undefined}
                     className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
                         ${error ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
                     `}
