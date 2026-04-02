@@ -8,6 +8,10 @@ use Google\Service\Gmail;
 use Google\Service\Gmail\Message;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * GmailSender — sends replies using the authenticated user's Gmail
+ * File: app/Services/GmailSender.php
+ */
 class GmailSender
 {
     public function send(
@@ -16,13 +20,18 @@ class GmailSender
         string $subject,
         string $body,
         ?string $threadId  = null,
-        ?string $inReplyTo = null
+        ?string $inReplyTo = null,
+        ?int    $userId    = null
     ): bool {
         try {
-            $client = $this->buildClient();
+            $client = $this->buildClient($userId);
             $gmail  = new Gmail($client);
 
-            $raw = $this->buildRaw($toEmail, $toName, $subject, $body, $inReplyTo);
+            // Get the user's connected Gmail address as the From address
+            $fromEmail = GoogleSetting::getValue('connected_email', $userId)
+                      ?? config('services.google.reply_from_email');
+
+            $raw = $this->buildRaw($toEmail, $toName, $subject, $body, $inReplyTo, $fromEmail);
 
             $message = new Message();
             $message->setRaw($raw);
@@ -30,11 +39,18 @@ class GmailSender
 
             $gmail->users_messages->send('me', $message);
 
-            Log::info('[RMTY Gmail] Reply sent', ['to' => $toEmail]);
+            Log::info('[RMTY Gmail] Reply sent', [
+                'to'      => $toEmail,
+                'user_id' => $userId,
+            ]);
             return true;
 
         } catch (\Throwable $e) {
-            Log::error('[RMTY Gmail] Send failed', ['to' => $toEmail, 'error' => $e->getMessage()]);
+            Log::error('[RMTY Gmail] Send failed', [
+                'to'      => $toEmail,
+                'error'   => $e->getMessage(),
+                'user_id' => $userId,
+            ]);
             return false;
         }
     }
@@ -44,14 +60,14 @@ class GmailSender
         string $toName,
         string $subject,
         string $body,
-        ?string $inReplyTo = null
+        ?string $inReplyTo,
+        string $fromEmail
     ): string {
-        $from    = config('services.google.reply_from_email');
         $name    = config('services.google.reply_from_name', 'RMTY Architectural');
         $subject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
         $headers = [
-            "From: {$name} <{$from}>",
+            "From: {$name} <{$fromEmail}>",
             "To: {$toName} <{$to}>",
             "Subject: {$subject}",
             "MIME-Version: 1.0",
@@ -70,7 +86,7 @@ class GmailSender
         return rtrim(strtr(base64_encode(implode("\r\n", $headers)), '+/', '-_'), '=');
     }
 
-    private function buildClient(): GoogleClient
+    private function buildClient(?int $userId): GoogleClient
     {
         $client = new GoogleClient();
         $client->setApplicationName('RMTY Architectural Website');
@@ -79,11 +95,10 @@ class GmailSender
         $client->addScope(Gmail::GMAIL_SEND);
         $client->setAccessType('offline');
 
-        $refreshToken = GoogleSetting::getValue('refresh_token')
-                     ?? config('services.google.refresh_token');
+        $refreshToken = GoogleSetting::getValue('refresh_token', $userId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException('Gmail not connected. Complete OAuth setup in admin settings.');
+            throw new \RuntimeException('Gmail not connected for this user.');
         }
 
         $token = $client->fetchAccessTokenWithRefreshToken($refreshToken);
