@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rules\Password;
 
 class AdminAuthController extends Controller
 {
@@ -22,26 +21,22 @@ class AdminAuthController extends Controller
             'password' => [
                 'required',
                 'string',
-                'min:8',
-                Password::min(8)->letters()->mixedCase()->numbers()->symbols(),
             ],
         ], [
             'email.regex' => 'Email must contain letters (not only numbers) and a valid domain (e.g. @yahoo.com).',
-            'password' => 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
-
-        $user = Auth::user();
 
         if (!$user->is_admin) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         if ($user->archived_at) {
-            Auth::logout();
             return response()->json([
                 'message' => 'This account has been archived and cannot sign in.'
             ], 403);
@@ -62,7 +57,8 @@ class AdminAuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        $request->user()?->currentAccessToken()?->delete();
+
         return response()->json(['message' => 'Logged out']);
     }
 
@@ -70,6 +66,7 @@ class AdminAuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+
         return response()->json([
             'data' => [
                 'id'                => $user->id,
@@ -100,6 +97,7 @@ class AdminAuthController extends Controller
             if ($user->profile_photo) {
                 Storage::disk('public')->delete($user->profile_photo);
             }
+
             $data['profile_photo'] = $request->file('profile_photo')
                 ->store('avatars', 'public');
         }
@@ -107,7 +105,7 @@ class AdminAuthController extends Controller
         // Update name from first + last
         if (isset($data['first_name']) || isset($data['last_name'])) {
             $first = $data['first_name'] ?? $user->first_name;
-            $last  = $data['last_name']  ?? $user->last_name;
+            $last  = $data['last_name'] ?? $user->last_name;
             $data['name'] = trim("{$first} {$last}");
         }
 

@@ -17,15 +17,28 @@ export default function AuthForm({ type = "signin" }) {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
-    const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
+    const [loading, setLoading] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({
+        email: "",
+        password: "",
+    });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (loading) return;
+
         setError("");
         setFieldErrors({ email: "", password: "" });
 
         const emailErr = validateEmail(email);
-        const passwordErr = validateStrongPassword(password);
+
+        // For sign in, only require a non-empty password.
+        // Strong password validation should only be used for signup/reset/update password flows.
+        const passwordErr = isLogin
+            ? (!password.trim() ? "Password is required." : "")
+            : validateStrongPassword(password);
+
         if (emailErr || passwordErr) {
             setFieldErrors({
                 email: emailErr || "",
@@ -35,20 +48,35 @@ export default function AuthForm({ type = "signin" }) {
         }
 
         try {
+            setLoading(true);
+
             const res = await api.post("/admin/login", {
                 email: email.trim(),
                 password,
             });
 
-            localStorage.setItem("admin_token", res.data.token);
+            const token =
+                res?.data?.token ||
+                res?.data?.access_token ||
+                res?.data?.data?.token ||
+                null;
+
+            if (!token) {
+                throw new Error("Login succeeded but no token was returned.");
+            }
+
+            localStorage.setItem("admin_token", token);
             navigate("/admin/dashboard");
         } catch (err) {
             setError(
-                err.response?.data?.message ||
-                    err.response?.data?.errors?.email?.[0] ||
-                    err.response?.data?.errors?.password?.[0] ||
-                    "Login failed",
+                err?.response?.data?.message ||
+                    err?.response?.data?.errors?.email?.[0] ||
+                    err?.response?.data?.errors?.password?.[0] ||
+                    err?.message ||
+                    "Login failed"
             );
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -56,9 +84,8 @@ export default function AuthForm({ type = "signin" }) {
         <form
             className="[font-family:var(--font-neue)] w-full max-w-2xl flex flex-col gap-7 mx-auto"
             onSubmit={handleSubmit}
-            action="javascript:void(0)"
+            noValidate
         >
-            {/* Top Level Error */}
             <AnimatePresence>
                 {error && (
                     <motion.div
@@ -74,11 +101,11 @@ export default function AuthForm({ type = "signin" }) {
                 )}
             </AnimatePresence>
 
-            {/* EMAIL */}
             <div className="relative group">
                 <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
                     <span>Email</span>
                 </label>
+
                 <input
                     type="text"
                     inputMode="email"
@@ -89,15 +116,17 @@ export default function AuthForm({ type = "signin" }) {
                         setEmail(e.target.value);
                         setFieldErrors((prev) => ({ ...prev, email: "" }));
                     }}
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
-        ${fieldErrors.email ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-      `}
+                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 ${
+                        fieldErrors.email
+                            ? "border-red-500 text-red-500"
+                            : "border-gray-300 focus:border-black text-black"
+                    }`}
                 />
 
                 <AnimatePresence mode="wait">
                     {fieldErrors.email ? (
                         <motion.p
-                            key="error"
+                            key="email-error"
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
@@ -107,7 +136,7 @@ export default function AuthForm({ type = "signin" }) {
                         </motion.p>
                     ) : (
                         <motion.p
-                            key="hint"
+                            key="email-hint"
                             className="mt-2 text-[10px] text-gray-400"
                         >
                             {EMAIL_HINT}
@@ -116,7 +145,6 @@ export default function AuthForm({ type = "signin" }) {
                 </AnimatePresence>
             </div>
 
-            {/* PASSWORD */}
             <div className="relative group">
                 <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
                     <span>Password</span>
@@ -128,12 +156,11 @@ export default function AuthForm({ type = "signin" }) {
                     </Link>
                 </label>
 
-                {/* Input Wrapper for positioning the eye icon */}
                 <div className="relative">
                     <input
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
-                        maxLength={64} // <-- Added reasonable password length limit
+                        maxLength={64}
                         value={password}
                         onChange={(e) => {
                             setPassword(e.target.value);
@@ -142,19 +169,18 @@ export default function AuthForm({ type = "signin" }) {
                                 password: "",
                             }));
                         }}
-                        className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
-                            ${fieldErrors.password ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-                        `}
+                        className={`w-full bg-transparent border-b px-0 pr-8 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 ${
+                            fieldErrors.password
+                                ? "border-red-500 text-red-500"
+                                : "border-gray-300 focus:border-black text-black"
+                        }`}
                     />
 
-                    {/* Toggle Password Visibility Button */}
                     <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={() => setShowPassword((prev) => !prev)}
                         className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors outline-none cursor-pointer"
-                        aria-label={
-                            showPassword ? "Hide password" : "Show password"
-                        }
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                         {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                     </button>
@@ -163,7 +189,7 @@ export default function AuthForm({ type = "signin" }) {
                 <AnimatePresence mode="wait">
                     {fieldErrors.password ? (
                         <motion.p
-                            key="error"
+                            key="password-error"
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
@@ -173,27 +199,26 @@ export default function AuthForm({ type = "signin" }) {
                         </motion.p>
                     ) : (
                         <motion.p
-                            key="hint"
+                            key="password-hint"
                             className="mt-2 text-[10px] text-gray-400"
                         >
-                            {PASSWORD_HINT}
+                            {isLogin ? "Enter your admin password." : PASSWORD_HINT}
                         </motion.p>
                     )}
                 </AnimatePresence>
             </div>
 
-            {/* BUTTON */}
             <button
                 type="submit"
-                className="mt-6 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98]"
+                disabled={loading}
+                className="mt-6 w-full rounded-none bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
             >
-                Sign In
+                {loading ? "Signing In..." : "Sign In"}
             </button>
         </form>
     );
 }
 
-// Minimal SVG Icons
 function EyeIcon() {
     return (
         <svg

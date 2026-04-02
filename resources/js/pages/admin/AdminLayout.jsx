@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import api from "../../api/axios";
 
 /* ─────────────────────────────────────────
    ROOT LAYOUT
@@ -26,30 +27,24 @@ export default function AdminLayout() {
 ───────────────────────────────────────── */
 function AdminSidebar() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [contentOpen, setContentOpen] = React.useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
     const isActive = (to) => location.pathname === to;
 
-    const confirmLogout = () => {
-        const token =
-            localStorage.getItem("admin_token") ||
-            localStorage.getItem("token");
-        localStorage.removeItem("admin_token");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userId");
-
-        const apiBase = import.meta.env.VITE_API_URL || "";
-        fetch(`${apiBase}/api/admin/logout`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-                Accept: "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-        }).catch(() => {});
-
-        window.location.href = "/admin/login";
+    const confirmLogout = async () => {
+        try {
+            await api.post("/admin/logout");
+        } catch (error) {
+            console.error("Logout error:", error.response?.data || error.message);
+        } finally {
+            localStorage.removeItem("admin_token");
+            localStorage.removeItem("token");
+            localStorage.removeItem("userId");
+            setShowLogoutConfirm(false);
+            navigate("/admin/login", { replace: true });
+        }
     };
 
     const mainNav = [
@@ -268,6 +263,7 @@ function AdminSidebar() {
 ───────────────────────────────────────── */
 function AdminTopbar({ profile, onProfileUpdate }) {
     const location = useLocation();
+    const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
     const [editModalOpen, setEditModalOpen] = React.useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
@@ -324,15 +320,18 @@ function AdminTopbar({ profile, onProfileUpdate }) {
         };
     }, []);
 
-    const confirmLogout = () => {
-        localStorage.removeItem("admin_token");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userId");
-        fetch("/api/admin/logout", {
-            method: "POST",
-            credentials: "include",
-        }).catch(() => {});
-        window.location.href = "/admin/login";
+    const confirmLogout = async () => {
+        try {
+            await api.post("/admin/logout");
+        } catch (error) {
+            console.error("Logout error:", error.response?.data || error.message);
+        } finally {
+            localStorage.removeItem("admin_token");
+            localStorage.removeItem("token");
+            localStorage.removeItem("userId");
+            setShowLogoutConfirm(false);
+            navigate("/admin/login", { replace: true });
+        }
     };
 
     const displayName = profile?.first_name || fetchedName || "Admin";

@@ -13,6 +13,21 @@ export default defineConfig({
         react(),
     ],
     server: {
+        host: 'localhost',
+        port: 5173,
+        strictPort: true,
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8000',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/storage': {
+                target: 'http://localhost:8000',
+                changeOrigin: true,
+                secure: false,
+            },
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
