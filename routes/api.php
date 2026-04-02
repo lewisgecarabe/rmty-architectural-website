@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\GoogleOAuthController;
 use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ViberSettingsController;
+use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\ViberWebhookController;
@@ -57,6 +58,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
 });
 
+// Consultation booking — public (contact form)
+Route::post('/consultations', [ConsultationController::class, 'store']);
+
  Route::post('password/send-otp', [PasswordResetController::class, 'sendOtp']);
  Route::post('password/verify-otp', [PasswordResetController::class, 'verifyOtp']);
 Route::post('password/reset', [PasswordResetController::class, 'resetPassword']);
@@ -80,6 +84,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
    Route::post('/inquiries/{inquiry}/reply', [InquiryController::class, 'reply']);
+
+    // Consultations (admin management)
+    Route::get('/admin/consultations', [ConsultationController::class, 'index']);
+    Route::put('/consultations/{id}', [ConsultationController::class, 'update']);
+    Route::post('/consultations/{id}', [ConsultationController::class, 'update']);
+    Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
 });
 
 

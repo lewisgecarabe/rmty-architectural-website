@@ -9,6 +9,78 @@ export default function Contact() {
         return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT INQUIRY";
     }, [isConsultation]);
 
+    // Tracked form values (lifted for submission)
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [location, setLocation] = useState("");
+    const [projectType, setProjectType] = useState("");
+    const [consultationMessage, setConsultationMessage] = useState("");
+    const [consultationDate, setConsultationDate] = useState("");
+
+    // Submission state
+    const [submitting, setSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState("");
+    const [formKey, setFormKey] = useState(0);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!isConsultation) return;
+
+        if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+            setSubmitError("Please fill in your name and email before submitting.");
+            return;
+        }
+
+        setSubmitting(true);
+        setSubmitError("");
+        setSubmitSuccess(false);
+
+        try {
+            const res = await fetch("/api/consultations", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify({
+                    first_name: firstName.trim(),
+                    last_name: lastName.trim(),
+                    email: email.trim(),
+                    phone: phone.trim() || undefined,
+                    location: location.trim() || undefined,
+                    project_type: projectType || undefined,
+                    message: consultationMessage.trim() || undefined,
+                    consultation_date: consultationDate || undefined,
+                }),
+            });
+
+            if (res.ok) {
+                setSubmitSuccess(true);
+                setFirstName("");
+                setLastName("");
+                setEmail("");
+                setPhone("");
+                setLocation("");
+                setProjectType("");
+                setConsultationMessage("");
+                setConsultationDate("");
+                setFormKey((k) => k + 1);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                setSubmitError(
+                    data.message || "Submission failed. Please try again.",
+                );
+            }
+        } catch {
+            setSubmitError("Network error. Please check your connection.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <section className="w-full bg-white">
             {/* ================= TOP HERO SECTION ================= */}
@@ -91,10 +163,10 @@ export default function Contact() {
                         <div>
                             {/* Motion Form for smooth resizing */}
                             <motion.form
-                                key="contact-form"
+                                key={`contact-form-${formKey}`}
                                 layout
                                 className="mx-auto w-full max-w-2xl [font-family:var(--font-neue)]"
-                                onSubmit={(e) => e.preventDefault()}
+                                onSubmit={handleSubmit}
                             >
                                 {/* Inquiry Toggle - Fully Rounded Pill Design */}
                                 <div className="mb-14">
@@ -167,10 +239,12 @@ export default function Contact() {
                                         <UnderlineInput
                                             label="First Name"
                                             placeholder="Enter your first name"
+                                            onValueChange={setFirstName}
                                         />
                                         <UnderlineInput
                                             label="Last Name"
                                             placeholder="Enter your last name"
+                                            onValueChange={setLastName}
                                         />
                                     </div>
 
@@ -180,12 +254,14 @@ export default function Contact() {
                                             label="Email"
                                             type="email"
                                             placeholder="Enter your email address"
+                                            onValueChange={setEmail}
                                         />
                                         <UnderlineInput
                                             label="Phone"
                                             type="tel"
                                             isPhone
                                             placeholder="Enter your 11-digit phone number"
+                                            onValueChange={setPhone}
                                         />
                                     </div>
 
@@ -220,6 +296,7 @@ export default function Contact() {
                                                     <UnderlineInput
                                                         label="Location"
                                                         placeholder="Enter project location"
+                                                        onValueChange={setLocation}
                                                     />
                                                     <UnderlineInput
                                                         label="Project Type"
@@ -229,18 +306,50 @@ export default function Contact() {
                                                             "Master Planning",
                                                             "Interior Architecture",
                                                         ]}
+                                                        onValueChange={setProjectType}
                                                     />
                                                 </div>
 
-                                                <ConsultationMessageField />
+                                                <ConsultationMessageField
+                                                    onValueChange={
+                                                        setConsultationMessage
+                                                    }
+                                                />
 
                                                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                                                     <UnderlineInput
                                                         label="Consultation Date"
                                                         type="date"
+                                                        onValueChange={
+                                                            setConsultationDate
+                                                        }
                                                     />
                                                     <FileDrop label="Additional Information" />
                                                 </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Feedback messages */}
+                                    <AnimatePresence>
+                                        {submitSuccess && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 8 }}
+                                                className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-[11px] font-bold tracking-wider text-emerald-700 uppercase"
+                                            >
+                                                Your consultation has been booked. We'll be in touch soon!
+                                            </motion.div>
+                                        )}
+                                        {submitError && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 8 }}
+                                                className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[11px] font-bold tracking-wider text-red-700 uppercase"
+                                            >
+                                                {submitError}
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
@@ -249,9 +358,12 @@ export default function Contact() {
                                     <motion.div layout className="pt-6">
                                         <button
                                             type="submit"
-                                            className="w-full rounded-full bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer"
+                                            disabled={submitting}
+                                            className="w-full rounded-full bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            {buttonText}
+                                            {submitting
+                                                ? "SUBMITTING..."
+                                                : buttonText}
                                         </button>
                                     </motion.div>
                                 </div>
@@ -272,6 +384,7 @@ function UnderlineInput({
     options,
     isPhone,
     placeholder,
+    onValueChange,
 }) {
     const [error, setError] = useState("");
     const [value, setValue] = useState("");
@@ -317,6 +430,7 @@ function UnderlineInput({
         }
 
         setValue(inputValue);
+        onValueChange?.(inputValue);
     };
 
     return (
@@ -335,6 +449,7 @@ function UnderlineInput({
                                 ? "Please select a project type."
                                 : "",
                         );
+                        onValueChange?.(e.target.value);
                     }}
                     value={value}
                     className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 appearance-none
@@ -433,7 +548,7 @@ function GeneralMessageField() {
 
 /* ---------------- CONSULTATION MESSAGE ---------------- */
 
-function ConsultationMessageField() {
+function ConsultationMessageField({ onValueChange }) {
     const [value, setValue] = useState("");
     const [error, setError] = useState("");
 
@@ -452,6 +567,7 @@ function ConsultationMessageField() {
         }
 
         setValue(inputValue);
+        onValueChange?.(inputValue);
     };
 
     return (

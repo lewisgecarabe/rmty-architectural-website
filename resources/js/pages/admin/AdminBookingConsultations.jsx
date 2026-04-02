@@ -7,10 +7,10 @@ import { getAuthHeaders } from "../../lib/authHeaders";
 const PAGE_SIZE = 6;
 
 const PROJECT_TYPES = [
-    { id: "residential", name: "Residential" },
-    { id: "commercial", name: "Commercial" },
-    { id: "master-planning", name: "Master Planning" },
-    { id: "interior", name: "Interior Architecture" },
+    { id: "Residential", name: "Residential" },
+    { id: "Commercial", name: "Commercial" },
+    { id: "Master Planning", name: "Master Planning" },
+    { id: "Interior Architecture", name: "Interior Architecture" },
 ];
 
 /* ---------------- ANIMATION PRESETS ---------------- */
