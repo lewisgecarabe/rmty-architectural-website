@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\Consultation;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class ConsultationController
+class ConsultationController extends Controller
 {
     // GET /api/admin/consultations  (protected)
     public function index(Request $request): JsonResponse
@@ -14,7 +16,13 @@ class ConsultationController
         $query = Consultation::query()->latest('created_at');
 
         if ($search = $request->query('search')) {
-            $query->search($search);
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%");
+            });
         }
 
         if ($type = $request->query('project_type')) {
@@ -38,23 +46,66 @@ class ConsultationController
             'consultation_date' => 'nullable|date',
         ]);
 
-        $consultation = Consultation::create($validated);
+        $consultation = Consultation::create([
+            ...$validated,
+            'status' => 'pending',
+            'is_published' => true,
+            'reschedule_reason' => null,
+        ]);
 
         return response()->json($consultation, 201);
     }
 
-    // PUT /api/consultations/{id}  (protected — archive / restore)
+    // PUT /api/consultations/{id}  (protected — accept / cancel / reschedule / archive / restore)
     public function update(Request $request, int $id): JsonResponse
     {
         $consultation = Consultation::findOrFail($id);
 
         $validated = $request->validate([
-            'is_published' => 'required|boolean',
+            'is_published'       => 'sometimes|boolean',
+            'status'             => 'sometimes|in:pending,accepted,cancelled,rescheduled,archived',
+            'consultation_date'  => 'sometimes|nullable|date',
+            'reschedule_reason'  => 'sometimes|nullable|string|max:1000',
         ]);
 
-        $consultation->update(['is_published' => $validated['is_published']]);
+        $oldStatus = $consultation->status;
+        $smsSent = false;
 
-        return response()->json($consultation->fresh());
+        $consultation->fill($validated);
+
+        // If archived, force archived state
+        if (array_key_exists('is_published', $validated) && (int) $validated['is_published'] === 0) {
+            $consultation->status = 'archived';
+        }
+
+        // If restored without explicit status, bring it back as pending
+        if (
+            array_key_exists('is_published', $validated) &&
+            (int) $validated['is_published'] === 1 &&
+            (!array_key_exists('status', $validated) || $validated['status'] === 'archived')
+        ) {
+            $consultation->status = 'pending';
+        }
+
+        $consultation->save();
+
+        $statusChanged = $oldStatus !== $consultation->status;
+
+        // Send SMS only for accepted / cancelled / rescheduled
+        if (
+            $statusChanged &&
+            in_array($consultation->status, ['accepted', 'cancelled', 'rescheduled'], true) &&
+            !empty($consultation->phone)
+        ) {
+            $message = $this->buildSmsMessage($consultation);
+            $smsSent = SmsController::send($consultation->phone, $message);
+        }
+
+        return response()->json([
+            'message' => 'Consultation updated successfully.',
+            'sms_sent' => $smsSent,
+            'data' => $consultation->fresh(),
+        ]);
     }
 
     // DELETE /api/consultations/{id}  (protected)
@@ -63,6 +114,53 @@ class ConsultationController
         $consultation = Consultation::findOrFail($id);
         $consultation->delete();
 
-        return response()->json(['message' => 'Consultation deleted.']);
+        return response()->json([
+            'message' => 'Consultation deleted.',
+        ]);
+    }
+
+    private function buildSmsMessage(Consultation $consultation): string
+    {
+        $name = trim(($consultation->first_name ?? '') . ' ' . ($consultation->last_name ?? ''));
+        $displayName = $name !== '' ? $name : 'Client';
+
+        $formattedDate = $this->formatConsultationDate($consultation->consultation_date);
+
+        switch ($consultation->status) {
+            case 'accepted':
+                return $formattedDate
+                    ? "Hello {$displayName}, your consultation booking with RMTY Architectural has been accepted. Your schedule is {$formattedDate}."
+                    : "Hello {$displayName}, your consultation booking with RMTY Architectural has been accepted.";
+
+            case 'cancelled':
+                return "Hello {$displayName}, your consultation booking with RMTY Architectural has been cancelled. Please contact us if you would like to book another schedule.";
+
+            case 'rescheduled':
+                $message = $formattedDate
+                    ? "Hello {$displayName}, your consultation booking with RMTY Architectural has been rescheduled. Your new schedule is {$formattedDate}."
+                    : "Hello {$displayName}, your consultation booking with RMTY Architectural has been rescheduled.";
+
+                if (!empty($consultation->reschedule_reason)) {
+                    $message .= " Note: {$consultation->reschedule_reason}";
+                }
+
+                return $message;
+
+            default:
+                return "Hello {$displayName}, your consultation booking with RMTY Architectural has been updated.";
+        }
+    }
+
+    private function formatConsultationDate($date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->format('F j, Y g:i A');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

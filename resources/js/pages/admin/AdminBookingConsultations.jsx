@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
 
@@ -7,6 +6,7 @@ import { getAuthHeaders } from "../../lib/authHeaders";
 const PAGE_SIZE = 6;
 
 const PROJECT_TYPES = [
+    { id: "", name: "All Projects" },
     { id: "Residential", name: "Residential" },
     { id: "Commercial", name: "Commercial" },
     { id: "Master Planning", name: "Master Planning" },
@@ -17,6 +17,135 @@ const PROJECT_TYPES = [
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 const drawerTransition = { type: "spring", damping: 30, stiffness: 300 };
 const smoothEase = [0.22, 1, 0.36, 1];
+
+/* ---------------- HELPERS ---------------- */
+const isArchivedConsultation = (consultation) =>
+    consultation?.is_published === 0 ||
+    consultation?.is_published === false ||
+    String(consultation?.status || "").toLowerCase() === "archived";
+
+const getBookingStatus = (consultation) => {
+    if (isArchivedConsultation(consultation)) return "archived";
+
+    const raw = String(consultation?.status || "").trim().toLowerCase();
+
+    if (
+        raw === "accepted" ||
+        raw === "cancelled" ||
+        raw === "rescheduled" ||
+        raw === "pending"
+    ) {
+        return raw;
+    }
+
+    return "pending";
+};
+
+const parseConsultationDate = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDisplayDate = (value) => {
+    if (!value) return "Not Specified";
+
+    const parsed = parseConsultationDate(value);
+    if (!parsed) return value;
+
+    return parsed.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+};
+
+const toDateTimeLocalValue = (value) => {
+    const parsed = parseConsultationDate(value);
+    if (!parsed) return "";
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+};
+
+const isUpcomingConsultation = (consultation) => {
+    const status = getBookingStatus(consultation);
+    if (status === "cancelled" || status === "archived") return false;
+
+    const parsed = parseConsultationDate(consultation?.consultation_date);
+    if (!parsed) return false;
+
+    const now = new Date();
+    return parsed >= now;
+};
+
+const getStatusMeta = (status) => {
+    switch (status) {
+        case "accepted":
+            return {
+                label: "Accepted",
+                className:
+                    "border-emerald-200 bg-emerald-50 text-emerald-700",
+                dotClassName: "bg-emerald-500",
+            };
+        case "cancelled":
+            return {
+                label: "Cancelled",
+                className: "border-red-200 bg-red-50 text-red-700",
+                dotClassName: "bg-red-500",
+            };
+        case "rescheduled":
+            return {
+                label: "Rescheduled",
+                className: "border-blue-200 bg-blue-50 text-blue-700",
+                dotClassName: "bg-blue-500",
+            };
+        case "archived":
+            return {
+                label: "Archived",
+                className:
+                    "border-neutral-200 bg-neutral-100 text-neutral-500",
+                dotClassName: "bg-neutral-400",
+            };
+        default:
+            return {
+                label: "Pending",
+                className:
+                    "border-amber-200 bg-amber-50 text-amber-700",
+                dotClassName: "bg-amber-500",
+            };
+    }
+};
+
+const buildFormData = (payload) => {
+    const fd = new FormData();
+    fd.append("_method", "PUT");
+
+    Object.entries(payload).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+            fd.append(key, value);
+        }
+    });
+
+    return fd;
+};
+
+const getErrorMessage = async (res) => {
+    try {
+        const data = await res.json();
+        return (
+            data?.message ||
+            data?.error ||
+            data?.errors?.[Object.keys(data.errors)[0]]?.[0] ||
+            `Request failed with status ${res.status}`
+        );
+    } catch {
+        return `Request failed with status ${res.status}`;
+    }
+};
 
 /* ---------------- ANIMATED SELECT COMPONENT ---------------- */
 const AnimatedSelect = ({
@@ -37,15 +166,17 @@ const AnimatedSelect = ({
             if (
                 containerRef.current &&
                 !containerRef.current.contains(e.target)
-            )
+            ) {
                 setIsOpen(false);
+            }
         };
+
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
     const selectedOption = options.find(
-        (opt) => opt.id.toString() === value.toString(),
+        (opt) => String(opt.id) === String(value),
     );
 
     return (
@@ -62,6 +193,7 @@ const AnimatedSelect = ({
                     )}
                 </div>
             )}
+
             <div
                 onClick={() => setIsOpen(!isOpen)}
                 className={`group w-full rounded-xl border px-4 bg-white text-sm font-medium outline-none transition-all cursor-pointer flex items-center justify-between select-none ${className} ${
@@ -81,6 +213,7 @@ const AnimatedSelect = ({
                 >
                     {selectedOption ? selectedOption.name : placeholder}
                 </span>
+
                 <motion.div
                     animate={{ rotate: isOpen ? 180 : 0 }}
                     transition={{ duration: 0.3, ease: smoothEase }}
@@ -114,6 +247,7 @@ const AnimatedSelect = ({
                                     {opt.name}
                                 </div>
                             ))}
+
                             {options.length === 0 && (
                                 <div className="px-4 py-3 text-xs text-neutral-400">
                                     No options found
@@ -133,48 +267,78 @@ export default function AdminBookingConsultations() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
 
-    // Single Actions
-    const [archiveId, setArchiveId] = useState(null);
-    const [deleteId, setDeleteId] = useState(null);
+    const [archiveTarget, setArchiveTarget] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [cancelTarget, setCancelTarget] = useState(null);
 
-    // Bulk Actions
+    const [rescheduleTarget, setRescheduleTarget] = useState(null);
+    const [rescheduleForm, setRescheduleForm] = useState({
+        consultation_date: "",
+        reschedule_reason: "",
+    });
+
     const [selectedIds, setSelectedIds] = useState([]);
     const [bulkAction, setBulkAction] = useState(null);
 
-    const [activeTab, setActiveTab] = useState("published");
+    const [activeTab, setActiveTab] = useState("all");
     const [successMessage, setSuccessMessage] = useState("");
     const [updating, setUpdating] = useState(false);
-
     const [selected, setSelected] = useState(null);
 
-    // --- UI State for Filters ---
     const [searchTerm, setSearchTerm] = useState("");
     const [filterType, setFilterType] = useState("");
 
-    /* ---------------- FETCH ---------------- */
-    useEffect(() => {
-        const init = async () => {
-            await fetch("/sanctum/csrf-cookie", { credentials: "include" });
-            await fetchConsultations();
-        };
-        init();
-    }, []);
+    const toastTimeoutRef = useRef(null);
 
-    // Clear bulk selections if tab, search, or page changes
+    const showToast = (message) => {
+        setSuccessMessage(message);
+
+        if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+        }
+
+        toastTimeoutRef.current = setTimeout(() => {
+            setSuccessMessage("");
+        }, 3000);
+    };
+
     useEffect(() => {
-        setSelectedIds([]);
-    }, [activeTab, page, searchTerm, filterType]);
+        return () => {
+            if (toastTimeoutRef.current) {
+                clearTimeout(toastTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const fetchConsultations = async () => {
         setLoading(true);
+
         try {
+            const selectedId = selected?.id;
+
             const res = await fetch("/api/admin/consultations", {
                 credentials: "include",
                 headers: getAuthHeaders(),
             });
-            if (res.ok) {
-                const data = await res.json();
-                setConsultations(Array.isArray(data) ? data : []);
+
+            if (!res.ok) {
+                throw new Error(await getErrorMessage(res));
+            }
+
+            const data = await res.json();
+            const list = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                  ? data.data
+                  : [];
+
+            setConsultations(list);
+
+            if (selectedId) {
+                const refreshedSelected = list.find(
+                    (item) => item.id === selectedId,
+                );
+                setSelected(refreshedSelected || null);
             }
         } catch (err) {
             console.error(err);
@@ -183,6 +347,215 @@ export default function AdminBookingConsultations() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const init = async () => {
+            try {
+                await fetch("/sanctum/csrf-cookie", {
+                    credentials: "include",
+                });
+            } catch (err) {
+                console.error(err);
+            }
+
+            await fetchConsultations();
+        };
+
+        init();
+    }, []);
+
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [activeTab, page, searchTerm, filterType]);
+
+    /* ---------------- DATA GROUPING ---------------- */
+    const nonArchivedConsultations = consultations.filter(
+        (c) => !isArchivedConsultation(c),
+    );
+
+    const acceptedConsultations = nonArchivedConsultations.filter(
+        (c) => getBookingStatus(c) === "accepted",
+    );
+
+    const rescheduledConsultations = nonArchivedConsultations.filter(
+        (c) => getBookingStatus(c) === "rescheduled",
+    );
+
+    const cancelledConsultations = nonArchivedConsultations.filter(
+        (c) => getBookingStatus(c) === "cancelled",
+    );
+
+    const archivedConsultations = consultations.filter((c) =>
+        isArchivedConsultation(c),
+    );
+
+    let displayedConsultations = [];
+
+    switch (activeTab) {
+        case "accepted":
+            displayedConsultations = acceptedConsultations;
+            break;
+        case "rescheduled":
+            displayedConsultations = rescheduledConsultations;
+            break;
+        case "cancelled":
+            displayedConsultations = cancelledConsultations;
+            break;
+        case "archived":
+            displayedConsultations = archivedConsultations;
+            break;
+        default:
+            displayedConsultations = nonArchivedConsultations;
+            break;
+    }
+
+    if (searchTerm.trim() !== "") {
+        const lower = searchTerm.toLowerCase();
+
+        displayedConsultations = displayedConsultations.filter((c) => {
+            const fullName =
+                `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase();
+            const email = String(c.email || "").toLowerCase();
+            const phone = String(c.phone || "").toLowerCase();
+            const status = getBookingStatus(c).toLowerCase();
+
+            return (
+                fullName.includes(lower) ||
+                email.includes(lower) ||
+                phone.includes(lower) ||
+                status.includes(lower)
+            );
+        });
+    }
+
+    if (filterType !== "") {
+        displayedConsultations = displayedConsultations.filter(
+            (c) => String(c.project_type || "") === String(filterType),
+        );
+    }
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(displayedConsultations.length / PAGE_SIZE),
+    );
+
+    useEffect(() => {
+        if (page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [page, totalPages]);
+
+    const paginated = displayedConsultations.slice(
+        (page - 1) * PAGE_SIZE,
+        page * PAGE_SIZE,
+    );
+
+    const totalBookings = nonArchivedConsultations.length;
+    const upcomingBookings = nonArchivedConsultations.filter((c) =>
+        isUpcomingConsultation(c),
+    ).length;
+    const cancelledBookings = cancelledConsultations.length;
+
+    const statCards = [
+        {
+            label: "Total Bookings",
+            value: totalBookings,
+            icon: <CalendarIcon className="w-5 h-5 text-black" />,
+        },
+        {
+            label: "Upcoming Bookings",
+            value: upcomingBookings,
+            icon: <ClockIcon className="w-5 h-5 text-blue-600" />,
+        },
+        {
+            label: "Cancelled Bookings",
+            value: cancelledBookings,
+            icon: <BanIcon className="w-5 h-5 text-red-600" />,
+        },
+    ];
+
+    const tabs = [
+        {
+            id: "all",
+            label: "All Bookings",
+            count: nonArchivedConsultations.length,
+        },
+        {
+            id: "accepted",
+            label: "Accepted",
+            count: acceptedConsultations.length,
+        },
+        {
+            id: "rescheduled",
+            label: "Rescheduled",
+            count: rescheduledConsultations.length,
+        },
+        {
+            id: "cancelled",
+            label: "Cancelled",
+            count: cancelledConsultations.length,
+        },
+        {
+            id: "archived",
+            label: "Archived",
+            count: archivedConsultations.length,
+        },
+    ];
+
+   const sendUpdateRequest = async (id, payload) => {
+    const fd = buildFormData(payload);
+
+    const headers = getAuthHeaders();
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+
+    const res = await fetch(`/api/consultations/${id}`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers,
+    });
+
+    if (!res.ok) {
+        throw new Error(await getErrorMessage(res));
+    }
+
+    return res.json();
+};
+
+  const updateConsultationRecord = async ({
+    id,
+    payload,
+    successText,
+    afterSuccess,
+}) => {
+    setUpdating(true);
+
+    try {
+        const result = await sendUpdateRequest(id, payload);
+        await fetchConsultations();
+
+        const status = String(payload?.status || "").toLowerCase();
+        const shouldAttemptSms = ["accepted", "cancelled", "rescheduled"].includes(status);
+
+        if (shouldAttemptSms) {
+            showToast(
+                result?.sms_sent
+                    ? `${successText} • SMS sent`
+                    : `${successText} • SMS not sent`
+            );
+        } else {
+            showToast(successText);
+        }
+
+        if (afterSuccess) afterSuccess();
+    } catch (err) {
+        console.error(err);
+        alert(err.message || "Something went wrong.");
+    } finally {
+        setUpdating(false);
+    }
+};
 
     /* ---------------- BULK SELECTION ---------------- */
     const handleSelectAll = (e) => {
@@ -204,24 +577,23 @@ export default function AdminBookingConsultations() {
     /* ---------------- BULK ACTIONS ---------------- */
     const confirmBulkAction = async () => {
         setUpdating(true);
+
         try {
             if (bulkAction === "archive" || bulkAction === "restore") {
-                const is_published = bulkAction === "restore" ? 1 : 0;
+                const payload =
+                    bulkAction === "restore"
+                        ? { is_published: 1, status: "pending" }
+                        : { is_published: 0, status: "archived" };
+
                 await Promise.all(
-                    selectedIds.map((id) => {
-                        const fd = new FormData();
-                        fd.append("_method", "PUT");
-                        fd.append("is_published", is_published);
-                        return fetch(`/api/consultations/${id}`, {
-                            method: "POST",
-                            body: fd,
-                            credentials: "include",
-                            headers: getAuthHeaders(),
-                        });
-                    }),
+                    selectedIds.map((id) => sendUpdateRequest(id, payload)),
                 );
-                setSuccessMessage(
-                    `Records ${bulkAction === "restore" ? "Restored" : "Archived"} Successfully`,
+
+                await fetchConsultations();
+                showToast(
+                    bulkAction === "restore"
+                        ? "Records restored successfully"
+                        : "Records archived successfully",
                 );
             } else if (bulkAction === "delete") {
                 await Promise.all(
@@ -230,155 +602,168 @@ export default function AdminBookingConsultations() {
                             method: "DELETE",
                             credentials: "include",
                             headers: getAuthHeaders(),
+                        }).then(async (res) => {
+                            if (!res.ok) {
+                                throw new Error(await getErrorMessage(res));
+                            }
                         }),
                     ),
                 );
-                setSuccessMessage("Records Deleted Permanently");
+
+                await fetchConsultations();
+                showToast("Records deleted permanently");
             }
-            await fetchConsultations();
-        } catch (e) {
-            console.error(e);
-            alert("An error occurred during bulk action.");
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "An error occurred during bulk action.");
         } finally {
             setUpdating(false);
             setBulkAction(null);
             setSelectedIds([]);
-            if (selected && selectedIds.includes(selected.id))
+
+            if (selected && selectedIds.includes(selected.id)) {
                 setSelected(null);
-            setTimeout(() => setSuccessMessage(""), 3000);
+            }
         }
     };
 
     /* ---------------- SINGLE ACTIONS ---------------- */
-    const confirmArchive = async () => {
-        if (!archiveId) return;
-        setUpdating(true);
-        try {
-            const fd = new FormData();
-            fd.append("_method", "PUT");
-            fd.append("is_published", 0);
-            await fetch(`/api/consultations/${archiveId}`, {
-                method: "POST",
-                body: fd,
-                credentials: "include",
-                headers: getAuthHeaders(),
-            });
-            setSuccessMessage("Record Archived Successfully");
-            await fetchConsultations();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUpdating(false);
-            setArchiveId(null);
-            if (selected?.id === archiveId) setSelected(null);
-            setTimeout(() => setSuccessMessage(""), 3000);
+    const handleAccept = async (consultation) => {
+        await updateConsultationRecord({
+            id: consultation.id,
+            payload: {
+                status: "accepted",
+                is_published: 1,
+            },
+            successText: "Booking accepted successfully",
+        });
+    };
+
+    const confirmCancel = async () => {
+        if (!cancelTarget) return;
+
+        await updateConsultationRecord({
+            id: cancelTarget.id,
+            payload: {
+                status: "cancelled",
+                is_published: 1,
+            },
+            successText: "Booking cancelled successfully",
+            afterSuccess: () => {
+                setCancelTarget(null);
+            },
+        });
+    };
+
+    const openRescheduleModal = (consultation) => {
+        setRescheduleTarget(consultation);
+        setRescheduleForm({
+            consultation_date: toDateTimeLocalValue(
+                consultation?.consultation_date,
+            ),
+            reschedule_reason: consultation?.reschedule_reason || "",
+        });
+    };
+
+    const confirmReschedule = async () => {
+        if (!rescheduleTarget) return;
+
+        if (!rescheduleForm.consultation_date) {
+            alert("Please select the new consultation date and time.");
+            return;
         }
+
+        await updateConsultationRecord({
+            id: rescheduleTarget.id,
+            payload: {
+                status: "rescheduled",
+                is_published: 1,
+                consultation_date: rescheduleForm.consultation_date,
+                reschedule_reason: rescheduleForm.reschedule_reason,
+            },
+            successText: "Booking rescheduled successfully",
+            afterSuccess: () => {
+                setRescheduleTarget(null);
+                setRescheduleForm({
+                    consultation_date: "",
+                    reschedule_reason: "",
+                });
+            },
+        });
+    };
+
+    const confirmArchive = async () => {
+        if (!archiveTarget) return;
+
+        await updateConsultationRecord({
+            id: archiveTarget.id,
+            payload: {
+                is_published: 0,
+                status: "archived",
+            },
+            successText: "Record archived successfully",
+            afterSuccess: () => {
+                if (selected?.id === archiveTarget.id) {
+                    setSelected(null);
+                }
+                setArchiveTarget(null);
+            },
+        });
     };
 
     const confirmDelete = async () => {
-        if (!deleteId) return;
+        if (!deleteTarget) return;
+
         setUpdating(true);
+
         try {
-            await fetch(`/api/consultations/${deleteId}`, {
+            const res = await fetch(`/api/consultations/${deleteTarget.id}`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: getAuthHeaders(),
             });
-            setSuccessMessage("Record Deleted Permanently");
+
+            if (!res.ok) {
+                throw new Error(await getErrorMessage(res));
+            }
+
             await fetchConsultations();
-        } catch (e) {
-            console.error(e);
+            showToast("Record deleted permanently");
+
+            if (selected?.id === deleteTarget.id) {
+                setSelected(null);
+            }
+            setDeleteTarget(null);
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "Something went wrong.");
         } finally {
             setUpdating(false);
-            setDeleteId(null);
-            if (selected?.id === deleteId) setSelected(null);
-            setTimeout(() => setSuccessMessage(""), 3000);
         }
     };
 
-    const handleRestore = async (id) => {
-        setUpdating(true);
-        try {
-            const fd = new FormData();
-            fd.append("_method", "PUT");
-            fd.append("is_published", 1);
-            await fetch(`/api/consultations/${id}`, {
-                method: "POST",
-                body: fd,
-                credentials: "include",
-                headers: getAuthHeaders(),
-            });
-            setSuccessMessage("Record Restored Successfully");
-            await fetchConsultations();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUpdating(false);
-            if (selected?.id === id) setSelected(null);
-            setTimeout(() => setSuccessMessage(""), 3000);
-        }
+    const handleRestore = async (consultation) => {
+        await updateConsultationRecord({
+            id: consultation.id,
+            payload: {
+                is_published: 1,
+                status: "pending",
+            },
+            successText: "Record restored successfully",
+            afterSuccess: () => {
+                if (selected?.id === consultation.id) {
+                    setSelected(null);
+                }
+            },
+        });
     };
 
-    /* ---------------- COMPUTED DATA & FILTERING ---------------- */
-    const publishedConsultations = consultations.filter(
-        (c) => c.is_published !== false && c.is_published !== 0,
-    );
-    const archivedConsultations = consultations.filter(
-        (c) => c.is_published === false || c.is_published === 0,
-    );
-
-    let displayedConsultations =
-        activeTab === "published"
-            ? publishedConsultations
-            : archivedConsultations;
-
-    if (searchTerm.trim() !== "") {
-        const lower = searchTerm.toLowerCase();
-        displayedConsultations = displayedConsultations.filter(
-            (c) =>
-                c.first_name?.toLowerCase().includes(lower) ||
-                c.last_name?.toLowerCase().includes(lower) ||
-                c.email?.toLowerCase().includes(lower),
-        );
-    }
-
-    if (filterType !== "") {
-        displayedConsultations = displayedConsultations.filter(
-            (c) => c.project_type?.toString() === filterType.toString(),
-        );
-    }
-
-    /* ---------------- PAGINATION ---------------- */
-    const totalPages = Math.max(
-        1,
-        Math.ceil(displayedConsultations.length / PAGE_SIZE),
-    );
-    const paginated = displayedConsultations.slice(
-        (page - 1) * PAGE_SIZE,
-        page * PAGE_SIZE,
-    );
-
-    const statCards = [
-        {
-            label: "Total Consultations",
-            value: consultations.length,
-            icon: <CalendarIcon className="w-5 h-5 text-black" />,
-        },
-        {
-            label: "Published",
-            value: publishedConsultations.length,
-            icon: <EyeIcon className="w-5 h-5 text-emerald-600" />,
-        },
-        {
-            label: "Archived",
-            value: archivedConsultations.length,
-            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
-        },
-    ];
+    const areAllCurrentPageSelected =
+        paginated.length > 0 &&
+        paginated.every((item) => selectedIds.includes(item.id));
 
     return (
         <div className="flex flex-col [font-family:var(--font-neue)] relative pb-10">
-            {/* Header & Stats */}
             <div className="mb-6 lg:mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <p className="text-sm font-medium text-neutral-500">
@@ -406,41 +791,27 @@ export default function AdminBookingConsultations() {
                 </div>
             </div>
 
-            {/* Toolbar: Tabs & Filters */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-neutral-200 pb-6 mb-6">
-                {/* Tabs */}
-                <div className="flex gap-3 w-full lg:w-auto shrink-0">
-                    <button
-                        onClick={() => {
-                            setActiveTab("published");
-                            setPage(1);
-                            setSelected(null);
-                        }}
-                        className={`flex-1 lg:flex-none rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
-                            activeTab === "published"
-                                ? "border-neutral-900 bg-neutral-900 text-white"
-                                : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
-                        }`}
-                    >
-                        Published ({publishedConsultations.length})
-                    </button>
-                    <button
-                        onClick={() => {
-                            setActiveTab("archived");
-                            setPage(1);
-                            setSelected(null);
-                        }}
-                        className={`flex-1 lg:flex-none rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
-                            activeTab === "archived"
-                                ? "border-neutral-900 bg-neutral-900 text-white"
-                                : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
-                        }`}
-                    >
-                        Archived ({archivedConsultations.length})
-                    </button>
+            <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 mb-6">
+                <div className="flex flex-wrap gap-3">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                setPage(1);
+                                setSelected(null);
+                            }}
+                            className={`rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                                activeTab === tab.id
+                                    ? "border-neutral-900 bg-neutral-900 text-white"
+                                    : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
+                            }`}
+                        >
+                            {tab.label} ({tab.count})
+                        </button>
+                    ))}
                 </div>
 
-                {/* Filters OR Bulk Actions */}
                 <AnimatePresence mode="wait">
                     {selectedIds.length > 0 ? (
                         <motion.div
@@ -449,20 +820,14 @@ export default function AdminBookingConsultations() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
+                            className="flex flex-col sm:flex-row items-center gap-3 w-full bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
                         >
                             <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
                                 {selectedIds.length} Selected
                             </span>
+
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {activeTab === "published" ? (
-                                    <button
-                                        onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
-                                    >
-                                        Archive All
-                                    </button>
-                                ) : (
+                                {activeTab === "archived" ? (
                                     <>
                                         <button
                                             onClick={() =>
@@ -473,15 +838,21 @@ export default function AdminBookingConsultations() {
                                             Restore All
                                         </button>
                                         <button
-                                            onClick={() =>
-                                                setBulkAction("delete")
-                                            }
+                                            onClick={() => setBulkAction("delete")}
                                             className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
                                         >
                                             Delete All
                                         </button>
                                     </>
+                                ) : (
+                                    <button
+                                        onClick={() => setBulkAction("archive")}
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        Archive All
+                                    </button>
                                 )}
+
                                 <button
                                     onClick={() => setSelectedIds([])}
                                     className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
@@ -499,17 +870,16 @@ export default function AdminBookingConsultations() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center w-full flex-1 justify-end"
+                            className="flex flex-col sm:flex-row items-center w-full"
                         >
-                            {/* SEARCH BAR */}
                             <motion.div
                                 layout
-                                className="relative w-full flex-1 min-w-0 mt-3 sm:mt-0"
+                                className="relative w-full flex-1 min-w-0"
                             >
                                 <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search clients..."
+                                    placeholder="Search clients, phone, email, or status..."
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
@@ -519,7 +889,6 @@ export default function AdminBookingConsultations() {
                                 />
                             </motion.div>
 
-                            {/* DROPDOWN */}
                             <motion.div
                                 layout
                                 className="w-full sm:w-auto min-w-[11rem] sm:max-w-[50%] shrink-0 mt-3 sm:mt-0 sm:ml-3"
@@ -536,7 +905,6 @@ export default function AdminBookingConsultations() {
                                 />
                             </motion.div>
 
-                            {/* ACTION BUTTONS (Clear & Refresh) */}
                             <motion.div
                                 layout
                                 className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3"
@@ -611,11 +979,8 @@ export default function AdminBookingConsultations() {
                 </AnimatePresence>
             </div>
 
-            {/* Table & Detail Layout */}
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
-                {/* Table Area */}
                 <div className="flex-1 flex flex-col rounded-2xl border border-neutral-200 bg-white relative overflow-hidden">
-                    {/* TABLE-ONLY LOADING OVERLAY */}
                     <AnimatePresence>
                         {loading && (
                             <motion.div
@@ -644,7 +1009,7 @@ export default function AdminBookingConsultations() {
                                     <p className="text-sm font-medium text-neutral-500 mt-1">
                                         {searchTerm || filterType !== ""
                                             ? "No records match your current filters."
-                                            : "You don't have any records in this tab yet."}
+                                            : "There are no records in this table yet."}
                                     </p>
                                 </div>
                             </div>
@@ -655,11 +1020,7 @@ export default function AdminBookingConsultations() {
                                         <th className="py-4 px-5 w-12 align-middle">
                                             <input
                                                 type="checkbox"
-                                                checked={
-                                                    paginated.length > 0 &&
-                                                    selectedIds.length ===
-                                                        paginated.length
-                                                }
+                                                checked={areAllCurrentPageSelected}
                                                 onChange={handleSelectAll}
                                                 className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                             />
@@ -671,145 +1032,215 @@ export default function AdminBookingConsultations() {
                                             Project Type
                                         </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
-                                            Date Requested
+                                            Schedule
                                         </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
-                                            Status
+                                            Booking Status
                                         </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-neutral-100">
-                                    {paginated.map((c) => (
-                                        <tr
-                                            key={c.id}
-                                            onClick={() => setSelected(c)}
-                                            className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
-                                                selected?.id === c.id
-                                                    ? "bg-neutral-50"
-                                                    : ""
-                                            }`}
-                                        >
-                                            <td
-                                                className="py-4 px-5 align-middle"
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
-                                                }
+                                    {paginated.map((c) => {
+                                        const status = getBookingStatus(c);
+                                        const statusMeta = getStatusMeta(status);
+
+                                        return (
+                                            <tr
+                                                key={c.id}
+                                                onClick={() => setSelected(c)}
+                                                className={`group cursor-pointer transition-colors hover:bg-neutral-50 min-h-[73px] ${
+                                                    selected?.id === c.id
+                                                        ? "bg-neutral-50"
+                                                        : ""
+                                                }`}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.includes(
-                                                        c.id,
-                                                    )}
-                                                    onChange={() =>
-                                                        handleSelect(c.id)
+                                                <td
+                                                    className="py-4 px-5 align-middle"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
                                                     }
-                                                    className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="py-4 px-5 align-middle">
-                                                <div className="flex items-center gap-3">
-                                                    <img
-                                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.first_name + " " + c.last_name)}&background=f3f4f6&color=000000&rounded=true`}
-                                                        alt="Avatar"
-                                                        className="w-8 h-8 rounded-full object-cover hidden sm:block"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(
+                                                            c.id,
+                                                        )}
+                                                        onChange={() =>
+                                                            handleSelect(c.id)
+                                                        }
+                                                        className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                                     />
-                                                    <div>
-                                                        <p className="text-sm font-bold text-neutral-900 truncate max-w-[150px]">
-                                                            {c.first_name}{" "}
-                                                            {c.last_name}
-                                                        </p>
-                                                        <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">
-                                                            {c.email}
-                                                        </p>
+                                                </td>
+
+                                                <td className="py-4 px-5 align-middle">
+                                                    <div className="flex items-center gap-3">
+                                                        <img
+                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true`}
+                                                            alt="Avatar"
+                                                            className="w-8 h-8 rounded-full object-cover hidden sm:block"
+                                                        />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-neutral-900 truncate max-w-[180px]">
+                                                                {c.first_name}{" "}
+                                                                {c.last_name}
+                                                            </p>
+                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[220px] mt-0.5 tracking-wide">
+                                                                {c.email}
+                                                            </p>
+                                                            {c.phone && (
+                                                                <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[220px] mt-0.5 tracking-wide">
+                                                                    {c.phone}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-5 align-middle">
-                                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
-                                                    {c.project_type || "N/A"}
-                                                </span>
-                                            </td>
-                                            <td className="py-4 px-5 align-middle text-center">
-                                                <p className="text-sm font-medium text-neutral-600">
-                                                    {c.consultation_date ||
-                                                        "Not Specified"}
-                                                </p>
-                                            </td>
-                                            <td className="py-4 px-5 align-middle text-center">
-                                                {c.is_published !== 0 &&
-                                                c.is_published !== false ? (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>{" "}
-                                                        Published
+                                                </td>
+
+                                                <td className="py-4 px-5 align-middle">
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
+                                                        {c.project_type || "N/A"}
                                                     </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-neutral-200 bg-neutral-100 text-neutral-500">
-                                                        <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></span>{" "}
-                                                        Archived
+                                                </td>
+
+                                                <td className="py-4 px-5 align-middle text-center">
+                                                    <p className="text-sm font-medium text-neutral-600 whitespace-normal leading-relaxed">
+                                                        {formatDisplayDate(
+                                                            c.consultation_date,
+                                                        )}
+                                                    </p>
+                                                </td>
+
+                                                <td className="py-4 px-5 align-middle text-center">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${statusMeta.className}`}
+                                                    >
+                                                        <span
+                                                            className={`w-1.5 h-1.5 rounded-full ${statusMeta.dotClassName}`}
+                                                        />
+                                                        {statusMeta.label}
                                                     </span>
-                                                )}
-                                            </td>
-                                            <td
-                                                className="py-4 px-5 align-middle text-right"
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
-                                                }
-                                            >
-                                                <div className="flex justify-end gap-2 mt-1">
-                                                    {activeTab ===
-                                                    "published" ? (
-                                                        <button
-                                                            onClick={() =>
-                                                                setArchiveId(
-                                                                    c.id,
-                                                                )
-                                                            }
-                                                            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
-                                                        >
-                                                            Archive
-                                                        </button>
-                                                    ) : (
-                                                        <>
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleRestore(
-                                                                        c.id,
-                                                                    )
-                                                                }
-                                                                className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
-                                                            >
-                                                                Restore
-                                                            </button>
-                                                            <button
-                                                                onClick={() =>
-                                                                    setDeleteId(
-                                                                        c.id,
-                                                                    )
-                                                                }
-                                                                className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                </td>
+
+                                                <td
+                                                    className="py-4 px-5 align-middle text-right"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
+                                                    <div className="flex flex-wrap justify-end gap-2">
+                                                        {activeTab ===
+                                                        "archived" ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleRestore(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Restore
+                                                                </button>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleAccept(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating ||
+                                                                        status ===
+                                                                            "accepted"
+                                                                    }
+                                                                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600 transition-all hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Accept
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setCancelTarget(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating ||
+                                                                        status ===
+                                                                            "cancelled"
+                                                                    }
+                                                                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        openRescheduleModal(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Reschedule
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setArchiveTarget(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-neutral-700 transition-all hover:border-black hover:text-black disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Archive
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         )}
                     </div>
 
-                    {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl">
                             <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
                                 Page {page} of {totalPages}
                             </p>
+
                             <div className="flex gap-2">
                                 <button
                                     disabled={page === 1}
@@ -819,6 +1250,7 @@ export default function AdminBookingConsultations() {
                                     <ChevronLeft className="w-3 h-3" />
                                     Prev
                                 </button>
+
                                 <button
                                     disabled={page === totalPages}
                                     onClick={() => setPage((p) => p + 1)}
@@ -833,11 +1265,9 @@ export default function AdminBookingConsultations() {
                 </div>
             </div>
 
-            {/* SIDE-DRAWER PANEL FOR RECORD DETAILS */}
             <AnimatePresence>
                 {selected && (
                     <>
-                        {/* Backdrop */}
                         <motion.div
                             key="detail-backdrop"
                             initial={{ opacity: 0 }}
@@ -847,7 +1277,6 @@ export default function AdminBookingConsultations() {
                             onClick={() => setSelected(null)}
                         />
 
-                        {/* Drawer */}
                         <motion.div
                             key="detail-drawer"
                             initial={{ x: "100%" }}
@@ -874,8 +1303,7 @@ export default function AdminBookingConsultations() {
                                         Client
                                     </p>
                                     <p className="text-2xl font-black text-neutral-900 leading-tight">
-                                        {selected.first_name}{" "}
-                                        {selected.last_name}
+                                        {selected.first_name} {selected.last_name}
                                     </p>
                                     <p className="text-sm font-medium text-neutral-600 mt-1">
                                         {selected.email}
@@ -896,34 +1324,52 @@ export default function AdminBookingConsultations() {
                                             {selected.project_type || "N/A"}
                                         </span>
                                     </div>
+
                                     <div>
                                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                            Date Requested
+                                            Schedule
                                         </p>
-                                        <span className="text-sm font-medium text-neutral-700">
-                                            {selected.consultation_date ||
-                                                "Not Specified"}
+                                        <span className="text-sm font-medium text-neutral-700 whitespace-normal leading-relaxed">
+                                            {formatDisplayDate(
+                                                selected.consultation_date,
+                                            )}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div>
                                     <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                        Status
+                                        Booking Status
                                     </p>
-                                    {selected.is_published !== false &&
-                                    selected.is_published !== 0 ? (
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                            Published
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-neutral-200 bg-neutral-100 text-neutral-500">
-                                            <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></span>
-                                            Archived
-                                        </span>
-                                    )}
+                                    {(() => {
+                                        const status = getBookingStatus(selected);
+                                        const meta = getStatusMeta(status);
+
+                                        return (
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}
+                                            >
+                                                <span
+                                                    className={`w-1.5 h-1.5 rounded-full ${meta.dotClassName}`}
+                                                />
+                                                {meta.label}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
+
+                                {selected.reschedule_reason && (
+                                    <div>
+                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                            Reschedule Note
+                                        </p>
+                                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                                            <p className="text-sm font-medium text-blue-900 leading-relaxed whitespace-pre-wrap">
+                                                {selected.reschedule_reason}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div>
                                     <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
@@ -940,53 +1386,232 @@ export default function AdminBookingConsultations() {
                             </div>
 
                             <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 space-y-3 shrink-0">
-                                <div className="flex gap-2">
-                                    {activeTab === "published" ? (
+                                {activeTab === "archived" ? (
+                                    <div className="flex gap-2">
                                         <button
-                                            onClick={() => {
-                                                setArchiveId(selected.id);
-                                                setSelected(null);
-                                            }}
+                                            onClick={() => handleRestore(selected)}
                                             disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         >
-                                            <ArchiveIcon className="w-4 h-4" />{" "}
-                                            Archive Record
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => {
-                                                handleRestore(selected.id);
-                                                setSelected(null);
-                                            }}
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <RestoreIcon className="w-4 h-4" />{" "}
+                                            <RestoreIcon className="w-4 h-4" />
                                             Restore Record
                                         </button>
-                                    )}
 
-                                    <button
-                                        onClick={() => {
-                                            setDeleteId(selected.id);
-                                            setSelected(null);
-                                        }}
-                                        className="flex-shrink-0 flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-red-600 transition-all hover:bg-red-100 cursor-pointer"
-                                        title="Delete Permanently"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                        <button
+                                            onClick={() =>
+                                                setDeleteTarget(selected)
+                                            }
+                                            disabled={updating}
+                                            className="flex-shrink-0 flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-red-600 transition-all hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            title="Delete Permanently"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => handleAccept(selected)}
+                                            disabled={
+                                                updating ||
+                                                getBookingStatus(selected) ===
+                                                    "accepted"
+                                            }
+                                            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs font-bold text-emerald-700 uppercase tracking-wider transition-all hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <CheckIcon className="w-4 h-4" />
+                                            Accept
+                                        </button>
+
+                                        <button
+                                            onClick={() =>
+                                                setCancelTarget(selected)
+                                            }
+                                            disabled={
+                                                updating ||
+                                                getBookingStatus(selected) ===
+                                                    "cancelled"
+                                            }
+                                            className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs font-bold text-red-600 uppercase tracking-wider transition-all hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <BanIcon className="w-4 h-4" />
+                                            Cancel
+                                        </button>
+
+                                        <button
+                                            onClick={() =>
+                                                openRescheduleModal(selected)
+                                            }
+                                            disabled={updating}
+                                            className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <ClockIcon className="w-4 h-4" />
+                                            Reschedule
+                                        </button>
+
+                                        <button
+                                            onClick={() =>
+                                                setArchiveTarget(selected)
+                                            }
+                                            disabled={updating}
+                                            className="flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                            <ArchiveIcon className="w-4 h-4" />
+                                            Archive
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
 
-            {/* SINGLE ARCHIVE MODAL */}
             <AnimatePresence>
-                {archiveId && (
+                {cancelTarget && (
+                    <motion.div
+                        key="modal-cancel"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <div
+                            className="absolute inset-0 bg-black/20 cursor-pointer"
+                            onClick={() => setCancelTarget(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            transition={springTransition}
+                            className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
+                        >
+                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+                                <BanIcon className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-xl font-black text-neutral-900 mb-2">
+                                Cancel Booking?
+                            </h3>
+                            <p className="text-sm font-medium text-neutral-500 mb-8">
+                                This will mark the booking as cancelled.
+                            </p>
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    onClick={confirmCancel}
+                                    disabled={updating}
+                                    className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {updating ? "Cancelling..." : "Yes, cancel it"}
+                                </button>
+                                <button
+                                    onClick={() => setCancelTarget(null)}
+                                    className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer"
+                                >
+                                    Back
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {rescheduleTarget && (
+                    <motion.div
+                        key="modal-reschedule"
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <div
+                            className="absolute inset-0 bg-black/20 cursor-pointer"
+                            onClick={() => setRescheduleTarget(null)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            transition={springTransition}
+                            className="relative w-full max-w-lg rounded-[2rem] bg-white p-8 border border-neutral-100 pointer-events-auto"
+                        >
+                            <div className="mb-6 text-center">
+                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                    <ClockIcon className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-xl font-black text-neutral-900 mb-2">
+                                    Reschedule Booking
+                                </h3>
+                                <p className="text-sm font-medium text-neutral-500">
+                                    Update the client’s consultation schedule.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                        New Schedule
+                                    </label>
+                                    <input
+                                        type="datetime-local"
+                                        value={rescheduleForm.consultation_date}
+                                        onChange={(e) =>
+                                            setRescheduleForm((prev) => ({
+                                                ...prev,
+                                                consultation_date:
+                                                    e.target.value,
+                                            }))
+                                        }
+                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                        Reason / Note
+                                    </label>
+                                    <textarea
+                                        rows={4}
+                                        value={rescheduleForm.reschedule_reason}
+                                        onChange={(e) =>
+                                            setRescheduleForm((prev) => ({
+                                                ...prev,
+                                                reschedule_reason:
+                                                    e.target.value,
+                                            }))
+                                        }
+                                        placeholder="Optional note for the reschedule..."
+                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 mt-8">
+                                <button
+                                    onClick={confirmReschedule}
+                                    disabled={updating}
+                                    className="w-full rounded-full bg-blue-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {updating
+                                        ? "Saving..."
+                                        : "Save rescheduled booking"}
+                                </button>
+
+                                <button
+                                    onClick={() => setRescheduleTarget(null)}
+                                    className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {archiveTarget && (
                     <motion.div
                         key="modal-archive"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
@@ -996,7 +1621,7 @@ export default function AdminBookingConsultations() {
                     >
                         <div
                             className="absolute inset-0 bg-black/20 cursor-pointer"
-                            onClick={() => setArchiveId(null)}
+                            onClick={() => setArchiveTarget(null)}
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -1021,12 +1646,10 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating
-                                        ? "Archiving..."
-                                        : "Yes, archive it"}
+                                    {updating ? "Archiving..." : "Yes, archive it"}
                                 </button>
                                 <button
-                                    onClick={() => setArchiveId(null)}
+                                    onClick={() => setArchiveTarget(null)}
                                     className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer"
                                 >
                                     Cancel
@@ -1037,9 +1660,8 @@ export default function AdminBookingConsultations() {
                 )}
             </AnimatePresence>
 
-            {/* SINGLE DELETE PERMANENTLY MODAL */}
             <AnimatePresence>
-                {deleteId && (
+                {deleteTarget && (
                     <motion.div
                         key="modal-delete"
                         className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
@@ -1049,7 +1671,7 @@ export default function AdminBookingConsultations() {
                     >
                         <div
                             className="absolute inset-0 bg-black/20 cursor-pointer"
-                            onClick={() => setDeleteId(null)}
+                            onClick={() => setDeleteTarget(null)}
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -1074,12 +1696,10 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating
-                                        ? "Deleting..."
-                                        : "Yes, delete it"}
+                                    {updating ? "Deleting..." : "Yes, delete it"}
                                 </button>
                                 <button
-                                    onClick={() => setDeleteId(null)}
+                                    onClick={() => setDeleteTarget(null)}
                                     className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer"
                                 >
                                     Cancel
@@ -1090,7 +1710,6 @@ export default function AdminBookingConsultations() {
                 )}
             </AnimatePresence>
 
-            {/* BULK ACTION MODAL */}
             <AnimatePresence>
                 {bulkAction && (
                     <motion.div
@@ -1128,16 +1747,19 @@ export default function AdminBookingConsultations() {
                                     <RestoreIcon className="w-6 h-6" />
                                 )}
                             </div>
+
                             <h3 className="text-xl font-black text-neutral-900 mb-2 capitalize">
                                 {bulkAction} {selectedIds.length} items?
                             </h3>
+
                             <p className="text-sm font-medium text-neutral-500 mb-8">
                                 {bulkAction === "delete"
                                     ? "This action cannot be undone and will permanently remove these items."
                                     : bulkAction === "archive"
-                                      ? "These items will be hidden from the website."
-                                      : "These items will be restored to the website."}
+                                      ? "These items will be hidden from the active tables."
+                                      : "These items will be restored to the bookings table."}
                             </p>
+
                             <div className="flex flex-col gap-2">
                                 <button
                                     onClick={confirmBulkAction}
@@ -1154,6 +1776,7 @@ export default function AdminBookingConsultations() {
                                         ? "Processing..."
                                         : `Yes, ${bulkAction} all`}
                                 </button>
+
                                 <button
                                     onClick={() => setBulkAction(null)}
                                     className="w-full rounded-full bg-transparent px-4 py-3.5 text-sm font-bold text-neutral-400 transition-all hover:text-neutral-900 cursor-pointer"
@@ -1166,7 +1789,6 @@ export default function AdminBookingConsultations() {
                 )}
             </AnimatePresence>
 
-            {/* Toast Notification */}
             <AnimatePresence>
                 {successMessage && (
                     <motion.div
@@ -1190,10 +1812,6 @@ export default function AdminBookingConsultations() {
     );
 }
 
-// ============================================================================
-// Minimal UI Icons
-// ============================================================================
-
 function CalendarIcon({ className = "w-4 h-4" }) {
     return (
         <svg
@@ -1213,7 +1831,7 @@ function CalendarIcon({ className = "w-4 h-4" }) {
     );
 }
 
-function EyeIcon({ className = "w-4 h-4" }) {
+function ClockIcon({ className = "w-4 h-4" }) {
     return (
         <svg
             viewBox="0 0 24 24"
@@ -1224,8 +1842,25 @@ function EyeIcon({ className = "w-4 h-4" }) {
             strokeLinejoin="round"
             className={className}
         >
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 3" />
+        </svg>
+    );
+}
+
+function BanIcon({ className = "w-4 h-4" }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M5.64 5.64l12.72 12.72" />
         </svg>
     );
 }
