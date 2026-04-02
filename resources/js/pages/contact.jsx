@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import Swal from "sweetalert2";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Contact() {
@@ -72,6 +73,26 @@ export default function Contact() {
             });
 
             if (res.ok) {
+
+                Swal.fire({
+                    title: "Consultation Booked",
+                    text: "We’ll be in touch with you soon.",
+                    icon: "success",
+                    confirmButtonText: "OK",
+
+                    //  DESIGN CUSTOMIZATION
+                    background: "#ffffff",
+                    color: "#000000",
+                    confirmButtonColor: "#000000",
+
+                    // Rounded clean look (matches your UI)
+                    customClass: {
+                        popup: "rounded-2xl px-6 py-8",
+                        title: "text-lg font-bold tracking-wide",
+                        confirmButton: "rounded-full px-6 py-3 text-xs tracking-widest"
+                    }
+                });
+
                 setSubmitSuccess(true);
                 setFirstName("");
                 setLastName("");
@@ -339,16 +360,8 @@ export default function Contact() {
                                     </AnimatePresence>
 
                                     <AnimatePresence>
-                                        {submitSuccess && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: 8 }}
-                                                className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-[11px] font-bold tracking-wider text-emerald-700 uppercase"
-                                            >
-                                                Your consultation has been booked. We'll be in touch soon!
-                                            </motion.div>
-                                        )}
+                                        
+                                        
                                         {submitError && (
                                             <motion.div
                                                 initial={{ opacity: 0, y: 8 }}
