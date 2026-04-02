@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     {
         $middleware->validateCsrfTokens(except: [
         'api/webhooks/*',
+        'api/consultations',
     ]);
          $middleware->api(prepend: [
         \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
