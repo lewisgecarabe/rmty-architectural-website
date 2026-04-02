@@ -427,17 +427,17 @@ export default function AdminContentServices() {
         {
             label: "Total Services",
             value: services.length,
-            icon: <FolderIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <FolderIcon className="w-5 h-5 text-black" />,
         },
         {
             label: "Published",
             value: publishedServices.length,
-            icon: <EyeIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <EyeIcon className="w-5 h-5 text-emerald-600" />,
         },
         {
             label: "Archived",
             value: archivedServices.length,
-            icon: <ArchiveIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
         },
     ];
 
@@ -473,7 +473,7 @@ export default function AdminContentServices() {
                     {statCards.map((s) => (
                         <div
                             key={s.label}
-                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]"
+                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
@@ -691,7 +691,7 @@ export default function AdminContentServices() {
                                 {activeTab === "published" ? (
                                     <button
                                         onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                         Archive All
                                     </button>
@@ -780,8 +780,10 @@ export default function AdminContentServices() {
                                                 duration: 0.25,
                                                 ease: smoothEase,
                                             }}
+                                            /* MAGIC FIX: sm:!h-[42px] overrides the vertical height animation on desktop so it only slides horizontally! */
                                             className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
                                         >
+                                            {/* Inner div slides slightly from the left to complete the illusion */}
                                             <motion.div
                                                 initial={{ x: -20 }}
                                                 animate={{ x: 0 }}
@@ -797,7 +799,7 @@ export default function AdminContentServices() {
                                                         setSearchTerm("");
                                                         setPage(1);
                                                     }}
-                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center hover:border-neutral-300"
                                                 >
                                                     Clear
                                                 </button>
@@ -813,7 +815,7 @@ export default function AdminContentServices() {
                                         ease: smoothEase,
                                     }}
                                     onClick={fetchServices}
-                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden"
+                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
                                     title="Refresh Table"
                                 >
                                     <RefreshIcon
@@ -967,7 +969,7 @@ export default function AdminContentServices() {
                                                                     s.id,
                                                                 )
                                                             }
-                                                            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                            className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
                                                         >
                                                             Archive
                                                         </button>
@@ -1004,30 +1006,34 @@ export default function AdminContentServices() {
                         )}
                     </div>
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
+                    {/* Summary Footer & Pagination */}
+                    {displayedServices.length > 0 && (
                         <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl">
                             <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
-                                Page {page} of {totalPages}
+                                Total: {displayedServices.length} Record(s){" "}
+                                {totalPages > 1 &&
+                                    `(Page ${page} of ${totalPages})`}
                             </p>
-                            <div className="flex gap-2">
-                                <button
-                                    disabled={page === 1}
-                                    onClick={() => setPage((p) => p - 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                >
-                                    <ChevronLeft className="w-3 h-3" />
-                                    Prev
-                                </button>
-                                <button
-                                    disabled={page === totalPages}
-                                    onClick={() => setPage((p) => p + 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                >
-                                    Next
-                                    <ChevronRight className="w-3 h-3" />
-                                </button>
-                            </div>
+                            {totalPages > 1 && (
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={page === 1}
+                                        onClick={() => setPage((p) => p - 1)}
+                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    >
+                                        <ChevronLeft className="w-3 h-3" />
+                                        Prev
+                                    </button>
+                                    <button
+                                        disabled={page === totalPages}
+                                        onClick={() => setPage((p) => p + 1)}
+                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    >
+                                        Next
+                                        <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1184,7 +1190,7 @@ export default function AdminContentServices() {
                             transition={springTransition}
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
-                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/20 text-amber-600">
                                 <ArchiveIcon className="w-6 h-6" />
                             </div>
                             <h3 className="text-xl font-black text-neutral-900 mb-2">
@@ -1198,7 +1204,7 @@ export default function AdminContentServices() {
                                 <button
                                     onClick={confirmArchive}
                                     disabled={updating}
-                                    className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                                    className="w-full rounded-full bg-amber-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
                                 >
                                     {updating
                                         ? "Archiving..."
@@ -1291,7 +1297,7 @@ export default function AdminContentServices() {
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
                             <div
-                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${bulkAction === "delete" ? "bg-red-50 text-red-600" : bulkAction === "archive" ? "bg-neutral-100 text-neutral-600" : "bg-blue-50 text-blue-600"}`}
+                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${bulkAction === "delete" ? "bg-red-50 text-red-600" : bulkAction === "archive" ? "bg-amber-400/20 text-amber-600" : "bg-blue-50 text-blue-600"}`}
                             >
                                 {bulkAction === "delete" ? (
                                     <TrashIcon className="w-6 h-6" />
@@ -1315,7 +1321,13 @@ export default function AdminContentServices() {
                                 <button
                                     onClick={confirmBulkAction}
                                     disabled={updating}
-                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${bulkAction === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-black hover:bg-neutral-800"}`}
+                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${
+                                        bulkAction === "delete"
+                                            ? "bg-red-600 hover:bg-red-700"
+                                            : bulkAction === "archive"
+                                              ? "bg-amber-600 hover:bg-amber-700"
+                                              : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
                                 >
                                     {updating
                                         ? "Processing..."

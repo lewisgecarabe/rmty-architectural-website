@@ -306,22 +306,22 @@ export default function AdminInquiries() {
         {
             label: "Total Inquiries",
             value: stats.total ?? 0,
-            icon: <InboxIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <InboxIcon className="w-5 h-5 text-black" />,
         },
         {
             label: "New Messages",
             value: stats.new ?? 0,
-            icon: <SparklesIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <SparklesIcon className="w-5 h-5 text-emerald-600" />,
         },
         {
             label: "Replied",
             value: stats.replied ?? 0,
-            icon: <ReplyIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <ReplyIcon className="w-5 h-5 text-blue-600" />,
         },
         {
             label: "Archived",
             value: stats.archived ?? 0,
-            icon: <ArchiveIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
         },
     ];
 
@@ -339,7 +339,7 @@ export default function AdminInquiries() {
                     {statCards.map((s) => (
                         <div
                             key={s.label}
-                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]"
+                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
@@ -463,7 +463,7 @@ export default function AdminInquiries() {
                                                         status: "",
                                                     });
                                                 }}
-                                                className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center hover:border-neutral-300"
                                             >
                                                 Clear
                                             </button>
@@ -479,7 +479,7 @@ export default function AdminInquiries() {
                                     ease: smoothEase,
                                 }}
                                 onClick={() => load(page, filters)}
-                                className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden"
+                                className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
                                 title="Refresh Table"
                             >
                                 <RefreshIcon

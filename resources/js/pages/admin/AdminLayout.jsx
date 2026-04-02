@@ -121,7 +121,7 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 
     return (
         <aside
-            className={`fixed inset-y-0 left-0 z-30 flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:static lg:translate-x-0 ${
+            className={`[font-family:var(--font-neue)] fixed inset-y-0 left-0 z-30 flex w-[280px] flex-col bg-[#0A0A0A] text-[#888888] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] lg:static lg:translate-x-0 ${
                 isOpen ? "translate-x-0" : "-translate-x-full"
             }`}
         >

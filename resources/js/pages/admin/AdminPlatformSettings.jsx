@@ -84,7 +84,7 @@ function PlatformCard({
                     </div>
                 ) : (
                     !connected && (
-                        <div className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 px-3 py-2 rounded-lg border border-neutral-100">
+                        <div className="mt-4 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-neutral-400 bg-neutral-50 px-3 py-2 rounded-lg border border-neutral-100">
                             No account linked
                         </div>
                     )
@@ -285,7 +285,7 @@ export default function AdminPlatformSettings() {
                             Needs Attention
                         </p>
                         <div
-                            className={`${requiresAttention > 0 ? "text-amber-500" : "text-neutral-300"}`}
+                            className={`${requiresAttention > 0 ? "text-amber-500" : "text-black"}`}
                         >
                             <AlertCircleIcon />
                         </div>
@@ -300,7 +300,7 @@ export default function AdminPlatformSettings() {
                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                             Available Platforms
                         </p>
-                        <div className="text-neutral-300">
+                        <div className="text-black">
                             <LayersIcon />
                         </div>
                     </div>

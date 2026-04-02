@@ -343,7 +343,7 @@ export default function AdminProfile() {
                     {/* Dropdowns & Buttons Wrapper */}
                     <div className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3">
                         {/* Type Dropdown */}
-                        <div className="w-full sm:w-36 z-50 shrink-0">
+                        <div className="w-full sm:w-36 shrink-0">
                             <AnimatedSelect
                                 value={filterType}
                                 placeholder="All Types"
@@ -357,7 +357,7 @@ export default function AdminProfile() {
                         </div>
 
                         {/* Action Dropdown */}
-                        <div className="w-full sm:w-40 z-40 shrink-0 mt-3 sm:mt-0 sm:ml-3">
+                        <div className="w-full sm:w-40  shrink-0 mt-3 sm:mt-0 sm:ml-3">
                             <AnimatedSelect
                                 value={filterAction}
                                 placeholder="All Actions"
@@ -410,7 +410,7 @@ export default function AdminProfile() {
                                                     setFilterAction("");
                                                     setPage(1);
                                                 }}
-                                                className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 hover:border-neutral-300 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
                                             >
                                                 Clear
                                             </button>
@@ -421,7 +421,7 @@ export default function AdminProfile() {
 
                             <button
                                 onClick={fetchProfileData}
-                                className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-colors flex justify-center items-center cursor-pointer overflow-hidden"
+                                className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-black hover:bg-neutral-50 transition-colors flex justify-center items-center cursor-pointer overflow-hidden"
                                 title="Refresh Logs"
                             >
                                 <RefreshIcon

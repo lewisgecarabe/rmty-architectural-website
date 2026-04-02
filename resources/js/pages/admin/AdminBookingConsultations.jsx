@@ -362,17 +362,17 @@ export default function AdminBookingConsultations() {
         {
             label: "Total Consultations",
             value: consultations.length,
-            icon: <CalendarIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <CalendarIcon className="w-5 h-5 text-black" />,
         },
         {
             label: "Published",
             value: publishedConsultations.length,
-            icon: <EyeIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <EyeIcon className="w-5 h-5 text-emerald-600" />,
         },
         {
             label: "Archived",
             value: archivedConsultations.length,
-            icon: <ArchiveIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
         },
     ];
 
@@ -390,7 +390,7 @@ export default function AdminBookingConsultations() {
                     {statCards.map((s) => (
                         <div
                             key={s.label}
-                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]"
+                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
@@ -582,7 +582,7 @@ export default function AdminBookingConsultations() {
                                                         setFilterType("");
                                                         setPage(1);
                                                     }}
-                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
                                                 >
                                                     Clear
                                                 </button>
@@ -598,7 +598,7 @@ export default function AdminBookingConsultations() {
                                         ease: smoothEase,
                                     }}
                                     onClick={fetchConsultations}
-                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden"
+                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
                                     title="Refresh Table"
                                 >
                                     <RefreshIcon
@@ -1005,7 +1005,7 @@ export default function AdminBookingConsultations() {
                             transition={springTransition}
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
-                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/20 text-amber-600">
                                 <ArchiveIcon className="w-6 h-6" />
                             </div>
                             <h3 className="text-xl font-black text-neutral-900 mb-2">
@@ -1112,7 +1112,13 @@ export default function AdminBookingConsultations() {
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
                             <div
-                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${bulkAction === "delete" ? "bg-red-50 text-red-600" : bulkAction === "archive" ? "bg-neutral-100 text-neutral-600" : "bg-blue-50 text-blue-600"}`}
+                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${
+                                    bulkAction === "delete"
+                                        ? "bg-red-50 text-red-600"
+                                        : bulkAction === "archive"
+                                          ? "bg-amber-50 text-amber-600"
+                                          : "bg-blue-50 text-blue-600"
+                                }`}
                             >
                                 {bulkAction === "delete" ? (
                                     <TrashIcon className="w-6 h-6" />
@@ -1129,14 +1135,20 @@ export default function AdminBookingConsultations() {
                                 {bulkAction === "delete"
                                     ? "This action cannot be undone and will permanently remove these items."
                                     : bulkAction === "archive"
-                                      ? "These records will be hidden."
-                                      : "These records will be restored to the active view."}
+                                      ? "These items will be hidden from the website."
+                                      : "These items will be restored to the website."}
                             </p>
                             <div className="flex flex-col gap-2">
                                 <button
                                     onClick={confirmBulkAction}
                                     disabled={updating}
-                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${bulkAction === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-black hover:bg-neutral-800"}`}
+                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${
+                                        bulkAction === "delete"
+                                            ? "bg-red-600 hover:bg-red-700"
+                                            : bulkAction === "archive"
+                                              ? "bg-amber-600 hover:bg-amber-700"
+                                              : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
                                 >
                                     {updating
                                         ? "Processing..."

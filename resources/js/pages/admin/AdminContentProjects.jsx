@@ -537,17 +537,17 @@ export default function AdminContentProjects() {
         {
             label: "Total Projects",
             value: projects.length,
-            icon: <FolderIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <FolderIcon className="w-5 h-5 text-black" />,
         },
         {
             label: "Published",
             value: publishedProjects.length,
-            icon: <EyeIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <EyeIcon className="w-5 h-5 text-emerald-600" />,
         },
         {
             label: "Archived",
             value: archivedProjects.length,
-            icon: <ArchiveIcon className="w-5 h-5 text-neutral-300" />,
+            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
         },
     ];
 
@@ -583,7 +583,7 @@ export default function AdminContentProjects() {
                     {statCards.map((s) => (
                         <div
                             key={s.label}
-                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]"
+                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
                         >
                             <div className="flex justify-between items-center mb-2">
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
@@ -1086,7 +1086,7 @@ export default function AdminContentProjects() {
                                 {activeTab === "published" ? (
                                     <button
                                         onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                         Archive All
                                     </button>
@@ -1212,7 +1212,7 @@ export default function AdminContentProjects() {
                                                         setFilterCategory("");
                                                         setPage(1);
                                                     }}
-                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center hover:border-neutral-300"
                                                 >
                                                     Clear
                                                 </button>
@@ -1228,7 +1228,7 @@ export default function AdminContentProjects() {
                                         ease: smoothEase,
                                     }}
                                     onClick={fetchAll}
-                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden"
+                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
                                     title="Refresh Table"
                                 >
                                     <RefreshIcon
@@ -1418,7 +1418,7 @@ export default function AdminContentProjects() {
                                                                     p.id,
                                                                 )
                                                             }
-                                                            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                            className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
                                                         >
                                                             Archive
                                                         </button>
@@ -1455,219 +1455,224 @@ export default function AdminContentProjects() {
                         )}
                     </div>
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
+                    {/* Summary Footer & Pagination */}
+                    {displayedProjects.length > 0 && (
                         <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl">
                             <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
-                                Page {page} of {totalPages}
+                                Total: {displayedProjects.length} Record(s){" "}
+                                {totalPages > 1 &&
+                                    `(Page ${page} of ${totalPages})`}
                             </p>
-                            <div className="flex gap-2">
-                                <button
-                                    disabled={page === 1}
-                                    onClick={() => setPage((p) => p - 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                >
-                                    <ChevronLeft className="w-3 h-3" />
-                                    Prev
-                                </button>
-                                <button
-                                    disabled={page === totalPages}
-                                    onClick={() => setPage((p) => p + 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                >
-                                    Next
-                                    <ChevronRight className="w-3 h-3" />
-                                </button>
-                            </div>
+                            {totalPages > 1 && (
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={page === 1}
+                                        onClick={() => setPage((p) => p - 1)}
+                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    >
+                                        <ChevronLeft className="w-3 h-3" />
+                                        Prev
+                                    </button>
+                                    <button
+                                        disabled={page === totalPages}
+                                        onClick={() => setPage((p) => p + 1)}
+                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    >
+                                        Next
+                                        <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-            </div>
 
-            {/* SIDE-DRAWER PANEL FOR PROJECT DETAILS */}
-            <AnimatePresence>
-                {selected && (
-                    <>
-                        {/* Backdrop */}
-                        <motion.div
-                            key="detail-backdrop"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
-                            onClick={() => setSelected(null)}
-                        />
+                {/* SIDE-DRAWER PANEL FOR PROJECT DETAILS */}
+                <AnimatePresence>
+                    {selected && (
+                        <>
+                            {/* Backdrop */}
+                            <motion.div
+                                key="detail-backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
+                                onClick={() => setSelected(null)}
+                            />
 
-                        {/* Drawer */}
-                        <motion.div
-                            key="detail-drawer"
-                            initial={{ x: "100%" }}
-                            animate={{ x: 0 }}
-                            exit={{ x: "100%" }}
-                            transition={drawerTransition}
-                            className="fixed top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-white z-[80] flex flex-col border-l border-neutral-200 [font-family:var(--font-neue)]"
-                        >
-                            <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
-                                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-widest">
-                                    Project Details
-                                </h3>
-                                <button
-                                    onClick={() => setSelected(null)}
-                                    className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer"
-                                >
-                                    <CloseIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-                                <div>
-                                    {selected.cover_image ? (
-                                        <img
-                                            src={selected.cover_image}
-                                            alt={selected.title}
-                                            className="w-full h-48 object-cover rounded-xl border border-neutral-200 mb-4"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-48 bg-neutral-100 rounded-xl border border-neutral-200 flex items-center justify-center mb-4">
-                                            <ImagesIcon className="w-8 h-8 text-neutral-300" />
-                                        </div>
-                                    )}
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
-                                        Title
-                                    </p>
-                                    <p className="text-2xl font-black text-neutral-900 leading-tight">
-                                        {selected.title || "Untitled"}
-                                    </p>
-                                    {selected.location && (
-                                        <p className="text-sm font-medium text-neutral-600 mt-1">
-                                            {selected.location}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                            Category
-                                        </p>
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-white text-neutral-600 border-neutral-200 capitalize">
-                                            {selected.category?.name?.toLowerCase() ||
-                                                "uncategorized"}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                            Status
-                                        </p>
-                                        {selected.is_published ? (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                                Published
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-neutral-200 bg-neutral-100 text-neutral-500">
-                                                <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></span>
-                                                Archived
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                        Description
-                                    </p>
-                                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                                        <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
-                                            {selected.description ||
-                                                "No description provided."}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {((selected.gallery_images &&
-                                    selected.gallery_images.length > 0) ||
-                                    (selected.images &&
-                                        selected.images.length > 0)) && (
-                                    <div>
-                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                            Gallery
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {(
-                                                selected.gallery_images ||
-                                                selected.images
-                                            ).map((img, i) => (
-                                                <img
-                                                    key={i}
-                                                    src={
-                                                        typeof img === "string"
-                                                            ? img
-                                                            : img.image_path
-                                                    }
-                                                    alt={`Gallery ${i}`}
-                                                    className="w-16 h-16 object-cover rounded-lg border border-neutral-200"
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 space-y-3 shrink-0">
-                                <button
-                                    onClick={() => {
-                                        handleEdit(selected);
-                                        setSelected(null);
-                                    }}
-                                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-xs font-bold text-white uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98] cursor-pointer"
-                                >
-                                    Edit Project
-                                </button>
-
-                                <div className="flex gap-2">
-                                    {activeTab === "published" ? (
-                                        <button
-                                            onClick={() => {
-                                                setArchiveId(selected.id);
-                                                setSelected(null);
-                                            }}
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:border-neutral-300 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <ArchiveIcon className="w-4 h-4" />{" "}
-                                            Archive
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => {
-                                                handleRestore(selected.id);
-                                                setSelected(null);
-                                            }}
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:border-neutral-300 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <RestoreIcon className="w-4 h-4" />{" "}
-                                            Restore
-                                        </button>
-                                    )}
-
+                            {/* Drawer */}
+                            <motion.div
+                                key="detail-drawer"
+                                initial={{ x: "100%" }}
+                                animate={{ x: 0 }}
+                                exit={{ x: "100%" }}
+                                transition={drawerTransition}
+                                className="fixed top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-white z-[80] flex flex-col border-l border-neutral-200 [font-family:var(--font-neue)]"
+                            >
+                                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
+                                    <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-widest">
+                                        Project Details
+                                    </h3>
                                     <button
-                                        onClick={() => {
-                                            setDeleteId(selected.id);
-                                            setSelected(null);
-                                        }}
-                                        className="flex-shrink-0 flex items-center justify-center rounded-xl border border-red-200 text-red-600 transition-all hover:border-red-400 hover:text-red-700 px-4 py-3.5 cursor-pointer"
-                                        title="Delete Project"
+                                        onClick={() => setSelected(null)}
+                                        className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer"
                                     >
-                                        <TrashIcon className="w-4 h-4" />
+                                        <CloseIcon className="w-5 h-5" />
                                     </button>
                                 </div>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
+
+                                <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+                                    <div>
+                                        {selected.cover_image ? (
+                                            <img
+                                                src={selected.cover_image}
+                                                alt={selected.title}
+                                                className="w-full h-48 object-cover rounded-xl border border-neutral-200 mb-4"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-48 bg-neutral-100 rounded-xl border border-neutral-200 flex items-center justify-center mb-4">
+                                                <ImagesIcon className="w-8 h-8 text-neutral-300" />
+                                            </div>
+                                        )}
+                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
+                                            Title
+                                        </p>
+                                        <p className="text-2xl font-black text-neutral-900 leading-tight">
+                                            {selected.title || "Untitled"}
+                                        </p>
+                                        {selected.location && (
+                                            <p className="text-sm font-medium text-neutral-600 mt-1">
+                                                {selected.location}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                                Category
+                                            </p>
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-white text-neutral-600 border-neutral-200 capitalize">
+                                                {selected.category?.name?.toLowerCase() ||
+                                                    "uncategorized"}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                                Status
+                                            </p>
+                                            {selected.is_published ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                                    Published
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-neutral-200 bg-neutral-100 text-neutral-500">
+                                                    <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full"></span>
+                                                    Archived
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                            Description
+                                        </p>
+                                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                                            <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                                                {selected.description ||
+                                                    "No description provided."}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {((selected.gallery_images &&
+                                        selected.gallery_images.length > 0) ||
+                                        (selected.images &&
+                                            selected.images.length > 0)) && (
+                                        <div>
+                                            <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                                Gallery
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(
+                                                    selected.gallery_images ||
+                                                    selected.images
+                                                ).map((img, i) => (
+                                                    <img
+                                                        key={i}
+                                                        src={
+                                                            typeof img ===
+                                                            "string"
+                                                                ? img
+                                                                : img.image_path
+                                                        }
+                                                        alt={`Gallery ${i}`}
+                                                        className="w-16 h-16 object-cover rounded-lg border border-neutral-200"
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 space-y-3 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            handleEdit(selected);
+                                            setSelected(null);
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-xs font-bold text-white uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98] cursor-pointer"
+                                    >
+                                        Edit Project
+                                    </button>
+
+                                    <div className="flex gap-2">
+                                        {activeTab === "published" ? (
+                                            <button
+                                                onClick={() => {
+                                                    setArchiveId(selected.id);
+                                                    setSelected(null);
+                                                }}
+                                                disabled={updating}
+                                                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:border-neutral-300 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                <ArchiveIcon className="w-4 h-4" />{" "}
+                                                Archive
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    handleRestore(selected.id);
+                                                    setSelected(null);
+                                                }}
+                                                disabled={updating}
+                                                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:border-neutral-300 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                <RestoreIcon className="w-4 h-4" />{" "}
+                                                Restore
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => {
+                                                setDeleteId(selected.id);
+                                                setSelected(null);
+                                            }}
+                                            className="flex-shrink-0 flex items-center justify-center rounded-xl border border-red-200 text-red-600 transition-all hover:border-red-400 hover:text-red-700 px-4 py-3.5 cursor-pointer"
+                                            title="Delete Project"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+            </div>
 
             {/* SINGLE ARCHIVE MODAL */}
             <AnimatePresence>
@@ -1690,21 +1695,21 @@ export default function AdminContentProjects() {
                             transition={springTransition}
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
-                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                            <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/20 text-amber-600">
                                 <ArchiveIcon className="w-6 h-6" />
                             </div>
                             <h3 className="text-xl font-black text-neutral-900 mb-2">
-                                Archive Project?
+                                Archive Service?
                             </h3>
                             <p className="text-sm font-medium text-neutral-500 mb-8">
-                                The project will be hidden from the website. You
+                                The service will be hidden from the website. You
                                 can restore it later.
                             </p>
                             <div className="flex flex-col gap-2">
                                 <button
                                     onClick={confirmArchive}
                                     disabled={updating}
-                                    className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                                    className="w-full rounded-full bg-amber-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
                                 >
                                     {updating
                                         ? "Archiving..."
@@ -1751,7 +1756,7 @@ export default function AdminContentProjects() {
                             </h3>
                             <p className="text-sm font-medium text-neutral-500 mb-8">
                                 This action cannot be undone and will
-                                permanently remove this project.
+                                permanently remove this service.
                             </p>
                             <div className="flex flex-col gap-2">
                                 <button
@@ -1797,7 +1802,7 @@ export default function AdminContentProjects() {
                             className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-100 text-center pointer-events-auto"
                         >
                             <div
-                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${bulkAction === "delete" ? "bg-red-50 text-red-600" : bulkAction === "archive" ? "bg-neutral-100 text-neutral-600" : "bg-blue-50 text-blue-600"}`}
+                                className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full ${bulkAction === "delete" ? "bg-red-50 text-red-600" : bulkAction === "archive" ? "bg-amber-400/20 text-amber-600" : "bg-blue-50 text-blue-600"}`}
                             >
                                 {bulkAction === "delete" ? (
                                     <TrashIcon className="w-6 h-6" />
@@ -1821,7 +1826,13 @@ export default function AdminContentProjects() {
                                 <button
                                     onClick={confirmBulkAction}
                                     disabled={updating}
-                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${bulkAction === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-black hover:bg-neutral-800"}`}
+                                    className={`w-full rounded-full px-4 py-3.5 text-sm font-bold text-white transition-all disabled:opacity-50 cursor-pointer ${
+                                        bulkAction === "delete"
+                                            ? "bg-red-600 hover:bg-red-700"
+                                            : bulkAction === "archive"
+                                              ? "bg-amber-600 hover:bg-amber-700"
+                                              : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
                                 >
                                     {updating
                                         ? "Processing..."
