@@ -9,13 +9,16 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * MetaWebhookController — routes FB/Instagram messages to correct user
+ * File: app/Http/Controllers/Webhooks/MetaWebhookController.php
+ */
 class MetaWebhookController
 {
     public function __construct(
         private readonly InquiryNormalizer $normalizer
     ) {}
 
-    // GET /api/webhooks/meta — Meta verification handshake
     public function verify(Request $request): Response
     {
         $mode      = $request->query('hub_mode');
@@ -29,7 +32,6 @@ class MetaWebhookController
         return response('Forbidden', 403);
     }
 
-    // POST /api/webhooks/meta — Incoming Facebook + Instagram messages
     public function handle(Request $request): Response
     {
         if (!$this->verifySignature($request)) {
@@ -41,21 +43,33 @@ class MetaWebhookController
         $object = $body['object'] ?? '';
 
         foreach ($body['entry'] ?? [] as $entry) {
+            // Find which user owns this page
+            $pageId = $entry['id'] ?? null;
+            $userId = $pageId
+                ? PlatformSetting::findUserByPageId($pageId)
+                : null;
+
             foreach ($entry['messaging'] ?? [] as $event) {
-                // Skip non-text events (read receipts, typing indicators)
                 if (!isset($event['message']['text'])) continue;
-                // Skip messages sent by the page itself
                 if (isset($event['message']['is_echo'])) continue;
 
-                $senderId  = $event['sender']['id']    ?? '';
-                $messageId = $event['message']['mid']  ?? uniqid();
+                $senderId  = $event['sender']['id']   ?? '';
+                $messageId = $event['message']['mid'] ?? uniqid();
                 $text      = $event['message']['text'] ?? '';
 
                 if ($object === 'page') {
-                    $name = $this->getFacebookName($senderId);
-                    $this->normalizer->fromFacebook($senderId, $messageId, $name, $text, $event);
+                    $name = $this->getFacebookName($senderId, $userId);
+                    $this->normalizer->fromFacebook(
+                        $senderId, $messageId, $name, $text,
+                        array_merge($event, ['user_id' => $userId]),
+                        $userId
+                    );
                 } elseif ($object === 'instagram') {
-                    $this->normalizer->fromInstagram($senderId, $messageId, null, $text, $event);
+                    $this->normalizer->fromInstagram(
+                        $senderId, $messageId, null, $text,
+                        array_merge($event, ['user_id' => $userId]),
+                        $userId
+                    );
                 }
             }
         }
@@ -63,10 +77,11 @@ class MetaWebhookController
         return response('OK', 200);
     }
 
-    private function getFacebookName(string $senderId): ?string
+    private function getFacebookName(string $senderId, ?int $userId): ?string
     {
-        $token = PlatformSetting::getValue('facebook', 'page_access_token')
-              ?? config('services.meta.page_access_token');
+        $token = $userId
+            ? PlatformSetting::getValue('facebook', 'page_access_token', $userId)
+            : null;
 
         if (!$token) return null;
 

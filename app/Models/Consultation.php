@@ -16,12 +16,14 @@ class Consultation extends Model
         'project_type',
         'message',
         'consultation_date',
+        'status',
+        'reschedule_reason',
         'is_published',
     ];
 
     protected $casts = [
-        'is_published'      => 'boolean',
-        'consultation_date' => 'date:Y-m-d',
+        'is_published' => 'boolean',
+        'consultation_date' => 'datetime',
     ];
 
     public function scopePublished(Builder $query): Builder
@@ -38,8 +40,10 @@ class Consultation extends Model
     {
         return $query->where(function (Builder $q) use ($term) {
             $q->where('first_name', 'like', "%{$term}%")
-              ->orWhere('last_name',  'like', "%{$term}%")
-              ->orWhere('email',      'like', "%{$term}%");
+                ->orWhere('last_name', 'like', "%{$term}%")
+                ->orWhere('email', 'like', "%{$term}%")
+                ->orWhere('phone', 'like', "%{$term}%")
+                ->orWhere('status', 'like', "%{$term}%");
         });
     }
 }

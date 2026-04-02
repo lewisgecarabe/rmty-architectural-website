@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Models\GoogleSetting;
+use App\Models\Inquiry;
 use App\Services\InquiryNormalizer;
 use Google\Client as GoogleClient;
 use Google\Service\Gmail;
@@ -10,13 +11,16 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * GmailWebhookController — routes incoming emails to correct user
+ * File: app/Http/Controllers/Webhooks/GmailWebhookController.php
+ */
 class GmailWebhookController
 {
     public function __construct(
         private readonly InquiryNormalizer $normalizer
     ) {}
 
-    // POST /api/webhooks/gmail
     public function handle(Request $request): Response
     {
         $payload = $request->json()->all();
@@ -32,16 +36,25 @@ class GmailWebhookController
 
         Log::info('[RMTY Gmail] Pub/Sub notification', ['data' => $data]);
 
-        $this->fetchAndStore($data['emailAddress'] ?? '');
+        $emailAddress = $data['emailAddress'] ?? '';
 
-        // Always return 200 — non-200 causes Pub/Sub to retry
+        // Find which user owns this Gmail address
+        $userId = GoogleSetting::findUserByEmail($emailAddress);
+
+        if (!$userId) {
+            Log::warning('[RMTY Gmail] No user found for email', ['email' => $emailAddress]);
+            return response('OK', 200); // return 200 to stop retries
+        }
+
+        $this->fetchAndStore($emailAddress, $userId);
+
         return response('OK', 200);
     }
 
-    private function fetchAndStore(string $emailAddress): void
+    private function fetchAndStore(string $emailAddress, int $userId): void
     {
         try {
-            $client = $this->buildClient();
+            $client = $this->buildClient($userId);
             $gmail  = new Gmail($client);
 
             $list = $gmail->users_messages->listUsersMessages('me', [
@@ -50,8 +63,7 @@ class GmailWebhookController
             ]);
 
             foreach ($list->getMessages() ?? [] as $ref) {
-                // Skip duplicates
-                if (\App\Models\Inquiry::where('external_id', $ref->getId())->exists()) {
+                if (Inquiry::where('external_id', $ref->getId())->exists()) {
                     continue;
                 }
 
@@ -75,11 +87,16 @@ class GmailWebhookController
                         'gmailMessageId' => $msgId,
                         'from'           => $from,
                         'subject'        => $subject,
-                    ]
+                        'user_id'        => $userId,
+                    ],
+                    userId: $userId
                 );
             }
         } catch (\Throwable $e) {
-            Log::error('[RMTY Gmail] Fetch error', ['error' => $e->getMessage()]);
+            Log::error('[RMTY Gmail] Fetch error', [
+                'error'   => $e->getMessage(),
+                'user_id' => $userId,
+            ]);
         }
     }
 
@@ -94,7 +111,7 @@ class GmailWebhookController
         return $data ? base64_decode(strtr($data, '-_', '+/')) : '';
     }
 
-    private function buildClient(): GoogleClient
+    private function buildClient(int $userId): GoogleClient
     {
         $client = new GoogleClient();
         $client->setApplicationName('RMTY Architectural Website');
@@ -103,12 +120,10 @@ class GmailWebhookController
         $client->addScope(Gmail::GMAIL_READONLY);
         $client->setAccessType('offline');
 
-        // Read from DB first, fallback to .env
-        $refreshToken = GoogleSetting::getValue('refresh_token')
-                     ?? config('services.google.refresh_token');
+        $refreshToken = GoogleSetting::getValue('refresh_token', $userId);
 
         if (!$refreshToken) {
-            throw new \RuntimeException('Gmail not connected. Complete OAuth setup in admin settings.');
+            throw new \RuntimeException("No Gmail token for user {$userId}");
         }
 
         $token = $client->fetchAccessTokenWithRefreshToken($refreshToken);
@@ -120,21 +135,19 @@ class GmailWebhookController
         return $client;
     }
 
-    // Run once to register Gmail watch:
-    // php artisan tinker
-    // >>> app(\App\Http\Controllers\Webhooks\GmailWebhookController::class)->setupWatch()
-    public function setupWatch(): void
+    public function setupWatch(int $userId): void
     {
-        $client  = $this->buildClient();
+        $client  = $this->buildClient($userId);
         $gmail   = new Gmail($client);
         $req     = new \Google\Service\Gmail\WatchRequest();
         $req->setTopicName(config('services.google.pubsub_topic'));
         $req->setLabelIds(['INBOX']);
         $resp = $gmail->users->watch('me', $req);
 
-        GoogleSetting::setValue('watch_expiry', $resp->getExpiration());
+        GoogleSetting::setValue('watch_expiry', $resp->getExpiration(), $userId);
 
         Log::info('[RMTY Gmail] Watch registered', [
+            'user_id'    => $userId,
             'historyId'  => $resp->getHistoryId(),
             'expiration' => $resp->getExpiration(),
         ]);

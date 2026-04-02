@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import Swal from "sweetalert2";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Contact() {
@@ -9,7 +10,7 @@ export default function Contact() {
         return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT INQUIRY";
     }, [isConsultation]);
 
-    // Tracked form values (lifted for submission)
+    // Tracked form values
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
@@ -18,6 +19,7 @@ export default function Contact() {
     const [projectType, setProjectType] = useState("");
     const [consultationMessage, setConsultationMessage] = useState("");
     const [consultationDate, setConsultationDate] = useState("");
+    const [consultationFiles, setConsultationFiles] = useState([]);
 
     // Submission state
     const [submitting, setSubmitting] = useState(false);
@@ -27,7 +29,11 @@ export default function Contact() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!isConsultation) return;
+
+        if (!isConsultation) {
+            setSubmitError("General inquiry submission is not connected yet.");
+            return;
+        }
 
         if (!firstName.trim() || !lastName.trim() || !email.trim()) {
             setSubmitError("Please fill in your name and email before submitting.");
@@ -39,25 +45,54 @@ export default function Contact() {
         setSubmitSuccess(false);
 
         try {
+            const formData = new FormData();
+            formData.append("first_name", firstName.trim());
+            formData.append("last_name", lastName.trim());
+            formData.append("email", email.trim());
+
+            if (phone.trim()) formData.append("phone", phone.trim());
+            if (location.trim()) formData.append("location", location.trim());
+            if (projectType) formData.append("project_type", projectType);
+            if (consultationMessage.trim()) {
+                formData.append("message", consultationMessage.trim());
+            }
+            if (consultationDate) {
+                formData.append("consultation_date", consultationDate);
+            }
+
+            consultationFiles.forEach((file) => {
+                formData.append("attachments[]", file);
+            });
+
             const res = await fetch("/api/consultations", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
                     Accept: "application/json",
                 },
-                body: JSON.stringify({
-                    first_name: firstName.trim(),
-                    last_name: lastName.trim(),
-                    email: email.trim(),
-                    phone: phone.trim() || undefined,
-                    location: location.trim() || undefined,
-                    project_type: projectType || undefined,
-                    message: consultationMessage.trim() || undefined,
-                    consultation_date: consultationDate || undefined,
-                }),
+                body: formData,
             });
 
             if (res.ok) {
+
+                Swal.fire({
+                    title: "Consultation Booked",
+                    text: "We’ll be in touch with you soon.",
+                    icon: "success",
+                    confirmButtonText: "OK",
+
+                    //  DESIGN CUSTOMIZATION
+                    background: "#ffffff",
+                    color: "#000000",
+                    confirmButtonColor: "#000000",
+
+                    // Rounded clean look (matches your UI)
+                    customClass: {
+                        popup: "rounded-2xl px-6 py-8",
+                        title: "text-lg font-bold tracking-wide",
+                        confirmButton: "rounded-full px-6 py-3 text-xs tracking-widest"
+                    }
+                });
+
                 setSubmitSuccess(true);
                 setFirstName("");
                 setLastName("");
@@ -67,6 +102,7 @@ export default function Contact() {
                 setProjectType("");
                 setConsultationMessage("");
                 setConsultationDate("");
+                setConsultationFiles([]);
                 setFormKey((k) => k + 1);
             } else {
                 const data = await res.json().catch(() => ({}));
@@ -83,10 +119,8 @@ export default function Contact() {
 
     return (
         <section className="w-full bg-white">
-            {/* ================= TOP HERO SECTION ================= */}
             <div className="mx-auto max-w-screen-2xl px-6 pb-12 pt-32 md:pb-16 md:pt-40 [font-family:var(--font-neue)]">
                 <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
-                    {/* Left */}
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight text-black md:text-5xl">
                             Connect
@@ -102,7 +136,7 @@ export default function Contact() {
                                     Metro Manila
                                 </p>
                                 <p className="leading-relaxed">
-                                    911 Josefina II, Sampaloc, Manila, 1008{" "}
+                                    911 Josefina II, Sampaloc, Manila, 1008
                                     <br />
                                     Metro Manila
                                 </p>
@@ -130,7 +164,6 @@ export default function Contact() {
                         </div>
                     </div>
 
-                    {/* Right Hero Image */}
                     <div className="relative overflow-hidden rounded-none bg-gray-100">
                         <img
                             src="/images/PLACEHOLDER.png"
@@ -150,7 +183,6 @@ export default function Contact() {
                 </div>
             </div>
 
-            {/* ================= CONTACT FORM SECTION ================= */}
             <div className="bg-[#f7f7f8] border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-24">
                     <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
@@ -161,26 +193,21 @@ export default function Contact() {
                         </div>
 
                         <div>
-                            {/* Motion Form for smooth resizing */}
                             <motion.form
                                 key={`contact-form-${formKey}`}
                                 layout
                                 className="mx-auto w-full max-w-2xl [font-family:var(--font-neue)]"
                                 onSubmit={handleSubmit}
                             >
-                                {/* Inquiry Toggle - Fully Rounded Pill Design */}
                                 <div className="mb-14">
                                     <p className="flex text-[10px] tracking-widest text-gray-500 uppercase mb-3">
                                         Inquiry Type
                                     </p>
 
                                     <div className="inline-flex rounded-full border border-gray-200 bg-white p-1">
-                                        {/* General Inquiry Button */}
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setInquiryType("general")
-                                            }
+                                            onClick={() => setInquiryType("general")}
                                             className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
                                                 inquiryType === "general"
                                                     ? "text-white"
@@ -203,12 +230,9 @@ export default function Contact() {
                                             </span>
                                         </button>
 
-                                        {/* Book Consultation Button */}
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setInquiryType("consultation")
-                                            }
+                                            onClick={() => setInquiryType("consultation")}
                                             className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
                                                 inquiryType === "consultation"
                                                     ? "text-white"
@@ -234,26 +258,27 @@ export default function Contact() {
                                 </div>
 
                                 <div className="space-y-8">
-                                    {/* Static Names Fields */}
                                     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                                         <UnderlineInput
                                             label="First Name"
                                             placeholder="Enter your first name"
+                                            value={firstName}
                                             onValueChange={setFirstName}
                                         />
                                         <UnderlineInput
                                             label="Last Name"
                                             placeholder="Enter your last name"
+                                            value={lastName}
                                             onValueChange={setLastName}
                                         />
                                     </div>
 
-                                    {/* Static Email & Phone Fields */}
                                     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                                         <UnderlineInput
                                             label="Email"
                                             type="email"
                                             placeholder="Enter your email address"
+                                            value={email}
                                             onValueChange={setEmail}
                                         />
                                         <UnderlineInput
@@ -261,11 +286,11 @@ export default function Contact() {
                                             type="tel"
                                             isPhone
                                             placeholder="Enter your 11-digit phone number"
+                                            value={phone}
                                             onValueChange={setPhone}
                                         />
                                     </div>
 
-                                    {/* Dynamic Form Content Area */}
                                     <AnimatePresence mode="wait">
                                         {inquiryType === "general" ? (
                                             <motion.div
@@ -296,6 +321,7 @@ export default function Contact() {
                                                     <UnderlineInput
                                                         label="Location"
                                                         placeholder="Enter project location"
+                                                        value={location}
                                                         onValueChange={setLocation}
                                                     />
                                                     <UnderlineInput
@@ -306,42 +332,36 @@ export default function Contact() {
                                                             "Master Planning",
                                                             "Interior Architecture",
                                                         ]}
+                                                        value={projectType}
                                                         onValueChange={setProjectType}
                                                     />
                                                 </div>
 
                                                 <ConsultationMessageField
-                                                    onValueChange={
-                                                        setConsultationMessage
-                                                    }
+                                                    value={consultationMessage}
+                                                    onValueChange={setConsultationMessage}
                                                 />
 
                                                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                                                     <UnderlineInput
                                                         label="Consultation Date"
                                                         type="date"
-                                                        onValueChange={
-                                                            setConsultationDate
-                                                        }
+                                                        value={consultationDate}
+                                                        onValueChange={setConsultationDate}
                                                     />
-                                                    <FileDrop label="Additional Information" />
+                                                    <FileDrop
+                                                        label="Additional Information"
+                                                        files={consultationFiles}
+                                                        onFilesChange={setConsultationFiles}
+                                                    />
                                                 </div>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
 
-                                    {/* Feedback messages */}
                                     <AnimatePresence>
-                                        {submitSuccess && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: 8 }}
-                                                className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-[11px] font-bold tracking-wider text-emerald-700 uppercase"
-                                            >
-                                                Your consultation has been booked. We'll be in touch soon!
-                                            </motion.div>
-                                        )}
+                                        
+                                        
                                         {submitError && (
                                             <motion.div
                                                 initial={{ opacity: 0, y: 8 }}
@@ -354,16 +374,13 @@ export default function Contact() {
                                         )}
                                     </AnimatePresence>
 
-                                    {/* Submit Button - Fully Rounded Design */}
                                     <motion.div layout className="pt-6">
                                         <button
                                             type="submit"
                                             disabled={submitting}
                                             className="w-full rounded-full bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
-                                            {submitting
-                                                ? "SUBMITTING..."
-                                                : buttonText}
+                                            {submitting ? "SUBMITTING..." : buttonText}
                                         </button>
                                     </motion.div>
                                 </div>
@@ -384,10 +401,10 @@ function UnderlineInput({
     options,
     isPhone,
     placeholder,
+    value = "",
     onValueChange,
 }) {
     const [error, setError] = useState("");
-    const [value, setValue] = useState("");
 
     const isNameField = label === "First Name" || label === "Last Name";
 
@@ -429,7 +446,6 @@ function UnderlineInput({
             }
         }
 
-        setValue(inputValue);
         onValueChange?.(inputValue);
     };
 
@@ -443,18 +459,19 @@ function UnderlineInput({
                 <select
                     required
                     onChange={(e) => {
-                        setValue(e.target.value);
+                        onValueChange?.(e.target.value);
                         setError(
                             !e.target.value
                                 ? "Please select a project type."
                                 : "",
                         );
-                        onValueChange?.(e.target.value);
                     }}
                     value={value}
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 appearance-none
-                        ${error ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-                    `}
+                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 appearance-none ${
+                        error
+                            ? "border-red-500 text-red-500"
+                            : "border-gray-300 focus:border-black text-black"
+                    }`}
                 >
                     <option value="" disabled hidden>
                         Select Project Type
@@ -471,9 +488,16 @@ function UnderlineInput({
                     value={value}
                     onChange={handleChange}
                     placeholder={placeholder}
-                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300
-                        ${error ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-                    `}
+                    min={
+                        type === "date"
+                            ? new Date().toISOString().split("T")[0]
+                            : undefined
+                    }
+                    className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 ${
+                        error
+                            ? "border-red-500 text-red-500"
+                            : "border-gray-300 focus:border-black text-black"
+                    }`}
                 />
             )}
 
@@ -526,9 +550,11 @@ function GeneralMessageField() {
                 value={value}
                 onChange={handleChange}
                 placeholder="Enter your message (max 100 words)"
-                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none
-                    ${error ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-                `}
+                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none ${
+                    error
+                        ? "border-red-500 text-red-500"
+                        : "border-gray-300 focus:border-black text-black"
+                }`}
             />
             <AnimatePresence mode="wait">
                 {error && (
@@ -548,8 +574,7 @@ function GeneralMessageField() {
 
 /* ---------------- CONSULTATION MESSAGE ---------------- */
 
-function ConsultationMessageField({ onValueChange }) {
-    const [value, setValue] = useState("");
+function ConsultationMessageField({ value = "", onValueChange }) {
     const [error, setError] = useState("");
 
     const handleChange = (e) => {
@@ -566,7 +591,6 @@ function ConsultationMessageField({ onValueChange }) {
             setError("");
         }
 
-        setValue(inputValue);
         onValueChange?.(inputValue);
     };
 
@@ -580,9 +604,11 @@ function ConsultationMessageField({ onValueChange }) {
                 value={value}
                 onChange={handleChange}
                 placeholder="Describe your project (max 100 words)"
-                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none
-                    ${error ? "border-red-500 text-red-500" : "border-gray-300 focus:border-black text-black"}
-                `}
+                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none ${
+                    error
+                        ? "border-red-500 text-red-500"
+                        : "border-gray-300 focus:border-black text-black"
+                }`}
             />
             <AnimatePresence mode="wait">
                 {error && (
@@ -602,14 +628,48 @@ function ConsultationMessageField({ onValueChange }) {
 
 /* ---------------- FILE DROP ---------------- */
 
-function FileDrop({ label }) {
+function FileDrop({ label, files = [], onFilesChange }) {
+    const [dragging, setDragging] = useState(false);
+
+    const updateFiles = (fileList) => {
+        const nextFiles = Array.from(fileList || []);
+        onFilesChange?.(nextFiles);
+    };
+
+    const removeFile = (indexToRemove) => {
+        onFilesChange?.(files.filter((_, index) => index !== indexToRemove));
+    };
+
     return (
         <div className="relative group">
             <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-3">
                 <span>{label}</span>
             </label>
-            <label className="relative flex h-[120px] w-full cursor-pointer flex-col items-center justify-center border border-dashed border-gray-300 bg-transparent text-center transition-colors hover:border-black hover:bg-gray-50/50">
-                <input type="file" className="hidden" multiple />
+
+            <label
+                className={`relative flex min-h-[120px] w-full cursor-pointer flex-col items-center justify-center border border-dashed text-center transition-colors ${
+                    dragging
+                        ? "border-black bg-gray-50"
+                        : "border-gray-300 bg-transparent hover:border-black hover:bg-gray-50/50"
+                }`}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    updateFiles(e.dataTransfer.files);
+                }}
+            >
+                <input
+                    type="file"
+                    className="hidden"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
+                    onChange={(e) => updateFiles(e.target.files)}
+                />
                 <p className="text-[10px] tracking-widest text-gray-400 uppercase mb-1">
                     Drop files here
                 </p>
@@ -617,6 +677,33 @@ function FileDrop({ label }) {
                     Browse
                 </p>
             </label>
+
+            {files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                    {files.map((file, index) => (
+                        <div
+                            key={`${file.name}-${index}`}
+                            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2"
+                        >
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-black truncate">
+                                    {file.name}
+                                </p>
+                                <p className="text-[10px] uppercase tracking-wider text-gray-400">
+                                    {(file.size / 1024).toFixed(1)} KB
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => removeFile(index)}
+                                className="ml-3 text-[10px] font-bold tracking-wider uppercase text-red-500 hover:text-red-700 cursor-pointer"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

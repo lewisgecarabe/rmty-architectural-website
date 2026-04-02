@@ -8,6 +8,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * FacebookOAuthController — per-user Facebook OAuth
+ * File: app/Http/Controllers/Api/FacebookOAuthController.php
+ */
 class FacebookOAuthController
 {
     private string $apiVersion = 'v19.0';
@@ -18,8 +22,9 @@ class FacebookOAuthController
         $params = http_build_query([
             'client_id'     => config('services.meta.app_id'),
             'redirect_uri'  => config('app.url') . '/api/admin/facebook/callback',
-'scope' => 'pages_messaging',
+            'scope'         => 'pages_messaging,pages_show_list',
             'response_type' => 'code',
+            'state'         => auth()->id(), // pass user_id via state
         ]);
 
         return response()->json([
@@ -30,72 +35,65 @@ class FacebookOAuthController
     // GET /api/admin/facebook/callback
     public function handleCallback(Request $request)
     {
-        $code  = $request->query('code');
-        $error = $request->query('error');
+        $code   = $request->query('code');
+        $state  = $request->query('state'); // user_id
+        $error  = $request->query('error');
+        $userId = (int) $state;
 
-        if ($error || !$code) {
-            return redirect(config('app.frontend_url') . '/admin/settings?facebook=denied');
+        if ($error || !$code || !$userId) {
+            return redirect(config('app.url') . '/admin/settings?facebook=denied');
         }
 
         try {
-            // Step 1: code → short-lived user token
             $shortToken = $this->exchangeCode($code);
-
-            // Step 2: short-lived → long-lived token (60 days)
             $longToken  = $this->exchangeLongLived($shortToken);
-
-            // Step 3: long-lived → permanent page token
-            $page = $this->getPageToken($longToken);
+            $page       = $this->getPageToken($longToken);
 
             if (!$page) {
-                return redirect(config('app.frontend_url') . '/admin/settings?facebook=no_page');
+                return redirect(config('app.url') . '/admin/settings?facebook=no_page');
             }
 
-            // Save Facebook to DB
-            PlatformSetting::setValue('facebook', 'page_access_token', $page['token']);
-            PlatformSetting::setValue('facebook', 'page_id',           $page['id']);
-            PlatformSetting::setValue('facebook', 'page_name',         $page['name']);
-            PlatformSetting::setValue('facebook', 'connected_at',      now()->toDateTimeString());
+            // Save per-user Facebook tokens
+            PlatformSetting::setValue('facebook', 'page_access_token', $page['token'], $userId);
+            PlatformSetting::setValue('facebook', 'page_id',           $page['id'],    $userId);
+            PlatformSetting::setValue('facebook', 'page_name',         $page['name'],  $userId);
+            PlatformSetting::setValue('facebook', 'connected_at',      now()->toDateTimeString(), $userId);
 
             // Get linked Instagram account
             $igId = $this->getInstagramId($page['id'], $page['token']);
             if ($igId) {
-                PlatformSetting::setValue('instagram', 'account_id',   $igId);
-                PlatformSetting::setValue('instagram', 'page_token',   $page['token']);
-                PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString());
+                PlatformSetting::setValue('instagram', 'account_id',   $igId,          $userId);
+                PlatformSetting::setValue('instagram', 'page_token',   $page['token'], $userId);
+                PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString(), $userId);
             }
 
-            // Subscribe page to webhook
             $this->subscribeWebhook($page['id'], $page['token']);
 
             Log::info('[RMTY Facebook OAuth] Connected', [
-                'page'      => $page['name'],
-                'instagram' => $igId ?? 'none',
+                'user_id' => $userId,
+                'page'    => $page['name'],
             ]);
 
-            return redirect(config('app.frontend_url') . '/admin/settings?facebook=success');
+            return redirect(config('app.url') . '/admin/settings?facebook=success');
 
         } catch (\Throwable $e) {
             Log::error('[RMTY Facebook OAuth] Error', ['error' => $e->getMessage()]);
-            return redirect(config('app.frontend_url') . '/admin/settings?facebook=error');
+            return redirect(config('app.url') . '/admin/settings?facebook=error');
         }
     }
 
     // GET /api/admin/facebook/status
     public function status(): JsonResponse
     {
-        $token       = PlatformSetting::getValue('facebook', 'page_access_token');
-        $pageName    = PlatformSetting::getValue('facebook', 'page_name');
-        $connectedAt = PlatformSetting::getValue('facebook', 'connected_at');
-        $igId        = PlatformSetting::getValue('instagram', 'account_id');
-
-        // Just check if token exists in DB — skip live API call
-        // to avoid SSL issues on local development
-        $connected = !empty($token);
+        $userId      = auth()->id();
+        $token       = PlatformSetting::getValue('facebook', 'page_access_token', $userId);
+        $pageName    = PlatformSetting::getValue('facebook', 'page_name',         $userId);
+        $connectedAt = PlatformSetting::getValue('facebook', 'connected_at',      $userId);
+        $igId        = PlatformSetting::getValue('instagram', 'account_id',       $userId);
 
         return response()->json([
             'facebook' => [
-                'connected'    => $connected,
+                'connected'    => !empty($token),
                 'expired'      => false,
                 'page_name'    => $pageName,
                 'connected_at' => $connectedAt,
@@ -110,9 +108,28 @@ class FacebookOAuthController
     // DELETE /api/admin/facebook/disconnect
     public function disconnect(): JsonResponse
     {
-        PlatformSetting::clearPlatform('facebook');
-        PlatformSetting::clearPlatform('instagram');
+        $userId = auth()->id();
+        PlatformSetting::clearPlatform('facebook',  $userId);
+        PlatformSetting::clearPlatform('instagram', $userId);
         return response()->json(['message' => 'Facebook and Instagram disconnected.']);
+    }
+
+    // POST /api/admin/facebook/connect-manual
+    public function connectManual(Request $request): JsonResponse
+    {
+        $userId    = auth()->id();
+        $validated = $request->validate([
+            'page_access_token' => 'required|string',
+            'page_id'           => 'required|string',
+            'page_name'         => 'required|string',
+        ]);
+
+        PlatformSetting::setValue('facebook', 'page_access_token', $validated['page_access_token'], $userId);
+        PlatformSetting::setValue('facebook', 'page_id',           $validated['page_id'],           $userId);
+        PlatformSetting::setValue('facebook', 'page_name',         $validated['page_name'],         $userId);
+        PlatformSetting::setValue('facebook', 'connected_at',      now()->toDateTimeString(),       $userId);
+
+        return response()->json(['message' => 'Facebook connected.']);
     }
 
     // ── Private helpers ───────────────────────────────────────────

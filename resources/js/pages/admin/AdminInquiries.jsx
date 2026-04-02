@@ -42,14 +42,6 @@ const STATUS_COLORS = {
     archived: "bg-neutral-100 text-neutral-500 border-neutral-200",
 };
 
-function canReply(inquiry) {
-    if (["facebook", "instagram", "viber", "sms"].includes(inquiry.platform))
-        return true;
-    if (["gmail", "website"].includes(inquiry.platform) && inquiry.email)
-        return true;
-    return false;
-}
-
 /* ---------------- ANIMATION PRESETS ---------------- */
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 const drawerTransition = { type: "spring", damping: 30, stiffness: 300 };
@@ -71,10 +63,7 @@ const AnimatedSelect = ({
 
     useEffect(() => {
         const handleClick = (e) => {
-            if (
-                containerRef.current &&
-                !containerRef.current.contains(e.target)
-            )
+            if (containerRef.current && !containerRef.current.contains(e.target))
                 setIsOpen(false);
         };
         document.addEventListener("mousedown", handleClick);
@@ -166,6 +155,7 @@ const AnimatedSelect = ({
 
 /* ---------------- COMPONENT ---------------- */
 export default function AdminInquiries() {
+    // ✅ ALL hooks inside the component
     const [inquiries, setInquiries] = useState([]);
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
@@ -193,9 +183,19 @@ export default function AdminInquiries() {
     const [replyMsg, setReplyMsg] = useState("");
     const [replying, setReplying] = useState(false);
     const [toast, setToast] = useState(null);
+    const [platformStatus, setPlatformStatus] = useState({
+        gmail: false,
+        facebook: false,
+        instagram: false,
+    });
 
     const searchTimer = useRef(null);
     const pollTimer = useRef(null);
+
+    // ✅ canReply inside component so it closes over platformStatus
+    function canReply(inquiry) {
+        return platformStatus[inquiry.platform] === true;
+    }
 
     function showToast(msg, type = "success") {
         setToast({ msg, type });
@@ -388,26 +388,10 @@ export default function AdminInquiries() {
     }
 
     const statCards = [
-        {
-            label: "Total Inquiries",
-            value: stats.total ?? 0,
-            icon: <InboxIcon className="w-5 h-5 text-black" />,
-        },
-        {
-            label: "New Messages",
-            value: stats.new ?? 0,
-            icon: <SparklesIcon className="w-5 h-5 text-emerald-600" />,
-        },
-        {
-            label: "Replied",
-            value: stats.replied ?? 0,
-            icon: <ReplyIcon className="w-5 h-5 text-blue-600" />,
-        },
-        {
-            label: "Archived",
-            value: stats.archived ?? 0,
-            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
-        },
+        { label: "Total Inquiries", value: stats.total ?? 0, icon: <InboxIcon className="w-5 h-5 text-black" /> },
+        { label: "New Messages",    value: stats.new ?? 0,   icon: <SparklesIcon className="w-5 h-5 text-emerald-600" /> },
+        { label: "Replied",         value: stats.replied ?? 0, icon: <ReplyIcon className="w-5 h-5 text-blue-600" /> },
+        { label: "Archived",        value: stats.archived ?? 0, icon: <ArchiveIcon className="w-5 h-5 text-amber-600" /> },
     ];
 
     return (
@@ -419,22 +403,14 @@ export default function AdminInquiries() {
                         Manage all incoming communications across platforms.
                     </p>
                 </div>
-
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {statCards.map((s) => (
-                        <div
-                            key={s.label}
-                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
-                        >
+                        <div key={s.label} className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300">
                             <div className="flex justify-between items-center mb-2">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
-                                    {s.label}
-                                </p>
+                                <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">{s.label}</p>
                                 <div className="text-neutral-300">{s.icon}</div>
                             </div>
-                            <p className="text-3xl font-black text-neutral-900 mt-2">
-                                {s.value}
-                            </p>
+                            <p className="text-3xl font-black text-neutral-900 mt-2">{s.value}</p>
                         </div>
                     ))}
                 </div>
@@ -608,17 +584,12 @@ export default function AdminInquiries() {
                             {/* REFRESH BUTTON */}
                             <motion.button
                                 layout
-                                transition={{
-                                    duration: 0.25,
-                                    ease: smoothEase,
-                                }}
+                                transition={{ duration: 0.25, ease: smoothEase }}
                                 onClick={() => load(page, filters)}
                                 className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
                                 title="Refresh Table"
                             >
-                                <RefreshIcon
-                                    className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
-                                />
+                                <RefreshIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`} />
                             </motion.button>
                         </motion.div>
                     )}
@@ -635,7 +606,6 @@ export default function AdminInquiries() {
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
                 {/* Table Area */}
                 <div className="flex-1 flex flex-col rounded-2xl border border-neutral-200 bg-white relative overflow-hidden">
-                    {/* LOADING OVERLAY */}
                     <AnimatePresence>
                         {loading && inquiries.length === 0 && (
                             <motion.div
@@ -658,13 +628,8 @@ export default function AdminInquiries() {
                             <div className="flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center gap-4">
                                 <InboxIcon className="w-12 h-12 text-neutral-300" />
                                 <div>
-                                    <p className="text-base font-bold text-neutral-900">
-                                        No inquiries found
-                                    </p>
-                                    <p className="text-sm font-medium text-neutral-500 mt-1">
-                                        Try adjusting your filters or check back
-                                        later.
-                                    </p>
+                                    <p className="text-base font-bold text-neutral-900">No inquiries found</p>
+                                    <p className="text-sm font-medium text-neutral-500 mt-1">Try adjusting your filters or check back later.</p>
                                 </div>
                             </div>
                         ) : (
@@ -964,7 +929,7 @@ export default function AdminInquiries() {
                 </div>
             </div>
 
-            {/* SIDE-DRAWER PANEL FOR INQUIRY DETAILS */}
+            {/* SIDE-DRAWER PANEL */}
             <AnimatePresence>
                 {selected && (
                     <>
@@ -976,7 +941,6 @@ export default function AdminInquiries() {
                             className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
                             onClick={() => setSelected(null)}
                         />
-
                         <motion.div
                             key="detail-drawer"
                             initial={{ x: "100%" }}
@@ -1028,9 +992,7 @@ export default function AdminInquiries() {
                                 </div>
 
                                 <div>
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                        Message
-                                    </p>
+                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">Message</p>
                                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                                         <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
                                             {selected.message ||
@@ -1088,8 +1050,7 @@ export default function AdminInquiries() {
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-3.5 text-xs font-bold text-amber-600 uppercase tracking-wider transition-all hover:border-amber-400 hover:text-amber-700 disabled:opacity-50 cursor-pointer"
                                         >
-                                            <ArchiveIcon className="w-4 h-4" />{" "}
-                                            Archive
+                                            <ArchiveIcon className="w-4 h-4" /> Archive
                                         </button>
                                     ) : (
                                         <button
@@ -1104,11 +1065,9 @@ export default function AdminInquiries() {
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 cursor-pointer"
                                         >
-                                            <RestoreIcon className="w-4 h-4" />{" "}
-                                            Restore
+                                            <RestoreIcon className="w-4 h-4" /> Restore
                                         </button>
                                     )}
-
                                     <button
                                         onClick={() => {
                                             setDeleteId
@@ -1331,13 +1290,7 @@ export default function AdminInquiries() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <div
-                            className="absolute inset-0 bg-black/20 cursor-pointer"
-                            onClick={() => {
-                                setReplyId(null);
-                                setReplyMsg("");
-                            }}
-                        />
+                        <div className="absolute inset-0 bg-black/20 cursor-pointer" onClick={() => { setReplyId(null); setReplyMsg(""); }} />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1345,34 +1298,17 @@ export default function AdminInquiries() {
                             transition={springTransition}
                             className="relative w-full max-w-lg rounded-[2rem] bg-white p-8 border border-neutral-100 pointer-events-auto shadow-2xl"
                         >
-                            <h3 className="text-xl font-black text-neutral-900 mb-1">
-                                Compose Reply
-                            </h3>
+                            <h3 className="text-xl font-black text-neutral-900 mb-1">Compose Reply</h3>
                             {(() => {
-                                const inq = inquiries.find(
-                                    (i) => i.id === replyId,
-                                );
-                                const via = {
-                                    gmail: "Gmail",
-                                    facebook: "Facebook Messenger",
-                                    instagram: "Instagram DM",
-                                    viber: "Viber",
-                                    sms: "SMS",
-                                    website: "Email",
-                                };
+                                const inq = inquiries.find((i) => i.id === replyId);
+                                const via = { gmail: "Gmail", facebook: "Facebook Messenger", instagram: "Instagram DM", sms: "SMS", website: "Email" };
                                 return (
                                     <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-6">
-                                        Replying via{" "}
-                                        {via[inq?.platform] ?? inq?.platform}{" "}
-                                        {inq?.email
-                                            ? `to ${inq.email}`
-                                            : inq?.name
-                                              ? `to ${inq.name}`
-                                              : ""}
+                                        Replying via {via[inq?.platform] ?? inq?.platform}{" "}
+                                        {inq?.email ? `to ${inq.email}` : inq?.name ? `to ${inq.name}` : ""}
                                     </p>
                                 );
                             })()}
-
                             <textarea
                                 rows={5}
                                 placeholder="Type your message here..."
@@ -1380,13 +1316,9 @@ export default function AdminInquiries() {
                                 onChange={(e) => setReplyMsg(e.target.value)}
                                 className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white resize-none mb-6"
                             />
-
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => {
-                                        setReplyId(null);
-                                        setReplyMsg("");
-                                    }}
+                                    onClick={() => { setReplyId(null); setReplyMsg(""); }}
                                     className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 cursor-pointer"
                                 >
                                     Cancel
@@ -1396,11 +1328,7 @@ export default function AdminInquiries() {
                                     disabled={replying || !replyMsg.trim()}
                                     className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {replying ? (
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        "Send Reply"
-                                    )}
+                                    {replying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Send Reply"}
                                 </button>
                             </div>
                         </motion.div>
@@ -1439,224 +1367,48 @@ export default function AdminInquiries() {
 }
 
 // ============================================================================
-// Minimal UI Icons
+// Icons
 // ============================================================================
 
 function SparklesIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
 }
-
 function RefreshIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-            <path d="M21 3v5h-5" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>;
 }
-
 function SearchIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>;
 }
-
 function InboxIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>;
 }
-
 function CloseIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 }
-
 function ReplyIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="9 17 4 12 9 7" />
-            <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>;
 }
-
 function ArchiveIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="21 8 21 21 3 21 3 8" />
-            <rect x="1" y="3" width="22" height="5" />
-            <line x1="10" y1="12" x2="14" y2="12" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" /></svg>;
 }
-
+function LockIcon({ className = "w-4 h-4" }) {
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
+}
 function RestoreIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>;
 }
-
 function ChevronDown({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M6 9l6 6 6-6" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9l6 6 6-6" /></svg>;
 }
-
 function ChevronLeft({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M15 18l-6-6 6-6" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 18l-6-6 6-6" /></svg>;
 }
-
 function ChevronRight({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M9 18l6-6-6-6" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 18l6-6-6-6" /></svg>;
 }
-
 function TrashIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            <line x1="10" y1="11" x2="10" y2="17" />
-            <line x1="14" y1="11" x2="14" y2="17" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>;
 }
-
 function CheckIcon({ className = "w-4 h-4" }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
-    );
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12" /></svg>;
 }
