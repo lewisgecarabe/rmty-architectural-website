@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\ProjectController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\ViberWebhookController;
+use App\Http\Controllers\Webhooks\SmsWebhookController;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -112,10 +114,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/admin/viber/disconnect',    [ViberSettingsController::class, 'disconnect']);
 });
 
-// ── Webhook Routes (public — verified by platform signatures) ──
 Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
     Route::post('/gmail',  [GmailWebhookController::class, 'handle']);
     Route::get('/meta',    [MetaWebhookController::class,  'verify']);
     Route::post('/meta',   [MetaWebhookController::class,  'handle']);
     Route::post('/viber',  [ViberWebhookController::class, 'handle']);
+    
+    // The new SMS route
+    Route::post('/sms',    [SmsWebhookController::class,   'handle']);
 });

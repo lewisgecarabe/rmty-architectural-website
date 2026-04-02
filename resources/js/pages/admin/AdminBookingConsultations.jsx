@@ -458,7 +458,7 @@ export default function AdminBookingConsultations() {
                                 {activeTab === "published" ? (
                                     <button
                                         onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                         Archive All
                                     </button>
@@ -767,7 +767,7 @@ export default function AdminBookingConsultations() {
                                                                     c.id,
                                                                 )
                                                             }
-                                                            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                            className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-600 cursor-pointer"
                                                         >
                                                             Archive
                                                         </button>
@@ -1019,7 +1019,7 @@ export default function AdminBookingConsultations() {
                                 <button
                                     onClick={confirmArchive}
                                     disabled={updating}
-                                    className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                                    className="w-full rounded-full bg-amber-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
                                 >
                                     {updating
                                         ? "Archiving..."
