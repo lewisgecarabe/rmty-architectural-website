@@ -22,8 +22,7 @@ class FacebookOAuthController
         $params = http_build_query([
             'client_id'     => config('services.meta.app_id'),
             'redirect_uri'  => config('app.url') . '/api/admin/facebook/callback',
-            'scope'         => 'pages_messaging,pages_show_list',
-            'response_type' => 'code',
+'scope' => 'pages_messaging,pages_show_list,public_profile,instagram_basic,instagram_manage_messages',            'response_type' => 'code',
             'state'         => auth()->id(), // pass user_id via state
         ]);
 
