@@ -13,13 +13,14 @@ class InquiryNormalizer
         string $from,
         string $subject,
         string $body,
-        array $rawPayload = []
+        array $rawPayload = [],
+        ?int $userId = null
     ): ?Inquiry {
         try {
             preg_match('/^(.*?)\s*<([^>]+)>$/', $from, $m);
             $name  = trim($m[1] ?? $from);
             $email = trim($m[2] ?? $from);
-
+ 
             return $this->store([
                 'platform'    => 'gmail',
                 'external_id' => $messageId,
@@ -28,6 +29,7 @@ class InquiryNormalizer
                 'phone'       => null,
                 'message'     => trim("Subject: {$subject}\n\n{$body}"),
                 'raw_payload' => $rawPayload,
+                'user_id'     => $userId,
             ]);
         } catch (\Throwable $e) {
             Log::error('[Inquiry] Gmail normalize error', ['error' => $e->getMessage()]);

@@ -11,6 +11,7 @@ import RootLayout from "./layouts/RootLayout";
 // Page Imports
 import Home from "./pages/Home";
 import Contact from "./pages/Contact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Services from "./pages/Services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -41,6 +42,8 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="/services" element={<Services />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+
             </Route>
 
             <Route path="/admin/login" element={<AuthPage />} />
