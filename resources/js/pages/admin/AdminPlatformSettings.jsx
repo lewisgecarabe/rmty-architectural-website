@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -100,14 +99,18 @@ function PlatformCard({
                             disabled={disconnecting}
                             className="w-full py-3.5 border border-neutral-200 text-neutral-600 text-[11px] font-bold uppercase tracking-widest rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            {disconnecting
-                                ? "Disconnecting..."
-                                : "Disconnect Platform"}
+                            {disconnecting ? "Disconnecting..." : "Disconnect Platform"}
                         </button>
                     </div>
                 )}
             </div>
         </div>
+    );
+}
+
+function Spinner() {
+    return (
+        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
     );
 }
 
@@ -120,6 +123,19 @@ export default function AdminPlatformSettings() {
     const [loading, setLoading] = useState(true);
     const [working, setWorking] = useState({});
     const [toast, setToast] = useState(null);
+
+    // Facebook manual token state
+    const [showManual, setShowManual] = useState(false);
+    const [fbToken, setFbToken] = useState("");
+    const [fbPageId, setFbPageId] = useState("");
+    const [fbPageName, setFbPageName] = useState("");
+    const [fbError, setFbError] = useState("");
+
+    // Instagram manual token state
+    const [showIgManual, setShowIgManual] = useState(false);
+    const [igToken, setIgToken] = useState("");
+    const [igAccountId, setIgAccountId] = useState("");
+    const [igError, setIgError] = useState("");
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -168,6 +184,7 @@ export default function AdminPlatformSettings() {
         setTimeout(() => setToast(null), 4000);
     }
 
+    // ── Gmail ──────────────────────────────────────────────────────
     async function connectGmail() {
         setWork("gmail", true);
         try {
@@ -192,6 +209,7 @@ export default function AdminPlatformSettings() {
         }
     }
 
+    // ── Facebook OAuth ─────────────────────────────────────────────
     async function connectFacebook() {
         setWork("facebook", true);
         try {
@@ -203,9 +221,36 @@ export default function AdminPlatformSettings() {
         }
     }
 
-    async function disconnectFacebook() {
-        if (!window.confirm("This will also disconnect Instagram. Continue?"))
+    // ── Facebook Manual Token ──────────────────────────────────────
+    async function saveFacebookManual() {
+        if (!fbToken.trim() || !fbPageId.trim() || !fbPageName.trim()) {
+            setFbError("Please fill in all fields.");
             return;
+        }
+        setFbError("");
+        setWork("fbManual", true);
+        try {
+            await apiFetch("/admin/facebook/connect-manual", {
+                method: "POST",
+                body: JSON.stringify({
+                    page_access_token: fbToken.trim(),
+                    page_id: fbPageId.trim(),
+                    page_name: fbPageName.trim(),
+                }),
+            });
+            setFbToken(""); setFbPageId(""); setFbPageName("");
+            setShowManual(false);
+            showToast("Facebook connected successfully!");
+            loadAll();
+        } catch {
+            setFbError("Failed to save. Check your token and try again.");
+        } finally {
+            setWork("fbManual", false);
+        }
+    }
+
+    async function disconnectFacebook() {
+        if (!window.confirm("This will also disconnect Instagram. Continue?")) return;
         setWork("facebookDc", true);
         try {
             await apiFetch("/admin/facebook/disconnect", { method: "DELETE" });
@@ -215,6 +260,46 @@ export default function AdminPlatformSettings() {
             showToast("Failed to disconnect.", "error");
         } finally {
             setWork("facebookDc", false);
+        }
+    }
+
+    // ── Instagram Manual Token ─────────────────────────────────────
+    async function saveInstagramManual() {
+        if (!igToken.trim() || !igAccountId.trim()) {
+            setIgError("Please fill in all fields.");
+            return;
+        }
+        setIgError("");
+        setWork("igManual", true);
+        try {
+            await apiFetch("/admin/instagram/connect-manual", {
+                method: "POST",
+                body: JSON.stringify({
+                    page_token: igToken.trim(),
+                    account_id: igAccountId.trim(),
+                }),
+            });
+            setIgToken(""); setIgAccountId("");
+            setShowIgManual(false);
+            showToast("Instagram connected successfully!");
+            loadAll();
+        } catch {
+            setIgError("Failed to save. Check your token and try again.");
+        } finally {
+            setWork("igManual", false);
+        }
+    }
+
+    async function disconnectInstagram() {
+        setWork("igDc", true);
+        try {
+            await apiFetch("/admin/instagram/disconnect", { method: "DELETE" });
+            showToast("Instagram disconnected.");
+            loadAll();
+        } catch {
+            showToast("Failed to disconnect.", "error");
+        } finally {
+            setWork("igDc", false);
         }
     }
 
@@ -228,7 +313,7 @@ export default function AdminPlatformSettings() {
             </div>
         );
 
-    // Calculate Summary Stats
+    // Summary Stats
     const activeConnections = [
         gmail?.connected,
         facebook?.facebook?.connected,
@@ -253,29 +338,23 @@ export default function AdminPlatformSettings() {
                     onClick={loadAll}
                     className="h-10 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center gap-2 text-xs font-bold uppercase tracking-widest cursor-pointer shrink-0"
                 >
-                    <RefreshIcon
-                        className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
-                    />
+                    <RefreshIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`} />
                     Refresh Status
                 </button>
             </div>
 
-            {/* Quick Stats - Fills the empty space beautifully */}
+            {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]">
                     <div className="flex justify-between items-center mb-2">
                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                             Active Integrations
                         </p>
-                        <div className="text-emerald-500">
-                            <LinkIcon />
-                        </div>
+                        <div className="text-emerald-500"><LinkIcon /></div>
                     </div>
                     <p className="text-3xl font-black text-neutral-900 mt-2">
                         {activeConnections}{" "}
-                        <span className="text-lg text-neutral-400 font-medium">
-                            / 3
-                        </span>
+                        <span className="text-lg text-neutral-400 font-medium">/ 3</span>
                     </p>
                 </div>
 
@@ -284,15 +363,11 @@ export default function AdminPlatformSettings() {
                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                             Needs Attention
                         </p>
-                        <div
-                            className={`${requiresAttention > 0 ? "text-amber-500" : "text-black"}`}
-                        >
+                        <div className={requiresAttention > 0 ? "text-amber-500" : "text-black"}>
                             <AlertCircleIcon />
                         </div>
                     </div>
-                    <p className="text-3xl font-black text-neutral-900 mt-2">
-                        {requiresAttention}
-                    </p>
+                    <p className="text-3xl font-black text-neutral-900 mt-2">{requiresAttention}</p>
                 </div>
 
                 <div className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px]">
@@ -300,19 +375,16 @@ export default function AdminPlatformSettings() {
                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                             Available Platforms
                         </p>
-                        <div className="text-black">
-                            <LayersIcon />
-                        </div>
+                        <div className="text-black"><LayersIcon /></div>
                     </div>
-                    <p className="text-3xl font-black text-neutral-900 mt-2">
-                        3
-                    </p>
+                    <p className="text-3xl font-black text-neutral-900 mt-2">3</p>
                 </div>
             </div>
 
-            {/* Grid Layout replacing the narrow column */}
+            {/* Platform Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                {/* Gmail */}
+
+                {/* ── Gmail ── */}
                 <PlatformCard
                     title="Google Gmail"
                     description="Sync your Google Workspace account to automatically route and manage email inquiries directly from this dashboard."
@@ -321,7 +393,9 @@ export default function AdminPlatformSettings() {
                     connected={gmail?.connected}
                     expired={false}
                     connectedInfo={
-                        gmail?.connected_at
+                        gmail?.email
+                            ? `Connected as ${gmail.email}`
+                            : gmail?.connected_at
                             ? `Linked: ${gmail.connected_at}`
                             : null
                     }
@@ -353,7 +427,7 @@ export default function AdminPlatformSettings() {
                     )}
                 </PlatformCard>
 
-                {/* Facebook */}
+                {/* ── Facebook ── */}
                 <PlatformCard
                     title="Facebook Messenger"
                     description="Link your official Facebook Page to pull incoming Messenger chats into your unified inbox for faster response times."
@@ -370,17 +444,80 @@ export default function AdminPlatformSettings() {
                     disconnecting={working.facebookDc}
                 >
                     {!facebook?.facebook?.connected && (
-                        <button
-                            onClick={connectFacebook}
-                            disabled={working.facebook}
-                            className="w-full py-3.5 bg-[#1877F2] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-[#166fe5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
-                        >
-                            {working.facebook ? (
-                                <Spinner />
-                            ) : (
-                                "Connect Facebook"
-                            )}
-                        </button>
+                        <>
+                            {/* OAuth */}
+                            <button
+                                onClick={connectFacebook}
+                                disabled={working.facebook}
+                                className="w-full py-3.5 bg-[#1877F2] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-[#166fe5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+                            >
+                                {working.facebook ? <Spinner /> : "Connect Facebook"}
+                            </button>
+
+                            {/* Manual token toggle */}
+                            <button
+                                onClick={() => setShowManual((v) => !v)}
+                                className="w-full py-3 border border-neutral-200 text-neutral-500 text-[11px] font-bold uppercase tracking-widest rounded-xl hover:bg-neutral-50 hover:text-neutral-700 transition-all cursor-pointer"
+                            >
+                                {showManual ? "Hide Manual Token" : "Paste Token Manually"}
+                            </button>
+
+                            {/* Manual token form */}
+                            <AnimatePresence>
+                                {showManual && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="overflow-hidden space-y-2.5"
+                                    >
+                                        <div className="text-[11px] font-medium text-neutral-500 bg-blue-50 rounded-xl px-3 py-2.5 border border-blue-100">
+                                            Get token from{" "}
+                                            <a
+                                                href="https://developers.facebook.com/tools/explorer"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline text-[#1877F2] font-bold"
+                                            >
+                                                Graph API Explorer
+                                            </a>{" "}
+                                            → Use cases → Messenger → Generate access tokens
+                                        </div>
+                                        <input
+                                            type="password"
+                                            placeholder="Page Access Token"
+                                            value={fbToken}
+                                            onChange={(e) => { setFbToken(e.target.value); setFbError(""); }}
+                                            className="w-full px-3.5 py-3 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#1877F2] focus:border-transparent transition"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Page ID (e.g. 688344834362399)"
+                                            value={fbPageId}
+                                            onChange={(e) => { setFbPageId(e.target.value); setFbError(""); }}
+                                            className="w-full px-3.5 py-3 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#1877F2] focus:border-transparent transition"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Page Name (e.g. My Business Page)"
+                                            value={fbPageName}
+                                            onChange={(e) => { setFbPageName(e.target.value); setFbError(""); }}
+                                            className="w-full px-3.5 py-3 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#1877F2] focus:border-transparent transition"
+                                        />
+                                        {fbError && (
+                                            <p className="text-[11px] font-semibold text-red-600">{fbError}</p>
+                                        )}
+                                        <button
+                                            onClick={saveFacebookManual}
+                                            disabled={working.fbManual || !fbToken.trim() || !fbPageId.trim() || !fbPageName.trim()}
+                                            className="w-full py-3.5 bg-[#1877F2] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-[#166fe5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+                                        >
+                                            {working.fbManual ? <><Spinner /><span>Saving...</span></> : "Save Token"}
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </>
                     )}
                     {facebook?.facebook?.expired && (
                         <button
@@ -393,7 +530,7 @@ export default function AdminPlatformSettings() {
                     )}
                 </PlatformCard>
 
-                {/* Instagram */}
+                {/* ── Instagram ── */}
                 <PlatformCard
                     title="Instagram DMs"
                     description="Connect your Instagram Professional account via Meta Business Suite to handle direct messages in one place."
@@ -403,23 +540,90 @@ export default function AdminPlatformSettings() {
                     expired={false}
                     connectedInfo={
                         facebook?.instagram?.connected
-                            ? "Synced via Meta Suite"
+                            ? facebook?.instagram?.account_id
+                                ? `Account ID: ${facebook.instagram.account_id}`
+                                : "Synced via Meta Suite"
                             : null
                     }
+                    onDisconnect={disconnectInstagram}
+                    disconnecting={working.igDc}
                 >
-                    {!facebook?.facebook?.connected && (
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 rounded-xl px-4 py-3.5 text-center border border-dashed border-neutral-200">
-                            Dependency: Connect Facebook first
-                        </div>
+                    {!facebook?.instagram?.connected && (
+                        <>
+                            {!facebook?.facebook?.connected ? (
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 rounded-xl px-4 py-3.5 text-center border border-dashed border-neutral-200">
+                                    Dependency: Connect Facebook first
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-[11px] font-medium text-amber-700 bg-amber-50 rounded-xl px-3 py-2.5 border border-amber-100 text-center">
+                                        No IG Business account found on linked Page.
+                                    </div>
+
+                                    {/* Instagram manual connect toggle */}
+                                    <button
+                                        onClick={() => setShowIgManual((v) => !v)}
+                                        className="w-full py-3.5 bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#F77737] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-all cursor-pointer"
+                                    >
+                                        {showIgManual ? "Hide Manual Connect" : "Connect Instagram Manually"}
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {showIgManual && (
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: "auto" }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="overflow-hidden space-y-2.5"
+                                            >
+                                                <div className="text-[11px] font-medium text-neutral-500 bg-purple-50 rounded-xl px-3 py-2.5 border border-purple-100">
+                                                    Use the same Page Access Token as Facebook. Get your Instagram Business Account ID from{" "}
+                                                    <a
+                                                        href="https://developers.facebook.com/tools/explorer"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="underline text-purple-600 font-bold"
+                                                    >
+                                                        Graph API Explorer
+                                                    </a>{" "}
+                                                    → query{" "}
+                                                    <code className="bg-white px-1 rounded text-[10px]">
+                                                        me?fields=instagram_business_account
+                                                    </code>
+                                                </div>
+                                                <input
+                                                    type="password"
+                                                    placeholder="Page Access Token (same as Facebook)"
+                                                    value={igToken}
+                                                    onChange={(e) => { setIgToken(e.target.value); setIgError(""); }}
+                                                    className="w-full px-3.5 py-3 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Instagram Business Account ID"
+                                                    value={igAccountId}
+                                                    onChange={(e) => { setIgAccountId(e.target.value); setIgError(""); }}
+                                                    className="w-full px-3.5 py-3 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                                />
+                                                {igError && (
+                                                    <p className="text-[11px] font-semibold text-red-600">{igError}</p>
+                                                )}
+                                                <button
+                                                    onClick={saveInstagramManual}
+                                                    disabled={working.igManual || !igToken.trim() || !igAccountId.trim()}
+                                                    className="w-full py-3.5 bg-gradient-to-r from-[#833AB4] via-[#E4405F] to-[#F77737] text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-3 cursor-pointer"
+                                                >
+                                                    {working.igManual ? <><Spinner /><span>Saving...</span></> : "Save Instagram Token"}
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </>
+                            )}
+                        </>
                     )}
-                    {facebook?.facebook?.connected &&
-                        !facebook?.instagram?.connected && (
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 rounded-xl px-4 py-4 text-center border border-amber-100">
-                                Action Required: <br /> No IG Business account
-                                found on linked Page.
-                            </div>
-                        )}
                 </PlatformCard>
+
             </div>
 
             {/* Toast Notification */}
@@ -459,19 +663,9 @@ export default function AdminPlatformSettings() {
 /* ─────────────────────────────────────────
    ICONS
 ───────────────────────────────────────── */
-function Spinner() {
-    return (
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-    );
-}
-
 function MailIcon() {
     return (
-        <svg
-            className="w-6 h-6 text-[#EA4335]"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-        >
+        <svg className="w-6 h-6 text-[#EA4335]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z" />
         </svg>
     );
@@ -479,11 +673,7 @@ function MailIcon() {
 
 function FbIcon() {
     return (
-        <svg
-            className="w-6 h-6 text-[#1877F2]"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-        >
+        <svg className="w-6 h-6 text-[#1877F2]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
         </svg>
     );
@@ -491,11 +681,7 @@ function FbIcon() {
 
 function IgIcon() {
     return (
-        <svg
-            className="w-6 h-6 text-[#E4405F]"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-        >
+        <svg className="w-6 h-6 text-[#E4405F]" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
         </svg>
     );
@@ -503,15 +689,7 @@ function IgIcon() {
 
 function CheckIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="20 6 9 17 4 12" />
         </svg>
     );
@@ -519,15 +697,7 @@ function CheckIcon({ className = "w-4 h-4" }) {
 
 function CloseIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -536,15 +706,7 @@ function CloseIcon({ className = "w-4 h-4" }) {
 
 function RefreshIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
             <path d="M21 3v5h-5" />
         </svg>
@@ -553,15 +715,7 @@ function RefreshIcon({ className = "w-4 h-4" }) {
 
 function LinkIcon({ className = "w-5 h-5" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
@@ -570,15 +724,7 @@ function LinkIcon({ className = "w-5 h-5" }) {
 
 function AlertCircleIcon({ className = "w-5 h-5" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -588,15 +734,7 @@ function AlertCircleIcon({ className = "w-5 h-5" }) {
 
 function LayersIcon({ className = "w-5 h-5" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polygon points="12 2 2 7 12 12 22 7 12 2" />
             <polyline points="2 12 12 17 22 12" />
             <polyline points="2 17 12 22 22 17" />
