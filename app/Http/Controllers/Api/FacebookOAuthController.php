@@ -22,7 +22,8 @@ class FacebookOAuthController
         $params = http_build_query([
             'client_id'     => config('services.meta.app_id'),
             'redirect_uri'  => config('app.url') . '/api/admin/facebook/callback',
-'scope' => 'pages_messaging,pages_show_list,public_profile,instagram_basic,instagram_manage_messages',            'response_type' => 'code',
+            'scope'         => 'pages_messaging,pages_show_list',
+            'response_type' => 'code',
             'state'         => auth()->id(), // pass user_id via state
         ]);
 
@@ -187,4 +188,34 @@ class FacebookOAuthController
             'access_token'      => $token,
         ]);
     }
+
+    // POST /api/admin/instagram/connect-manual
+    public function connectInstagramManual(Request $request): JsonResponse
+    {
+        $userId    = auth()->id() ?? (int) $request->input('user_id');
+        $validated = $request->validate([
+            'page_token' => 'required|string',
+            'account_id' => 'required|string',
+        ]);
+
+        PlatformSetting::setValue('instagram', 'page_token',   $validated['page_token'], $userId);
+        PlatformSetting::setValue('instagram', 'account_id',   $validated['account_id'], $userId);
+        PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString(), $userId);
+
+        Log::info('[RMTY Instagram] Manually connected', [
+            'user_id'    => $userId,
+            'account_id' => $validated['account_id'],
+        ]);
+
+        return response()->json(['message' => 'Instagram connected successfully.']);
+    }
+
+    // DELETE /api/admin/instagram/disconnect
+    public function disconnectInstagram(): JsonResponse
+    {
+        $userId = auth()->id();
+        PlatformSetting::clearPlatform('instagram', $userId);
+        return response()->json(['message' => 'Instagram disconnected.']);
+    }
+
 }
