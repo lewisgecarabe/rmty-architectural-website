@@ -26,14 +26,12 @@ const PLATFORM_LABELS = {
     gmail: "Gmail",
     facebook: "Facebook",
     instagram: "Instagram",
-    sms: "SMS",
 };
 
 const PLATFORM_COLORS = {
     gmail: "bg-red-50 text-red-600 border-red-100",
     facebook: "bg-blue-50 text-blue-600 border-blue-100",
     instagram: "bg-pink-50 text-pink-600 border-pink-100",
-    sms: "bg-emerald-50 text-emerald-600 border-emerald-100",
 };
 
 const STATUS_COLORS = {
@@ -63,7 +61,10 @@ const AnimatedSelect = ({
 
     useEffect(() => {
         const handleClick = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target))
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(e.target)
+            )
                 setIsOpen(false);
         };
         document.addEventListener("mousedown", handleClick);
@@ -155,7 +156,6 @@ const AnimatedSelect = ({
 
 /* ---------------- COMPONENT ---------------- */
 export default function AdminInquiries() {
-    // ✅ ALL hooks inside the component
     const [inquiries, setInquiries] = useState([]);
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
@@ -183,23 +183,73 @@ export default function AdminInquiries() {
     const [replyMsg, setReplyMsg] = useState("");
     const [replying, setReplying] = useState(false);
     const [toast, setToast] = useState(null);
-    const [platformStatus, setPlatformStatus] = useState({
-        gmail: false,
-        facebook: false,
-        instagram: false,
-    });
 
     const searchTimer = useRef(null);
     const pollTimer = useRef(null);
 
-    // ✅ canReply inside component so it closes over platformStatus
-    function canReply(inquiry) {
-        return platformStatus[inquiry.platform] === true;
-    }
-
     function showToast(msg, type = "success") {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3500);
+    }
+
+    // Safely check if we can reply in-app
+    function canReply(inquiry) {
+        if (!inquiry || !inquiry.platform) return false;
+        const platform = String(inquiry.platform).toLowerCase().trim();
+
+        if (platform === "sms" && inquiry.phone) return true;
+        if (["gmail", "website", "email"].includes(platform) && inquiry.email)
+            return true;
+        if (["facebook", "instagram", "viber", "messenger"].includes(platform))
+            return true;
+        return false;
+    }
+
+    // Smart External Linking based on Platform
+    function getExternalReplyLink(inquiry) {
+        if (!inquiry) return "#";
+        const platform = String(inquiry.platform).toLowerCase().trim();
+        const email = inquiry.email || "";
+        const phone = inquiry.phone || "";
+        const subject = encodeURIComponent(
+            `Re: ${inquiry.subject || "Your Inquiry"}`,
+        );
+
+        if (platform === "facebook" || platform === "messenger") {
+            return (
+                inquiry.thread_url ||
+                "https://business.facebook.com/latest/inbox/messenger"
+            );
+        }
+        if (platform === "instagram" || platform === "ig") {
+            return (
+                inquiry.thread_url ||
+                "https://business.facebook.com/latest/inbox/instagram"
+            );
+        }
+        if (platform === "sms") {
+            return `sms:${phone}`;
+        }
+        if (platform === "viber") {
+            return `viber://chat?number=${phone}`;
+        }
+        if (platform === "gmail") {
+            // Forces Gmail web client composed window
+            return `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}`;
+        }
+        // Default fallback
+        return `mailto:${email}?subject=${subject}`;
+    }
+
+    function getExternalReplyLabel(platform) {
+        const p = String(platform).toLowerCase().trim();
+        if (p === "facebook" || p === "messenger")
+            return "Open Meta Business Suite";
+        if (p === "instagram" || p === "ig") return "Open IG Business Suite";
+        if (p === "sms") return "Reply via SMS App";
+        if (p === "viber") return "Reply via Viber";
+        if (p === "gmail") return "Reply in Gmail";
+        return "Reply via Default Email";
     }
 
     const load = useCallback(
@@ -229,12 +279,10 @@ export default function AdminInquiries() {
 
     useEffect(() => {
         load(1, filters);
-        // Silent background polling every 30 seconds
         pollTimer.current = setInterval(() => load(page, filters, true), 30000);
         return () => clearInterval(pollTimer.current);
     }, []); // eslint-disable-line
 
-    // Clear bulk selections if search or filters change
     useEffect(() => {
         setSelectedIds([]);
     }, [filters]);
@@ -293,14 +341,13 @@ export default function AdminInquiries() {
                 );
                 showToast("Inquiries Deleted Permanently");
             }
-            // Instantly remove from UI before silent load completes
+
             setInquiries((prev) =>
                 prev.filter((i) => !selectedIds.includes(i.id)),
             );
             if (selected && selectedIds.includes(selected.id))
                 setSelected(null);
 
-            // Silently reload the table data
             await load(page, filters, true);
         } catch (e) {
             console.error(e);
@@ -316,16 +363,24 @@ export default function AdminInquiries() {
     async function handleStatus(id, status) {
         setUpdating(true);
         try {
+            // 1. Send the status update to the backend
             await apiFetch(`/inquiries/${id}`, {
                 method: "PUT",
                 body: JSON.stringify({ status }),
             });
-            // Instant UI removal
-            setInquiries((prev) => prev.filter((i) => i.id !== id));
-            if (selected?.id === id) setSelected(null);
-            showToast(`Marked as ${status}`);
 
-            // Silently reload the table
+            // 2. Instantly remove the message from the current tab's view
+            setInquiries((prev) => prev.filter((i) => i.id !== id));
+
+            // 3. Close the Side Drawer immediately
+            if (selected?.id === id) setSelected(null);
+
+            // 4. Trigger the exact notification (capitalizing the status so it looks nice)
+            const formattedStatus =
+                status.charAt(0).toUpperCase() + status.slice(1);
+            showToast(`Marked as ${formattedStatus}`);
+
+            // 5. Silently reload the table data in the background to update the tab counts
             await load(page, filters, true);
         } catch {
             setError("Failed to update.");
@@ -347,13 +402,11 @@ export default function AdminInquiries() {
                 method: "DELETE",
             });
 
-            // Instant UI removal
             setInquiries((prev) => prev.filter((i) => i.id !== deleteTargetId));
             if (selected?.id === deleteTargetId) setSelected(null);
             setDeleteId(null);
             showToast("Inquiry deleted.");
 
-            // Silently reload the table
             await load(page, filters, true);
         } catch {
             setError("Failed to delete.");
@@ -369,17 +422,22 @@ export default function AdminInquiries() {
                 method: "POST",
                 body: JSON.stringify({ message: replyMsg }),
             });
-            // Update just that inquiry (doesn't change tab immediately unless it triggers an archive)
-            setInquiries((prev) =>
-                prev.map((i) => (i.id === id ? res.inquiry : i)),
-            );
-            if (selected?.id === id) setSelected(res.inquiry);
+
+            // 1. Instantly remove the message from the current "New" tab view
+            setInquiries((prev) => prev.filter((i) => i.id !== id));
+
+            // 2. Close the Side Drawer immediately
+            if (selected?.id === id) setSelected(null);
+
+            // 3. Clear the reply modal inputs
             setReplyId(null);
             setReplyMsg("");
 
-            // Silently reload
+            // 4. Trigger the exact notification you want
+            showToast("Replied successfully");
+
+            // 5. Silently reload the table data in the background to update the tab counts
             await load(page, filters, true);
-            showToast("Reply sent!");
         } catch {
             setError("Failed to send reply.");
         } finally {
@@ -388,10 +446,26 @@ export default function AdminInquiries() {
     }
 
     const statCards = [
-        { label: "Total Inquiries", value: stats.total ?? 0, icon: <InboxIcon className="w-5 h-5 text-black" /> },
-        { label: "New Messages",    value: stats.new ?? 0,   icon: <SparklesIcon className="w-5 h-5 text-emerald-600" /> },
-        { label: "Replied",         value: stats.replied ?? 0, icon: <ReplyIcon className="w-5 h-5 text-blue-600" /> },
-        { label: "Archived",        value: stats.archived ?? 0, icon: <ArchiveIcon className="w-5 h-5 text-amber-600" /> },
+        {
+            label: "Total Inquiries",
+            value: stats.total ?? 0,
+            icon: <InboxIcon className="w-5 h-5 text-black" />,
+        },
+        {
+            label: "New Messages",
+            value: stats.new ?? 0,
+            icon: <SparklesIcon className="w-5 h-5 text-emerald-600" />,
+        },
+        {
+            label: "Replied",
+            value: stats.replied ?? 0,
+            icon: <ReplyIcon className="w-5 h-5 text-blue-600" />,
+        },
+        {
+            label: "Archived",
+            value: stats.archived ?? 0,
+            icon: <ArchiveIcon className="w-5 h-5 text-amber-600" />,
+        },
     ];
 
     return (
@@ -403,26 +477,34 @@ export default function AdminInquiries() {
                         Manage all incoming communications across platforms.
                     </p>
                 </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {statCards.map((s) => (
-                        <div key={s.label} className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300">
+                        <div
+                            key={s.label}
+                            className="rounded-2xl border border-neutral-200 bg-white p-5 flex flex-col justify-between min-h-[114px] hover:border-neutral-300"
+                        >
                             <div className="flex justify-between items-center mb-2">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">{s.label}</p>
+                                <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                    {s.label}
+                                </p>
                                 <div className="text-neutral-300">{s.icon}</div>
                             </div>
-                            <p className="text-3xl font-black text-neutral-900 mt-2">{s.value}</p>
+                            <p className="text-3xl font-black text-neutral-900 mt-2">
+                                {s.value}
+                            </p>
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Filters Toolbar */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-neutral-200 pb-6 mb-6">
-                {/* TABS */}
-                <div className="flex gap-3 w-full lg:w-auto shrink-0">
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-neutral-200 pb-6 mb-6">
+                {/* TABS (Left Side) */}
+                <div className="flex flex-wrap gap-2.5 w-full xl:w-auto shrink-0">
                     <button
                         onClick={() => setFilter("status", "new")}
-                        className={`flex-1 lg:flex-none rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                        className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer whitespace-nowrap ${
                             filters.status === "new"
                                 ? "border-neutral-900 bg-neutral-900 text-white"
                                 : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -432,7 +514,7 @@ export default function AdminInquiries() {
                     </button>
                     <button
                         onClick={() => setFilter("status", "replied")}
-                        className={`flex-1 lg:flex-none rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                        className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer whitespace-nowrap ${
                             filters.status === "replied"
                                 ? "border-neutral-900 bg-neutral-900 text-white"
                                 : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -442,7 +524,7 @@ export default function AdminInquiries() {
                     </button>
                     <button
                         onClick={() => setFilter("status", "archived")}
-                        className={`flex-1 lg:flex-none rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                        className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer whitespace-nowrap ${
                             filters.status === "archived"
                                 ? "border-neutral-900 bg-neutral-900 text-white"
                                 : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -452,148 +534,173 @@ export default function AdminInquiries() {
                     </button>
                 </div>
 
-                {/* Filters OR Bulk Actions (Swaps perfectly) */}
-                <AnimatePresence mode="wait">
-                    {selectedIds.length > 0 ? (
-                        <motion.div
-                            key="bulk-actions"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
-                        >
-                            <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
-                                {selectedIds.length} Selected
-                            </span>
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {filters.status !== "archived" ? (
+                {/* FILTERS OR BULK ACTIONS (Right Side) */}
+                <div className="flex flex-col sm:flex-row items-center w-full flex-1 justify-end">
+                    <AnimatePresence mode="wait">
+                        {selectedIds.length > 0 ? (
+                            <motion.div
+                                key="bulk-actions"
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
+                            >
+                                <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
+                                    {selectedIds.length} Selected
+                                </span>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    {filters.status !== "archived" ? (
+                                        <button
+                                            onClick={() =>
+                                                setBulkAction("archive")
+                                            }
+                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
+                                        >
+                                            Archive All
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() =>
+                                                    setBulkAction("restore")
+                                                }
+                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all cursor-pointer whitespace-nowrap"
+                                            >
+                                                Restore All
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    setBulkAction("delete")
+                                                }
+                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
+                                            >
+                                                Delete All
+                                            </button>
+                                        </>
+                                    )}
                                     <button
-                                        onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
+                                        onClick={() => setSelectedIds([])}
+                                        className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
+                                        title="Clear Selection"
                                     >
-                                        Archive All
+                                        <CloseIcon className="w-4 h-4" />
                                     </button>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={() =>
-                                                setBulkAction("restore")
-                                            }
-                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all cursor-pointer whitespace-nowrap"
-                                        >
-                                            Restore All
-                                        </button>
-                                        <button
-                                            onClick={() =>
-                                                setBulkAction("delete")
-                                            }
-                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
-                                        >
-                                            Delete All
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => setSelectedIds([])}
-                                    className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
-                                    title="Clear Selection"
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="filters"
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                className="flex flex-col sm:flex-row items-center w-full gap-3 justify-end"
+                            >
+                                {/* SEARCH BAR */}
+                                <motion.div
+                                    layout
+                                    className="relative w-full flex-1 min-w-0 mt-3 sm:mt-0"
                                 >
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key="filters"
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center w-full flex-1 justify-end gap-3"
-                        >
-                            {/* SEARCH BAR */}
-                            <motion.div
-                                layout
-                                className="relative w-full flex-1 min-w-0 mt-3 sm:mt-0"
-                            >
-                                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search messages, names, or emails..."
-                                    value={filters.search}
-                                    onChange={(e) =>
-                                        setFilter("search", e.target.value)
-                                    }
-                                    className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
-                                />
-                            </motion.div>
+                                    <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search messages..."
+                                        value={filters.search}
+                                        onChange={(e) =>
+                                            setFilter("search", e.target.value)
+                                        }
+                                        className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
+                                    />
+                                </motion.div>
 
-                            {/* PLATFORM DROPDOWN */}
-                            <motion.div
-                                layout
-                                className="w-full sm:w-44 shrink-0"
-                            >
-                                <AnimatedSelect
-                                    value={filters.platform}
-                                    placeholder="All Platforms"
-                                    options={Object.entries(
-                                        PLATFORM_LABELS,
-                                    ).map(([k, v]) => ({ id: k, name: v }))}
-                                    className="py-2.5"
-                                    onChange={(id) => setFilter("platform", id)}
-                                />
-                            </motion.div>
+                                {/* PLATFORM DROPDOWN */}
+                                <motion.div
+                                    layout
+                                    className="w-full sm:w-44 shrink-0"
+                                >
+                                    <AnimatedSelect
+                                        value={filters.platform}
+                                        placeholder="All Platforms"
+                                        options={Object.entries(
+                                            PLATFORM_LABELS,
+                                        ).map(([k, v]) => ({ id: k, name: v }))}
+                                        className="py-2.5"
+                                        onChange={(id) =>
+                                            setFilter("platform", id)
+                                        }
+                                    />
+                                </motion.div>
 
-                            {/* CLEAR FILTERS */}
-                            <AnimatePresence>
-                                {(filters.search || filters.platform) && (
-                                    <motion.div
-                                        layout
-                                        initial={{ opacity: 0, width: 0 }}
-                                        animate={{ opacity: 1, width: "auto" }}
-                                        exit={{ opacity: 0, width: 0 }}
-                                        transition={{
-                                            duration: 0.25,
-                                            ease: smoothEase,
-                                        }}
-                                        className="overflow-hidden shrink-0"
-                                    >
-                                        <button
-                                            onClick={() => {
-                                                setFilters({
-                                                    ...filters,
-                                                    search: "",
-                                                    platform: "",
-                                                });
-                                                load(1, {
-                                                    ...filters,
-                                                    search: "",
-                                                    platform: "",
-                                                });
+                                {/* CLEAR FILTERS */}
+                                <AnimatePresence>
+                                    {(filters.search || filters.platform) && (
+                                        <motion.div
+                                            layout
+                                            initial={{ opacity: 0, width: 0 }}
+                                            animate={{
+                                                opacity: 1,
+                                                width: "auto",
                                             }}
-                                            className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center hover:border-neutral-300"
+                                            exit={{ opacity: 0, width: 0 }}
+                                            transition={{
+                                                duration: 0.25,
+                                                ease: smoothEase,
+                                            }}
+                                            className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px] mt-3 sm:mt-0 w-full sm:w-auto"
                                         >
-                                            Clear
-                                        </button>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                                            <motion.div
+                                                initial={{ x: -20 }}
+                                                animate={{ x: 0 }}
+                                                exit={{ x: -20 }}
+                                                transition={{
+                                                    duration: 0.25,
+                                                    ease: smoothEase,
+                                                }}
+                                                className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
+                                            >
+                                                <button
+                                                    onClick={() => {
+                                                        setFilters({
+                                                            ...filters,
+                                                            search: "",
+                                                            platform: "",
+                                                        });
+                                                        load(1, {
+                                                            ...filters,
+                                                            search: "",
+                                                            platform: "",
+                                                        });
+                                                    }}
+                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center hover:border-neutral-300"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </motion.div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
-                            {/* REFRESH BUTTON */}
-                            <motion.button
-                                layout
-                                transition={{ duration: 0.25, ease: smoothEase }}
-                                onClick={() => load(page, filters)}
-                                className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
-                                title="Refresh Table"
-                            >
-                                <RefreshIcon className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`} />
-                            </motion.button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                                {/* REFRESH BUTTON */}
+                                <motion.button
+                                    layout
+                                    transition={{
+                                        duration: 0.25,
+                                        ease: smoothEase,
+                                    }}
+                                    onClick={() => load(page, filters)}
+                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
+                                    title="Refresh Table"
+                                >
+                                    <RefreshIcon
+                                        className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
+                                    />
+                                </motion.button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             {error && (
@@ -628,8 +735,13 @@ export default function AdminInquiries() {
                             <div className="flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center gap-4">
                                 <InboxIcon className="w-12 h-12 text-neutral-300" />
                                 <div>
-                                    <p className="text-base font-bold text-neutral-900">No inquiries found</p>
-                                    <p className="text-sm font-medium text-neutral-500 mt-1">Try adjusting your filters or check back later.</p>
+                                    <p className="text-base font-bold text-neutral-900">
+                                        No inquiries found
+                                    </p>
+                                    <p className="text-sm font-medium text-neutral-500 mt-1">
+                                        Try adjusting your filters or check back
+                                        later.
+                                    </p>
                                 </div>
                             </div>
                         ) : (
@@ -660,7 +772,7 @@ export default function AdminInquiries() {
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
                                             Status
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
+                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-right">
                                             Date
                                         </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-right">
@@ -669,202 +781,213 @@ export default function AdminInquiries() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
-                                    {inquiries.map((item) => (
-                                        <tr
-                                            key={item.id}
-                                            onClick={() =>
-                                                setSelected(
-                                                    selected?.id === item.id
-                                                        ? null
-                                                        : item,
-                                                )
-                                            }
-                                            className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
-                                                selected?.id === item.id
-                                                    ? "bg-neutral-50"
-                                                    : ""
-                                            } ${item.status === "new" ? "bg-blue-50/30" : ""}`}
-                                        >
-                                            <td
-                                                className="px-5 py-4 align-middle"
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
+                                    {inquiries.map((item) => {
+                                        const isNew =
+                                            String(
+                                                item.status,
+                                            ).toLowerCase() === "new";
+                                        return (
+                                            <tr
+                                                key={item.id}
+                                                onClick={() =>
+                                                    setSelected(
+                                                        selected?.id === item.id
+                                                            ? null
+                                                            : item,
+                                                    )
                                                 }
+                                                className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
+                                                    selected?.id === item.id
+                                                        ? "bg-neutral-50"
+                                                        : ""
+                                                } ${isNew && filters.status !== "archived" ? "bg-blue-50/30" : ""}`}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.includes(
-                                                        item.id,
-                                                    )}
-                                                    onChange={() =>
-                                                        handleSelect(item.id)
+                                                <td
+                                                    className="px-5 py-4 align-middle"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
                                                     }
-                                                    className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="px-5 py-4 align-middle">
-                                                <div>
-                                                    <p
-                                                        className={`text-sm truncate max-w-[200px] ${item.status === "new" ? "font-black text-black" : "font-bold text-neutral-900"}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(
+                                                            item.id,
+                                                        )}
+                                                        onChange={() =>
+                                                            handleSelect(
+                                                                item.id,
+                                                            )
+                                                        }
+                                                        className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="px-5 py-4 align-middle">
+                                                    <div>
+                                                        <p
+                                                            className={`text-sm truncate max-w-[200px] ${isNew ? "font-black text-black" : "font-bold text-neutral-900"}`}
+                                                        >
+                                                            {item.name ||
+                                                                item.first_name ||
+                                                                "Unknown"}
+                                                        </p>
+                                                        {item.phone && (
+                                                            <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">
+                                                                {item.phone}
+                                                            </p>
+                                                        )}
+                                                        {item.email && (
+                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">
+                                                                {item.email}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-5 py-4 align-middle">
+                                                    <span
+                                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                                            typeof PLATFORM_COLORS !==
+                                                                "undefined" &&
+                                                            PLATFORM_COLORS[
+                                                                item.platform
+                                                            ]
+                                                                ? PLATFORM_COLORS[
+                                                                      item
+                                                                          .platform
+                                                                  ]
+                                                                : "bg-neutral-50 text-neutral-600 border-neutral-200"
+                                                        }`}
                                                     >
-                                                        {item.name ||
-                                                            item.first_name ||
-                                                            "Unknown"}
-                                                    </p>
-                                                    {item.phone && (
-                                                        <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">
-                                                            {item.phone}
-                                                        </p>
-                                                    )}
-                                                    {item.email && (
-                                                        <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">
-                                                            {item.email}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4 align-middle">
-                                                <span
-                                                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                                                        typeof PLATFORM_COLORS !==
+                                                        {typeof PLATFORM_LABELS !==
                                                             "undefined" &&
-                                                        PLATFORM_COLORS[
+                                                        PLATFORM_LABELS[
                                                             item.platform
                                                         ]
-                                                            ? PLATFORM_COLORS[
+                                                            ? PLATFORM_LABELS[
                                                                   item.platform
                                                               ]
-                                                            : "bg-neutral-50 text-neutral-600 border-neutral-200"
-                                                    }`}
-                                                >
-                                                    {typeof PLATFORM_LABELS !==
-                                                        "undefined" &&
-                                                    PLATFORM_LABELS[
-                                                        item.platform
-                                                    ]
-                                                        ? PLATFORM_LABELS[
-                                                              item.platform
-                                                          ]
-                                                        : item.platform}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 align-middle hidden md:table-cell">
-                                                <p
-                                                    className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${item.status === "new" ? "font-bold text-neutral-900" : "font-medium text-neutral-500"}`}
-                                                >
-                                                    {item.message || "—"}
-                                                </p>
-                                            </td>
-                                            <td className="px-5 py-4 align-middle">
-                                                <span
-                                                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                                                        typeof STATUS_COLORS !==
-                                                            "undefined" &&
-                                                        STATUS_COLORS[
-                                                            item.status
-                                                        ]
-                                                            ? STATUS_COLORS[
-                                                                  item.status
-                                                              ]
-                                                            : "bg-neutral-50 text-neutral-600 border-neutral-200"
-                                                    }`}
-                                                >
-                                                    {item.status || "Pending"}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-4 align-middle">
-                                                <p className="text-xs font-medium text-neutral-500">
-                                                    {item.created_at
-                                                        ? new Date(
-                                                              item.created_at,
-                                                          ).toLocaleDateString(
-                                                              undefined,
-                                                              {
-                                                                  month: "short",
-                                                                  day: "numeric",
-                                                                  year: "numeric",
-                                                              },
-                                                          )
-                                                        : "—"}
-                                                </p>
-                                            </td>
-
-                                            {/* ACTION BUTTONS COLUMN */}
-                                            <td
-                                                className="px-5 py-4 align-middle text-right"
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
-                                                }
-                                            >
-                                                <div className="flex justify-end gap-2 mt-1">
-                                                    <button
-                                                        onClick={() =>
-                                                            setSelected(item)
-                                                        }
-                                                        className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-neutral-700 transition-all hover:border-black hover:text-black cursor-pointer"
+                                                            : item.platform}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 align-middle hidden md:table-cell">
+                                                    <p
+                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isNew ? "font-bold text-neutral-900" : "font-medium text-neutral-500"}`}
                                                     >
-                                                        View
-                                                    </button>
+                                                        {item.message || "—"}
+                                                    </p>
+                                                </td>
+                                                <td className="px-5 py-4 align-middle">
+                                                    <span
+                                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                                            typeof STATUS_COLORS !==
+                                                                "undefined" &&
+                                                            STATUS_COLORS[
+                                                                item.status
+                                                            ]
+                                                                ? STATUS_COLORS[
+                                                                      item
+                                                                          .status
+                                                                  ]
+                                                                : "bg-neutral-50 text-neutral-600 border-neutral-200"
+                                                        }`}
+                                                    >
+                                                        {item.status ||
+                                                            "Pending"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-4 align-middle text-right">
+                                                    <p className="text-xs font-medium text-neutral-500">
+                                                        {item.created_at
+                                                            ? new Date(
+                                                                  item.created_at,
+                                                              ).toLocaleDateString(
+                                                                  undefined,
+                                                                  {
+                                                                      month: "short",
+                                                                      day: "numeric",
+                                                                      year: "numeric",
+                                                                  },
+                                                              )
+                                                            : "—"}
+                                                    </p>
+                                                </td>
 
-                                                    {canReply(item) &&
-                                                        item.status ===
-                                                            "new" && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setReplyId(
-                                                                        item.id,
-                                                                    );
-                                                                    setReplyMsg(
-                                                                        "",
-                                                                    );
-                                                                }}
-                                                                className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
-                                                            >
-                                                                Reply
-                                                            </button>
-                                                        )}
-
-                                                    {filters.status !==
-                                                    "archived" ? (
+                                                <td
+                                                    className="px-5 py-4 align-middle text-right"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
+                                                    <div className="flex justify-end gap-2 mt-1">
                                                         <button
                                                             onClick={() =>
-                                                                setArchiveId(
-                                                                    item.id,
+                                                                setSelected(
+                                                                    item,
                                                                 )
                                                             }
-                                                            className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
+                                                            className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-neutral-700 transition-all hover:border-black hover:text-black cursor-pointer"
                                                         >
-                                                            Archive
+                                                            View
                                                         </button>
-                                                    ) : (
-                                                        <>
+
+                                                        {canReply(item) &&
+                                                            isNew && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setReplyId(
+                                                                            item.id,
+                                                                        );
+                                                                        setReplyMsg(
+                                                                            "",
+                                                                        );
+                                                                    }}
+                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
+                                                                >
+                                                                    Reply
+                                                                </button>
+                                                            )}
+
+                                                        {filters.status !==
+                                                        "archived" ? (
                                                             <button
                                                                 onClick={() =>
-                                                                    handleStatus(
-                                                                        item.id,
-                                                                        "new",
-                                                                    )
-                                                                }
-                                                                className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
-                                                            >
-                                                                Restore
-                                                            </button>
-                                                            <button
-                                                                onClick={() =>
-                                                                    setDeleteId(
+                                                                    setArchiveId(
                                                                         item.id,
                                                                     )
                                                                 }
-                                                                className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                                className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
                                                             >
-                                                                Delete
+                                                                Archive
                                                             </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleStatus(
+                                                                            item.id,
+                                                                            "new",
+                                                                        )
+                                                                    }
+                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
+                                                                >
+                                                                    Restore
+                                                                </button>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setDeleteId(
+                                                                            item.id,
+                                                                        )
+                                                                    }
+                                                                    className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         )}
@@ -892,11 +1015,7 @@ export default function AdminInquiries() {
                                             onClick={() => {
                                                 setPage((p) => p - 1);
                                                 if (typeof load !== "undefined")
-                                                    load(
-                                                        page - 1,
-                                                        filters,
-                                                        true,
-                                                    );
+                                                    load(page - 1, filters);
                                             }}
                                             className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
                                         >
@@ -911,11 +1030,7 @@ export default function AdminInquiries() {
                                             onClick={() => {
                                                 setPage((p) => p + 1);
                                                 if (typeof load !== "undefined")
-                                                    load(
-                                                        page + 1,
-                                                        filters,
-                                                        true,
-                                                    );
+                                                    load(page + 1, filters);
                                             }}
                                             className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
                                         >
@@ -929,7 +1044,7 @@ export default function AdminInquiries() {
                 </div>
             </div>
 
-            {/* SIDE-DRAWER PANEL */}
+            {/* SIDE-DRAWER PANEL FOR INQUIRY DETAILS */}
             <AnimatePresence>
                 {selected && (
                     <>
@@ -941,6 +1056,7 @@ export default function AdminInquiries() {
                             className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
                             onClick={() => setSelected(null)}
                         />
+
                         <motion.div
                             key="detail-drawer"
                             initial={{ x: "100%" }}
@@ -992,7 +1108,9 @@ export default function AdminInquiries() {
                                 </div>
 
                                 <div>
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">Message</p>
+                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                        Message
+                                    </p>
                                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                                         <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
                                             {selected.message ||
@@ -1003,42 +1121,50 @@ export default function AdminInquiries() {
                             </div>
 
                             <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 space-y-3 shrink-0">
+                                {/* EXTERNAL REPLY LINK */}
                                 <a
-                                    href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject || "Your Inquiry")}`}
-                                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-xs font-bold text-white uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98] cursor-pointer"
-                                    onClick={() => {
-                                        if (
-                                            typeof handleStatus !==
-                                                "undefined" &&
-                                            selected.status === "new"
-                                        ) {
-                                            handleStatus(
-                                                selected.id,
-                                                "replied",
-                                            );
-                                        }
-                                    }}
+                                    href={getExternalReplyLink(selected)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer"
                                 >
-                                    Reply via Email
+                                    <ExternalLinkIcon className="w-4 h-4" />
+                                    {getExternalReplyLabel(selected.platform)}
                                 </a>
 
-                                <div className="flex gap-2">
-                                    {typeof handleStatus !== "undefined" &&
-                                        selected.status === "new" && (
-                                            <button
-                                                onClick={() =>
-                                                    handleStatus(
-                                                        selected.id,
-                                                        "replied",
-                                                    )
-                                                }
-                                                disabled={updating}
-                                                className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-700 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
-                                            >
-                                                <CheckIcon className="w-4 h-4" />{" "}
-                                                Mark Replied
-                                            </button>
-                                        )}
+                                {/* IN-APP REPLY */}
+                                {canReply(selected) &&
+                                    String(selected.status).toLowerCase() ===
+                                        "new" && (
+                                        <button
+                                            onClick={() => {
+                                                setReplyId(selected.id);
+                                                setReplyMsg("");
+                                            }}
+                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-xs font-bold text-white uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98] cursor-pointer mt-3"
+                                        >
+                                            <ReplyIcon className="w-4 h-4" />
+                                            Reply in Dashboard
+                                        </button>
+                                    )}
+
+                                <div className="flex gap-2 pt-3">
+                                    {String(selected.status).toLowerCase() ===
+                                        "new" && (
+                                        <button
+                                            onClick={() =>
+                                                handleStatus(
+                                                    selected.id,
+                                                    "replied",
+                                                )
+                                            }
+                                            disabled={updating}
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-700 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
+                                        >
+                                            <CheckIcon className="w-4 h-4" />{" "}
+                                            Mark Replied
+                                        </button>
+                                    )}
 
                                     {filters.status !== "archived" ? (
                                         <button
@@ -1050,7 +1176,8 @@ export default function AdminInquiries() {
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-3.5 text-xs font-bold text-amber-600 uppercase tracking-wider transition-all hover:border-amber-400 hover:text-amber-700 disabled:opacity-50 cursor-pointer"
                                         >
-                                            <ArchiveIcon className="w-4 h-4" /> Archive
+                                            <ArchiveIcon className="w-4 h-4" />{" "}
+                                            Archive
                                         </button>
                                     ) : (
                                         <button
@@ -1065,9 +1192,11 @@ export default function AdminInquiries() {
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 cursor-pointer"
                                         >
-                                            <RestoreIcon className="w-4 h-4" /> Restore
+                                            <RestoreIcon className="w-4 h-4" />{" "}
+                                            Restore
                                         </button>
                                     )}
+
                                     <button
                                         onClick={() => {
                                             setDeleteId
@@ -1290,7 +1419,13 @@ export default function AdminInquiries() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                     >
-                        <div className="absolute inset-0 bg-black/20 cursor-pointer" onClick={() => { setReplyId(null); setReplyMsg(""); }} />
+                        <div
+                            className="absolute inset-0 bg-black/20 cursor-pointer"
+                            onClick={() => {
+                                setReplyId(null);
+                                setReplyMsg("");
+                            }}
+                        />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1298,17 +1433,36 @@ export default function AdminInquiries() {
                             transition={springTransition}
                             className="relative w-full max-w-lg rounded-[2rem] bg-white p-8 border border-neutral-100 pointer-events-auto shadow-2xl"
                         >
-                            <h3 className="text-xl font-black text-neutral-900 mb-1">Compose Reply</h3>
+                            <h3 className="text-xl font-black text-neutral-900 mb-1">
+                                Compose Reply
+                            </h3>
                             {(() => {
-                                const inq = inquiries.find((i) => i.id === replyId);
-                                const via = { gmail: "Gmail", facebook: "Facebook Messenger", instagram: "Instagram DM", sms: "SMS", website: "Email" };
+                                const inq = inquiries.find(
+                                    (i) => i.id === replyId,
+                                );
+                                const via = {
+                                    gmail: "Gmail",
+                                    facebook: "Facebook Messenger",
+                                    instagram: "Instagram DM",
+                                    viber: "Viber",
+                                    sms: "SMS",
+                                    website: "Email",
+                                };
                                 return (
                                     <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-6">
-                                        Replying via {via[inq?.platform] ?? inq?.platform}{" "}
-                                        {inq?.email ? `to ${inq.email}` : inq?.name ? `to ${inq.name}` : ""}
+                                        Replying via{" "}
+                                        {via[
+                                            String(inq?.platform).toLowerCase()
+                                        ] ?? inq?.platform}{" "}
+                                        {inq?.email
+                                            ? `to ${inq.email}`
+                                            : inq?.name
+                                              ? `to ${inq.name}`
+                                              : ""}
                                     </p>
                                 );
                             })()}
+
                             <textarea
                                 rows={5}
                                 placeholder="Type your message here..."
@@ -1316,19 +1470,29 @@ export default function AdminInquiries() {
                                 onChange={(e) => setReplyMsg(e.target.value)}
                                 className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white resize-none mb-6"
                             />
+
                             <div className="flex gap-3">
                                 <button
-                                    onClick={() => { setReplyId(null); setReplyMsg(""); }}
+                                    type="button"
+                                    onClick={() => {
+                                        setReplyId(null);
+                                        setReplyMsg("");
+                                    }}
                                     className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => handleReply(replyId)}
                                     disabled={replying || !replyMsg.trim()}
-                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 cursor-pointer"
                                 >
-                                    {replying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Send Reply"}
+                                    {replying ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        "Send Reply"
+                                    )}
                                 </button>
                             </div>
                         </motion.div>
@@ -1355,6 +1519,8 @@ export default function AdminInquiries() {
                             ) : (
                                 <CloseIcon className="w-4 h-4 text-white" />
                             )}
+
+                            {/* 👇 THE TEXT "Reply sent!" APPEARS HERE */}
                             <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5">
                                 {toast.msg || toast.message}
                             </p>
@@ -1367,48 +1533,242 @@ export default function AdminInquiries() {
 }
 
 // ============================================================================
-// Icons
+// Minimal UI Icons
 // ============================================================================
 
 function SparklesIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+        </svg>
+    );
 }
+
 function RefreshIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+        </svg>
+    );
 }
+
 function SearchIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+        </svg>
+    );
 }
+
 function InboxIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </svg>
+    );
 }
+
 function CloseIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+    );
 }
+
 function ReplyIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <polyline points="9 17 4 12 9 7" />
+            <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+        </svg>
+    );
 }
+
 function ArchiveIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <polyline points="21 8 21 21 3 21 3 8" />
+            <rect x="1" y="3" width="22" height="5" />
+            <line x1="10" y1="12" x2="14" y2="12" />
+        </svg>
+    );
 }
-function LockIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
-}
+
 function RestoreIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+        </svg>
+    );
 }
+
 function ChevronDown({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9l6 6 6-6" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M6 9l6 6 6-6" />
+        </svg>
+    );
 }
+
 function ChevronLeft({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M15 18l-6-6 6-6" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M15 18l-6-6 6-6" />
+        </svg>
+    );
 }
+
 function ChevronRight({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 18l6-6-6-6" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M9 18l6-6-6-6" />
+        </svg>
+    );
 }
+
 function TrashIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <line x1="10" y1="11" x2="10" y2="17" />
+            <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+    );
 }
+
 function CheckIcon({ className = "w-4 h-4" }) {
-    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12" /></svg>;
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <polyline points="20 6 9 17 4 12" />
+        </svg>
+    );
+}
+
+function ExternalLinkIcon({ className = "w-4 h-4" }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+    );
 }

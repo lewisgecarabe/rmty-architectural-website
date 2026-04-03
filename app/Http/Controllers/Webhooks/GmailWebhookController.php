@@ -77,11 +77,11 @@ class GmailWebhookController
                 $body    = $this->extractBody($full->getPayload());
 
                 $this->normalizer->fromGmail(
-                    messageId:  $ref->getId(),
-                    from:       $from,
-                    subject:    $subject,
-                    body:       $body,
-                    rawPayload: [
+                    $ref->getId(),      
+                    $from,              
+                    $subject,           
+                    $body,              
+                    [                   
                         'messageId'      => $ref->getId(),
                         'threadId'       => $full->getThreadId(),
                         'gmailMessageId' => $msgId,
@@ -89,7 +89,7 @@ class GmailWebhookController
                         'subject'        => $subject,
                         'user_id'        => $userId,
                     ],
-                    userId: $userId
+                    $userId             // Just the variable itself, no label before it.
                 );
             }
         } catch (\Throwable $e) {

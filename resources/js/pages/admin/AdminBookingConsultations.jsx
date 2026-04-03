@@ -794,8 +794,10 @@ export default function AdminBookingConsultations() {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 mb-6">
-                <div className="flex flex-wrap gap-3">
+            {/* Toolbar: Tabs & Filters */}
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-neutral-200 pb-6 mb-6">
+                {/* TABS (Left Side) */}
+                <div className="flex flex-wrap gap-2.5 w-full xl:w-auto shrink-0">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
@@ -804,7 +806,7 @@ export default function AdminBookingConsultations() {
                                 setPage(1);
                                 setSelected(null);
                             }}
-                            className={`rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                            className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer whitespace-nowrap ${
                                 activeTab === tab.id
                                     ? "border-neutral-900 bg-neutral-900 text-white"
                                     : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -815,172 +817,180 @@ export default function AdminBookingConsultations() {
                     ))}
                 </div>
 
-                <AnimatePresence mode="wait">
-                    {selectedIds.length > 0 ? (
-                        <motion.div
-                            key="bulk-actions"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center gap-3 w-full bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
-                        >
-                            <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
-                                {selectedIds.length} Selected
-                            </span>
+                {/* FILTERS OR BULK ACTIONS (Right Side) */}
+                <div className="flex flex-col sm:flex-row items-center w-full flex-1 justify-end">
+                    <AnimatePresence mode="wait">
+                        {selectedIds.length > 0 ? (
+                            <motion.div
+                                key="bulk-actions"
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
+                            >
+                                <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
+                                    {selectedIds.length} Selected
+                                </span>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {filters.status !== "archived" ? (
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    {activeTab === "published" ? (
+                                        <button
+                                            onClick={() =>
+                                                setBulkAction("archive")
+                                            }
+                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
+                                        >
+                                            Archive All
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() =>
+                                                    setBulkAction("restore")
+                                                }
+                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all cursor-pointer whitespace-nowrap"
+                                            >
+                                                Restore All
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    setBulkAction("delete")
+                                                }
+                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
+                                            >
+                                                Delete All
+                                            </button>
+                                        </>
+                                    )}
                                     <button
-                                        onClick={() => setBulkAction("archive")}
-                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
+                                        onClick={() => setSelectedIds([])}
+                                        className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
+                                        title="Clear Selection"
                                     >
-                                        Archive All
+                                        <CloseIcon className="w-4 h-4" />
                                     </button>
-                                ) : (
-                                    <>
-                                        <button
-                                            onClick={() =>
-                                                setBulkAction("restore")
-                                            }
-                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all cursor-pointer whitespace-nowrap"
-                                        >
-                                            Restore All
-                                        </button>
-                                        <button
-                                            onClick={() =>
-                                                setBulkAction("delete")
-                                            }
-                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
-                                        >
-                                            Delete All
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => setSelectedIds([])}
-                                    className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
-                                    title="Clear Selection"
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="filters"
+                                layout
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                className="flex flex-col sm:flex-row items-center w-full gap-3 justify-end"
+                            >
+                                {/* SEARCH BAR */}
+                                <motion.div
+                                    layout
+                                    className="relative w-full flex-1 min-w-0"
                                 >
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key="filters"
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center w-full"
-                        >
-                            <motion.div
-                                layout
-                                className="relative w-full flex-1 min-w-0"
-                            >
-                                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search clients, phone, email, or status..."
-                                    value={searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
-                                />
-                            </motion.div>
+                                    <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search clients..."
+                                        value={searchTerm}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            setPage(1);
+                                        }}
+                                        className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
+                                    />
+                                </motion.div>
 
-                            <motion.div
-                                layout
-                                className="w-full sm:w-auto min-w-[11rem] sm:max-w-[50%] shrink-0 mt-3 sm:mt-0 sm:ml-3"
-                            >
-                                <AnimatedSelect
-                                    value={filterType}
-                                    placeholder="All Projects"
-                                    options={PROJECT_TYPES}
-                                    className="py-2.5"
-                                    onChange={(id) => {
-                                        setFilterType(id);
-                                        setPage(1);
-                                    }}
-                                />
-                            </motion.div>
+                                {/* DROPDOWN */}
+                                <motion.div
+                                    layout
+                                    className="w-full sm:w-auto min-w-[11rem] sm:max-w-[40%] shrink-0"
+                                >
+                                    <AnimatedSelect
+                                        value={filterType}
+                                        placeholder="All Projects"
+                                        options={PROJECT_TYPES}
+                                        className="py-2.5"
+                                        onChange={(id) => {
+                                            setFilterType(id);
+                                            setPage(1);
+                                        }}
+                                    />
+                                </motion.div>
 
-                            <motion.div
-                                layout
-                                className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3"
-                            >
-                                <AnimatePresence>
-                                    {(searchTerm || filterType !== "") && (
-                                        <motion.div
-                                            layout
-                                            initial={{
-                                                opacity: 0,
-                                                height: 0,
-                                                width: 0,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                height: "auto",
-                                                width: "auto",
-                                            }}
-                                            exit={{
-                                                opacity: 0,
-                                                height: 0,
-                                                width: 0,
-                                            }}
-                                            transition={{
-                                                duration: 0.25,
-                                                ease: smoothEase,
-                                            }}
-                                            className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
-                                        >
+                                {/* ACTION BUTTONS (Clear & Refresh) */}
+                                <motion.div
+                                    layout
+                                    className="flex flex-col sm:flex-row items-center w-full sm:w-auto"
+                                >
+                                    <AnimatePresence>
+                                        {(searchTerm || filterType !== "") && (
                                             <motion.div
-                                                initial={{ x: -20 }}
-                                                animate={{ x: 0 }}
-                                                exit={{ x: -20 }}
+                                                layout
+                                                initial={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                    width: 0,
+                                                }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    height: "auto",
+                                                    width: "auto",
+                                                }}
+                                                exit={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                    width: 0,
+                                                }}
                                                 transition={{
                                                     duration: 0.25,
                                                     ease: smoothEase,
                                                 }}
-                                                className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
+                                                className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
                                             >
-                                                <button
-                                                    onClick={() => {
-                                                        setSearchTerm("");
-                                                        setFilterType("");
-                                                        setPage(1);
+                                                <motion.div
+                                                    initial={{ x: -20 }}
+                                                    animate={{ x: 0 }}
+                                                    exit={{ x: -20 }}
+                                                    transition={{
+                                                        duration: 0.25,
+                                                        ease: smoothEase,
                                                     }}
-                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
                                                 >
-                                                    Clear
-                                                </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSearchTerm("");
+                                                            setFilterType("");
+                                                            setPage(1);
+                                                        }}
+                                                        className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </motion.div>
                                             </motion.div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                                        )}
+                                    </AnimatePresence>
 
-                                <motion.button
-                                    layout
-                                    transition={{
-                                        duration: 0.25,
-                                        ease: smoothEase,
-                                    }}
-                                    onClick={fetchConsultations}
-                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
-                                    title="Refresh Table"
-                                >
-                                    <RefreshIcon
-                                        className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
-                                    />
-                                </motion.button>
+                                    <motion.button
+                                        layout
+                                        transition={{
+                                            duration: 0.25,
+                                            ease: smoothEase,
+                                        }}
+                                        onClick={fetchConsultations}
+                                        className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
+                                        title="Refresh Table"
+                                    >
+                                        <RefreshIcon
+                                            className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
+                                        />
+                                    </motion.button>
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
@@ -1085,11 +1095,6 @@ export default function AdminBookingConsultations() {
 
                                                 <td className="py-4 px-5 align-middle">
                                                     <div className="flex items-center gap-3">
-                                                        <img
-                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true`}
-                                                            alt="Avatar"
-                                                            className="w-8 h-8 rounded-full object-cover hidden sm:block"
-                                                        />
                                                         <div>
                                                             <p className="text-sm font-bold text-neutral-900 truncate max-w-[180px]">
                                                                 {c.first_name}{" "}

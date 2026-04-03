@@ -118,7 +118,7 @@ export default function AdminDashboard() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+            <div className="flex flex-col [font-family:var(--font-neue)] items-center justify-center min-h-[50vh] gap-4">
                 <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />
                 <p className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
                     Loading Dashboard
