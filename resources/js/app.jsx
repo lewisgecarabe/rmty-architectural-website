@@ -31,6 +31,7 @@ import AdminManagement from "./pages/admin/AdminManagement";
 import AdminProfile from "./pages/admin/AdminProfile";
 import AdminInquiries from "./pages/admin/AdminInquiries";
 import AdminPlatformSettings from "./pages/admin/AdminPlatformSettings";
+import AdminContentHome from "./pages/admin/AdminContentHome";
 
 ReactDOM.createRoot(document.getElementById("app")).render(
     <BrowserRouter>
@@ -43,13 +44,13 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-
             </Route>
 
             <Route path="/admin/login" element={<AuthPage />} />
             <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
             <Route path="/admin" element={<AdminLayout />}>
+                <Route path="content/home" element={<AdminContentHome />} />
                 <Route
                     index
                     element={<Navigate to="/admin/dashboard" replace />}

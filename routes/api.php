@@ -12,8 +12,12 @@ use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\GoogleOAuthController;
 use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\HomePageContentController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Models\Inquiry;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -34,6 +38,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 
 Route::get('/services', [ServiceController::class, 'index']);
 Route::get('/about', [AboutSectionController::class, 'index']);
+Route::get('/home-content', [HomePageContentController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/projects', [ProjectController::class, 'adminIndex']);
@@ -54,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/about/{id}', [AboutSectionController::class, 'update']);
     Route::post('/about/{id}', [AboutSectionController::class, 'update']);
     Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
+
+    Route::get('/admin/home-content', [HomePageContentController::class, 'index']); 
+    Route::post('/admin/home-content', [HomePageContentController::class, 'store']);
 });
 
 // Consultation booking — public (contact form)
@@ -115,4 +123,30 @@ Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
     Route::post('/gmail',  [GmailWebhookController::class, 'handle']);
     Route::get('/meta',    [MetaWebhookController::class,  'verify']);
     Route::post('/meta',   [MetaWebhookController::class,  'handle']);
+});
+
+// Notice the route is '/webhooks/sms' to match your ngrok log
+Route::post('/webhooks/sms', function (Request $request) {
+    
+    Log::info('[Semaphore Webhook] Incoming SMS', $request->all());
+
+    return response('OK', 200);
+});
+
+Route::post('/webhooks/sms', function (Request $request) {
+    
+    // 1. Log it just in case
+    Log::info('[Test Webhook] Incoming Data', $request->all());
+
+    // 2. Save it to your database
+    Inquiry::create([
+        'name'        => 'SMS Test Client',
+        'phone'       => $request->input('from'),
+        'message'     => $request->input('text'),
+        'status'      => 'new',
+        'source'      => 'sms', // You can add 'sms' to your database if you want to track it
+    ]);
+
+    // 3. Send the thumbs up back to Thunder Client
+    return response('SMS Saved Successfully!', 200);
 });
