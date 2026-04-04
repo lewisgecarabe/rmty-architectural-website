@@ -14,6 +14,7 @@ export default function Projects() {
     const [projects, setProjects] = useState([]);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [ctaSettings, setCtaSettings] = useState({ image: null, text: "" });
 
     const filteredProjects =
         selectedCategories.length === 0
@@ -41,7 +42,18 @@ export default function Projects() {
             }
         };
 
+        const fetchCta = async () => {
+            try {
+                const res = await fetch("/api/settings/projects-cta");
+                const data = await res.json();
+                setCtaSettings(data);
+            } catch (err) {
+                console.error("Failed to fetch CTA settings:", err);
+            }
+        };
+
         fetchProjects();
+        fetchCta();
         window.scrollTo(0, 0);
     }, []);
 
@@ -94,9 +106,7 @@ export default function Projects() {
                                     <div className="flex flex-col gap-3">
                                         {CATEGORIES.map((cat) => {
                                             const isSelected =
-                                                selectedCategories.includes(
-                                                    cat,
-                                                );
+                                                selectedCategories.includes(cat);
 
                                             return (
                                                 <button
@@ -144,7 +154,6 @@ export default function Projects() {
                                 exit={{ opacity: 0 }}
                                 className={`group ${project.colSpan || "col-span-1"}`}
                             >
-                                {/* THIS IS WHERE THE CARD IS RENDERED 1 TIME PER PROJECT */}
                                 <ProjectCard
                                     title={project.title}
                                     category={project.category?.name}
@@ -165,12 +174,11 @@ export default function Projects() {
                 <div className="w-full grid grid-cols-1 lg:grid-cols-12 min-h-[600px] lg:min-h-[700px]">
                     <div className="lg:col-span-5 flex flex-col items-start justify-center py-32 px-6 lg:pl-[max(1.5rem,calc((100vw-1536px)/2+1.5rem))] lg:pr-12">
                         <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tighter mb-8 leading-none">
-                            Let’s Talk.
+                            Let's Talk.
                         </h2>
                         <p className="text-gray-600 text-base md:text-lg leading-relaxed max-w-md mb-12">
-                            Non provident, similique sunt in culpa qui officia
-                            deserunt mollitia animi, id est laborum et dolorum
-                            fuga. Et harum quidem rerum facilis est et expedita.
+                            {ctaSettings.text ||
+                                "Non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita."}
                         </p>
                         <Link
                             to="/contact"
@@ -181,15 +189,23 @@ export default function Projects() {
                     </div>
 
                     <div className="lg:col-span-7 relative w-full h-full min-h-[500px] bg-black overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="relative group">
-                                <div className="h-24 w-24 border-2 border-white/20 rounded-full flex items-center justify-center">
-                                    <span className="text-white/50 text-sm">
-                                        Image
-                                    </span>
+                        {ctaSettings.image ? (
+                            <img
+                                src={ctaSettings.image}
+                                alt="Let's Talk"
+                                className="absolute inset-0 w-full h-full object-cover opacity-80"
+                            />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="relative group">
+                                    <div className="h-24 w-24 border-2 border-white/20 rounded-full flex items-center justify-center">
+                                        <span className="text-white/50 text-sm">
+                                            Image
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </section>

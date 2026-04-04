@@ -102,7 +102,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
 });
 
+// Public
+Route::get('/settings/projects-cta', [ProjectController::class, 'getProjectsCta']);
 
+// Admin (protected)
+Route::post('/admin/settings/projects-cta', [ProjectController::class, 'updateProjectsCta'])
+    ->middleware('auth:sanctum');
 
 // ── OAuth Callbacks (public — no auth, Google/Facebook redirect here) ──
 Route::get('/admin/google/callback',   [GoogleOAuthController::class,   'handleCallback']);
