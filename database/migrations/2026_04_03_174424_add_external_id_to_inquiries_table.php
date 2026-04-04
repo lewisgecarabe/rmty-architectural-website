@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up()
 {
-    Schema::table('inquiries', function (Blueprint $table) {
-        $table->string('external_id')->nullable()->unique();
-    });
+        if (!Schema::hasColumn('inquiries', 'external_id')) {
+            Schema::table('inquiries', function (Blueprint $table) {
+                $table->string('external_id')->nullable()->unique();
+            });
+        }
 }
 
     /**
