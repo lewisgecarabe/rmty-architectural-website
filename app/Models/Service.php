@@ -11,6 +11,7 @@ class Service extends Model
         'content',
         'is_published',
         'sort_order',
+        'image',
     ];
 
     protected $casts = [

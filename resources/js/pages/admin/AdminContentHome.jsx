@@ -306,7 +306,7 @@ export default function AdminContentHome() {
                 <div className="flex flex-wrap gap-3 w-full md:w-auto">
                     <Link
                         to="/"
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 px-5 py-2.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-black "
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-black "
                     >
                         View Site
                     </Link>
@@ -344,7 +344,7 @@ export default function AdminContentHome() {
                             });
                             setFormErrors({});
                         }}
-                        className="flex-1 md:flex-none px-5 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm font-bold cursor-pointer transition-colors hover:bg-red-50 text-red-600 hover:border-red-200"
+                        className="flex-1 md:flex-none px-5 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm font-medium cursor-pointer transition-colors hover:bg-red-50 text-red-600 hover:border-red-200"
                     >
                         Clear Form
                     </motion.button>
@@ -356,7 +356,7 @@ export default function AdminContentHome() {
                         type="button"
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-sm font-bold disabled:opacity-70 cursor-pointer transition-colors hover:bg-neutral-800"
+                        className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-sm font-medium disabled:opacity-70 cursor-pointer transition-colors hover:bg-neutral-800"
                     >
                         {saving ? (
                             <>

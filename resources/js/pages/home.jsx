@@ -9,9 +9,9 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "";
 function ImagePlaceholder({ className = "", label = "Image" }) {
     return (
         <div
-            className={`grid place-items-center bg-neutral-200 text-neutral-500 ${className}`}
+            className={`grid place-items-center bg-black text-neutral-500 ${className}`}
         >
-            <div className="text-xs font-medium tracking-[0.2em] uppercase">
+            <div className="text-xs text-white font-medium tracking-[0.2em] uppercase">
                 {label}
             </div>
         </div>
