@@ -7,6 +7,8 @@ use App\Models\Consultation;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\SmsController;
+
 
 class ConsultationController extends Controller
 {
@@ -129,25 +131,25 @@ class ConsultationController extends Controller
         switch ($consultation->status) {
             case 'accepted':
                 return $formattedDate
-                    ? "Hello {$displayName}, your consultation booking with RMTY Architectural has been accepted. Your schedule is {$formattedDate}."
-                    : "Hello {$displayName}, your consultation booking with RMTY Architectural has been accepted.";
+                    ? "RMTY Architecture:\nHi {$displayName}, your consultation is CONFIRMED on {$formattedDate}.\n\nWe look forward to discussing your project."
+                    : "RMTY Architecture:\nHi {$displayName}, your consultation has been CONFIRMED.";
 
             case 'cancelled':
-                return "Hello {$displayName}, your consultation booking with RMTY Architectural has been cancelled. Please contact us if you would like to book another schedule.";
+                return "RMTY Architecture:\nHi {$displayName}, your consultation has been CANCELLED.\n\nYou may book again anytime.";
 
             case 'rescheduled':
                 $message = $formattedDate
-                    ? "Hello {$displayName}, your consultation booking with RMTY Architectural has been rescheduled. Your new schedule is {$formattedDate}."
-                    : "Hello {$displayName}, your consultation booking with RMTY Architectural has been rescheduled.";
+                    ? "RMTY Architecture:\nHi {$displayName}, your consultation has been RESCHEDULED to {$formattedDate}."
+                    : "RMTY Architecture:\nHi {$displayName}, your consultation has been RESCHEDULED.";
 
                 if (!empty($consultation->reschedule_reason)) {
-                    $message .= " Note: {$consultation->reschedule_reason}";
+                    $message .= "\n\nNote: {$consultation->reschedule_reason}";
                 }
 
                 return $message;
 
             default:
-                return "Hello {$displayName}, your consultation booking with RMTY Architectural has been updated.";
+                return "RMTY Architecture:\nHi {$displayName}, your booking status has been updated.";
         }
     }
 

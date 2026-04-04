@@ -184,6 +184,24 @@ export default function AdminInquiries() {
     const [replying, setReplying] = useState(false);
     const [toast, setToast] = useState(null);
 
+    const [readIds, setReadIds] = useState(() => {
+        try {
+            return new Set(JSON.parse(localStorage.getItem("inquiry_read_ids") || "[]"));
+        } catch {
+            return new Set();
+        }
+    });
+
+    const markAsRead = useCallback((id) => {
+        setReadIds((prev) => {
+            if (prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.add(id);
+            try { localStorage.setItem("inquiry_read_ids", JSON.stringify([...next])); } catch {}
+            return next;
+        });
+    }, []);
+
     const searchTimer = useRef(null);
     const pollTimer = useRef(null);
 
@@ -782,25 +800,20 @@ export default function AdminInquiries() {
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
                                     {inquiries.map((item) => {
-                                        const isNew =
-                                            String(
-                                                item.status,
-                                            ).toLowerCase() === "new";
+                                        const isUnread = !readIds.has(item.id);
                                         return (
                                             <tr
                                                 key={item.id}
-                                                onClick={() =>
-                                                    setSelected(
-                                                        selected?.id === item.id
-                                                            ? null
-                                                            : item,
-                                                    )
-                                                }
+                                                onClick={() => {
+                                                    const next = selected?.id === item.id ? null : item;
+                                                    setSelected(next);
+                                                    if (next) markAsRead(item.id);
+                                                }}
                                                 className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
                                                     selected?.id === item.id
                                                         ? "bg-neutral-50"
-                                                        : ""
-                                                } ${isNew && filters.status !== "archived" ? "bg-blue-50/30" : ""}`}
+                                                        : isUnread ? "bg-blue-50/20" : ""
+                                                }`}
                                             >
                                                 <td
                                                     className="px-5 py-4 align-middle"
@@ -824,7 +837,7 @@ export default function AdminInquiries() {
                                                 <td className="px-5 py-4 align-middle">
                                                     <div>
                                                         <p
-                                                            className={`text-sm truncate max-w-[200px] ${isNew ? "font-black text-black" : "font-bold text-neutral-900"}`}
+                                                            className={`text-sm truncate max-w-[200px] ${isUnread ? "font-black text-black" : "font-normal text-neutral-400"}`}
                                                         >
                                                             {item.name ||
                                                                 item.first_name ||
@@ -870,7 +883,7 @@ export default function AdminInquiries() {
                                                 </td>
                                                 <td className="px-5 py-4 align-middle hidden md:table-cell">
                                                     <p
-                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isNew ? "font-bold text-neutral-900" : "font-medium text-neutral-500"}`}
+                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}
                                                     >
                                                         {item.message || "—"}
                                                     </p>
@@ -930,7 +943,7 @@ export default function AdminInquiries() {
                                                         </button>
 
                                                         {canReply(item) &&
-                                                            isNew && (
+                                                            item.status === "new" && (
                                                                 <button
                                                                     onClick={() => {
                                                                         setReplyId(

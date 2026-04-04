@@ -27,9 +27,7 @@ const isArchivedConsultation = (consultation) =>
 const getBookingStatus = (consultation) => {
     if (isArchivedConsultation(consultation)) return "archived";
 
-    const raw = String(consultation?.status || "")
-        .trim()
-        .toLowerCase();
+    const raw = String(consultation?.status || "").trim().toLowerCase();
 
     if (
         raw === "accepted" ||
@@ -89,7 +87,8 @@ const getStatusMeta = (status) => {
         case "accepted":
             return {
                 label: "Accepted",
-                className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+                className:
+                    "border-emerald-200 bg-emerald-50 text-emerald-700",
                 dotClassName: "bg-emerald-500",
             };
         case "cancelled":
@@ -107,13 +106,15 @@ const getStatusMeta = (status) => {
         case "archived":
             return {
                 label: "Archived",
-                className: "border-neutral-200 bg-neutral-100 text-neutral-500",
+                className:
+                    "border-neutral-200 bg-neutral-100 text-neutral-500",
                 dotClassName: "bg-neutral-400",
             };
         default:
             return {
                 label: "Pending",
-                className: "border-amber-200 bg-amber-50 text-amber-700",
+                className:
+                    "border-amber-200 bg-amber-50 text-amber-700",
                 dotClassName: "bg-amber-500",
             };
     }
@@ -501,64 +502,60 @@ export default function AdminBookingConsultations() {
         },
     ];
 
-    const sendUpdateRequest = async (id, payload) => {
-        const fd = buildFormData(payload);
+   const sendUpdateRequest = async (id, payload) => {
+    const fd = buildFormData(payload);
 
-        const headers = getAuthHeaders();
-        delete headers["Content-Type"];
-        delete headers["content-type"];
+    const headers = getAuthHeaders();
+    delete headers["Content-Type"];
+    delete headers["content-type"];
 
-        const res = await fetch(`/api/consultations/${id}`, {
-            method: "POST",
-            body: fd,
-            credentials: "include",
-            headers,
-        });
+    const res = await fetch(`/api/consultations/${id}`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers,
+    });
 
-        if (!res.ok) {
-            throw new Error(await getErrorMessage(res));
+    if (!res.ok) {
+        throw new Error(await getErrorMessage(res));
+    }
+
+    return res.json();
+};
+
+  const updateConsultationRecord = async ({
+    id,
+    payload,
+    successText,
+    afterSuccess,
+}) => {
+    setUpdating(true);
+
+    try {
+        const result = await sendUpdateRequest(id, payload);
+        await fetchConsultations();
+
+        const status = String(payload?.status || "").toLowerCase();
+        const shouldAttemptSms = ["accepted", "cancelled", "rescheduled"].includes(status);
+
+        if (shouldAttemptSms) {
+            showToast(
+                result?.sms_sent
+                    ? `${successText} • SMS sent`
+                    : `${successText} • SMS not sent`
+            );
+        } else {
+            showToast(successText);
         }
 
-        return res.json();
-    };
-
-    const updateConsultationRecord = async ({
-        id,
-        payload,
-        successText,
-        afterSuccess,
-    }) => {
-        setUpdating(true);
-
-        try {
-            const result = await sendUpdateRequest(id, payload);
-            await fetchConsultations();
-
-            const status = String(payload?.status || "").toLowerCase();
-            const shouldAttemptSms = [
-                "accepted",
-                "cancelled",
-                "rescheduled",
-            ].includes(status);
-
-            if (shouldAttemptSms) {
-                showToast(
-                    result?.sms_sent
-                        ? `${successText} • SMS sent`
-                        : `${successText} • SMS not sent`,
-                );
-            } else {
-                showToast(successText);
-            }
-
-            if (afterSuccess) afterSuccess();
-        } catch (err) {
-            console.error(err);
-            alert(err.message || "Something went wrong.");
-        } finally {
-            setUpdating(false);
-        }
-    };
+        if (afterSuccess) afterSuccess();
+    } catch (err) {
+        console.error(err);
+        alert(err.message || "Something went wrong.");
+    } finally {
+        setUpdating(false);
+    }
+};
 
     /* ---------------- BULK SELECTION ---------------- */
     const handleSelectAll = (e) => {
@@ -589,15 +586,43 @@ export default function AdminBookingConsultations() {
                         : { is_published: 0, status: "archived" };
 
                 await Promise.all(
-                    selectedIds.map((id) => sendUpdateRequest(id, payload)),
+                    selectedIds.map((id) => sendUpdateRequest(id, payload))
                 );
 
                 await fetchConsultations();
+
                 showToast(
                     bulkAction === "restore"
                         ? "Records restored successfully"
-                        : "Records archived successfully",
+                        : "Records archived successfully"
                 );
+
+            } else if (bulkAction === "accept") {
+                await Promise.all(
+                    selectedIds.map((id) =>
+                        sendUpdateRequest(id, {
+                            status: "accepted",
+                            is_published: 1,
+                        })
+                    )
+                );
+
+                await fetchConsultations();
+                showToast("Selected bookings marked as accepted");
+
+            } else if (bulkAction === "cancel") {
+                await Promise.all(
+                    selectedIds.map((id) =>
+                        sendUpdateRequest(id, {
+                            status: "cancelled",
+                            is_published: 1,
+                        })
+                    )
+                );
+
+                await fetchConsultations();
+                showToast("Selected bookings cancelled");
+
             } else if (bulkAction === "delete") {
                 await Promise.all(
                     selectedIds.map((id) =>
@@ -609,13 +634,14 @@ export default function AdminBookingConsultations() {
                             if (!res.ok) {
                                 throw new Error(await getErrorMessage(res));
                             }
-                        }),
-                    ),
+                        })
+                    )
                 );
 
                 await fetchConsultations();
                 showToast("Records deleted permanently");
             }
+
         } catch (err) {
             console.error(err);
             alert(err.message || "An error occurred during bulk action.");
@@ -794,10 +820,8 @@ export default function AdminBookingConsultations() {
                 </div>
             </div>
 
-            {/* Toolbar: Tabs & Filters */}
-            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-neutral-200 pb-6 mb-6">
-                {/* TABS (Left Side) */}
-                <div className="flex flex-wrap gap-2.5 w-full xl:w-auto shrink-0">
+            <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 mb-6">
+                <div className="flex flex-wrap gap-3">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
@@ -806,7 +830,7 @@ export default function AdminBookingConsultations() {
                                 setPage(1);
                                 setSelected(null);
                             }}
-                            className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer whitespace-nowrap ${
+                            className={`rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
                                 activeTab === tab.id
                                     ? "border-neutral-900 bg-neutral-900 text-white"
                                     : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -817,180 +841,171 @@ export default function AdminBookingConsultations() {
                     ))}
                 </div>
 
-                {/* FILTERS OR BULK ACTIONS (Right Side) */}
-                <div className="flex flex-col sm:flex-row items-center w-full flex-1 justify-end">
-                    <AnimatePresence mode="wait">
-                        {selectedIds.length > 0 ? (
-                            <motion.div
-                                key="bulk-actions"
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 10 }}
-                                transition={{ duration: 0.2, ease: smoothEase }}
-                                className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
-                            >
-                                <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
-                                    {selectedIds.length} Selected
-                                </span>
+                <AnimatePresence mode="wait">
+                    {selectedIds.length > 0 ? (
+                        <motion.div
+                            key="bulk-actions"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.2, ease: smoothEase }}
+                            className="flex flex-col sm:flex-row items-center gap-3 w-full bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
+                        >
+                            <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
+                                {selectedIds.length} Selected
+                            </span>
 
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                    {activeTab === "published" ? (
-                                        <button
-                                            onClick={() =>
-                                                setBulkAction("archive")
-                                            }
-                                            className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:border-amber-400 hover:text-amber-700 transition-all cursor-pointer whitespace-nowrap"
-                                        >
-                                            Archive All
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={() =>
-                                                    setBulkAction("restore")
-                                                }
-                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:bg-blue-50 transition-all cursor-pointer whitespace-nowrap"
-                                            >
-                                                Restore All
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    setBulkAction("delete")
-                                                }
-                                                className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
-                                            >
-                                                Delete All
-                                            </button>
-                                        </>
-                                    )}
-                                    <button
-                                        onClick={() => setSelectedIds([])}
-                                        className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
-                                        title="Clear Selection"
-                                    >
-                                        <CloseIcon className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ) : (
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+
+                                {/* ACCEPT / MARK AS READ */}
+                                <button
+                                    onClick={() => setBulkAction("accept")}
+                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer whitespace-nowrap"
+                                >
+                                    Mark as Accepted
+                                </button>
+
+                                {/* CANCEL */}
+                                <button
+                                    onClick={() => setBulkAction("cancel")}
+                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
+                                >
+                                    Cancel Selected
+                                </button>
+
+                                {/* ARCHIVE */}
+                                <button
+                                    onClick={() => setBulkAction("archive")}
+                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                >
+                                    Archive Selected
+                                </button>
+
+                                {/* CLEAR */}
+                                <button
+                                    onClick={() => setSelectedIds([])}
+                                    className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
+                                    title="Clear Selection"
+                                >
+                                    <CloseIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="filters"
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2, ease: smoothEase }}
+                            className="flex flex-col sm:flex-row items-center w-full"
+                        >
                             <motion.div
-                                key="filters"
                                 layout
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                transition={{ duration: 0.2, ease: smoothEase }}
-                                className="flex flex-col sm:flex-row items-center w-full gap-3 justify-end"
+                                className="relative w-full flex-1 min-w-0"
                             >
-                                {/* SEARCH BAR */}
-                                <motion.div
-                                    layout
-                                    className="relative w-full flex-1 min-w-0"
-                                >
-                                    <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search clients..."
-                                        value={searchTerm}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setPage(1);
-                                        }}
-                                        className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
-                                    />
-                                </motion.div>
+                                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search clients, phone, email, or status..."
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
+                                />
+                            </motion.div>
 
-                                {/* DROPDOWN */}
-                                <motion.div
-                                    layout
-                                    className="w-full sm:w-auto min-w-[11rem] sm:max-w-[40%] shrink-0"
-                                >
-                                    <AnimatedSelect
-                                        value={filterType}
-                                        placeholder="All Projects"
-                                        options={PROJECT_TYPES}
-                                        className="py-2.5"
-                                        onChange={(id) => {
-                                            setFilterType(id);
-                                            setPage(1);
-                                        }}
-                                    />
-                                </motion.div>
+                            <motion.div
+                                layout
+                                className="w-full sm:w-auto min-w-[11rem] sm:max-w-[50%] shrink-0 mt-3 sm:mt-0 sm:ml-3"
+                            >
+                                <AnimatedSelect
+                                    value={filterType}
+                                    placeholder="All Projects"
+                                    options={PROJECT_TYPES}
+                                    className="py-2.5"
+                                    onChange={(id) => {
+                                        setFilterType(id);
+                                        setPage(1);
+                                    }}
+                                />
+                            </motion.div>
 
-                                {/* ACTION BUTTONS (Clear & Refresh) */}
-                                <motion.div
-                                    layout
-                                    className="flex flex-col sm:flex-row items-center w-full sm:w-auto"
-                                >
-                                    <AnimatePresence>
-                                        {(searchTerm || filterType !== "") && (
+                            <motion.div
+                                layout
+                                className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3"
+                            >
+                                <AnimatePresence>
+                                    {(searchTerm || filterType !== "") && (
+                                        <motion.div
+                                            layout
+                                            initial={{
+                                                opacity: 0,
+                                                height: 0,
+                                                width: 0,
+                                            }}
+                                            animate={{
+                                                opacity: 1,
+                                                height: "auto",
+                                                width: "auto",
+                                            }}
+                                            exit={{
+                                                opacity: 0,
+                                                height: 0,
+                                                width: 0,
+                                            }}
+                                            transition={{
+                                                duration: 0.25,
+                                                ease: smoothEase,
+                                            }}
+                                            className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
+                                        >
                                             <motion.div
-                                                layout
-                                                initial={{
-                                                    opacity: 0,
-                                                    height: 0,
-                                                    width: 0,
-                                                }}
-                                                animate={{
-                                                    opacity: 1,
-                                                    height: "auto",
-                                                    width: "auto",
-                                                }}
-                                                exit={{
-                                                    opacity: 0,
-                                                    height: 0,
-                                                    width: 0,
-                                                }}
+                                                initial={{ x: -20 }}
+                                                animate={{ x: 0 }}
+                                                exit={{ x: -20 }}
                                                 transition={{
                                                     duration: 0.25,
                                                     ease: smoothEase,
                                                 }}
-                                                className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
+                                                className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
                                             >
-                                                <motion.div
-                                                    initial={{ x: -20 }}
-                                                    animate={{ x: 0 }}
-                                                    exit={{ x: -20 }}
-                                                    transition={{
-                                                        duration: 0.25,
-                                                        ease: smoothEase,
+                                                <button
+                                                    onClick={() => {
+                                                        setSearchTerm("");
+                                                        setFilterType("");
+                                                        setPage(1);
                                                     }}
-                                                    className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
+                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
                                                 >
-                                                    <button
-                                                        onClick={() => {
-                                                            setSearchTerm("");
-                                                            setFilterType("");
-                                                            setPage(1);
-                                                        }}
-                                                        className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </motion.div>
+                                                    Clear
+                                                </button>
                                             </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
-                                    <motion.button
-                                        layout
-                                        transition={{
-                                            duration: 0.25,
-                                            ease: smoothEase,
-                                        }}
-                                        onClick={fetchConsultations}
-                                        className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black hover:bg-neutral-50 transition-all flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
-                                        title="Refresh Table"
-                                    >
-                                        <RefreshIcon
-                                            className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
-                                        />
-                                    </motion.button>
-                                </motion.div>
+                                <motion.button
+                                    layout
+                                    transition={{
+                                        duration: 0.25,
+                                        ease: smoothEase,
+                                    }}
+                                    onClick={fetchConsultations}
+                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
+                                    title="Refresh Table"
+                                >
+                                    <RefreshIcon
+                                        className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
+                                    />
+                                </motion.button>
                             </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
@@ -1012,58 +1027,55 @@ export default function AdminBookingConsultations() {
                         )}
                     </AnimatePresence>
 
-                    <div className="flex-1 overflow-auto no-scrollbar">
-                        {!loading && consultations.length === 0 ? (
-                            <div className="flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center gap-4">
+                    <div className="flex-1 overflow-x-auto no-scrollbar">
+                        {!loading && paginated.length === 0 ? (
+                            <div className="flex flex-col h-full min-h-[400px] items-center justify-center text-center p-8 gap-4">
                                 <CalendarIcon className="w-12 h-12 text-neutral-300" />
                                 <div>
                                     <p className="text-base font-bold text-neutral-900">
                                         No consultations found
                                     </p>
                                     <p className="text-sm font-medium text-neutral-500 mt-1">
-                                        Try adjusting your filters or check back
-                                        later.
+                                        {searchTerm || filterType !== ""
+                                            ? "No records match your current filters."
+                                            : "There are no records in this table yet."}
                                     </p>
                                 </div>
                             </div>
                         ) : (
                             <table className="w-full text-left border-collapse whitespace-nowrap">
-                                <thead className="sticky top-0 bg-neutral-50 border-b border-neutral-100 z-10">
+                                <thead className="bg-neutral-50 border-b border-neutral-100 sticky top-0 z-10">
                                     <tr>
-                                        <th className="px-5 py-4 w-12 align-middle">
+                                        <th className="py-4 px-5 w-12 align-middle">
                                             <input
                                                 type="checkbox"
-                                                checked={
-                                                    paginated.length > 0 &&
-                                                    selectedIds.length ===
-                                                        paginated.length
-                                                }
+                                                checked={areAllCurrentPageSelected}
                                                 onChange={handleSelectAll}
                                                 className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                             />
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Client
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Project Type
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-center">
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Schedule
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-center">
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Booking Status
                                         </th>
-                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-right">
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
+
                                 <tbody className="divide-y divide-neutral-100">
                                     {paginated.map((c) => {
                                         const status = getBookingStatus(c);
-                                        const statusMeta =
-                                            getStatusMeta(status);
+                                        const statusMeta = getStatusMeta(status);
 
                                         return (
                                             <tr
@@ -1095,6 +1107,11 @@ export default function AdminBookingConsultations() {
 
                                                 <td className="py-4 px-5 align-middle">
                                                     <div className="flex items-center gap-3">
+                                                        <img
+                                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true`}
+                                                            alt="Avatar"
+                                                            className="w-8 h-8 rounded-full object-cover hidden sm:block"
+                                                        />
                                                         <div>
                                                             <p className="text-sm font-bold text-neutral-900 truncate max-w-[180px]">
                                                                 {c.first_name}{" "}
@@ -1114,8 +1131,7 @@ export default function AdminBookingConsultations() {
 
                                                 <td className="py-4 px-5 align-middle">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
-                                                        {c.project_type ||
-                                                            "N/A"}
+                                                        {c.project_type || "N/A"}
                                                     </span>
                                                 </td>
 
@@ -1144,41 +1160,86 @@ export default function AdminBookingConsultations() {
                                                         e.stopPropagation()
                                                     }
                                                 >
-                                                    <div className="flex justify-end gap-2 mt-1">
+                                                    <div className="flex flex-wrap justify-end gap-2">
                                                         {activeTab ===
-                                                        "published" ? (
-                                                            <button
-                                                                onClick={() =>
-                                                                    setArchiveTarget(
-                                                                        c,
-                                                                    )
-                                                                }
-                                                                className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-600 cursor-pointer"
-                                                            >
-                                                                Archive
-                                                            </button>
-                                                        ) : (
+                                                        "archived" ? (
                                                             <>
                                                                 <button
                                                                     onClick={() =>
                                                                         handleRestore(
-                                                                            c.id,
+                                                                            c,
                                                                         )
                                                                     }
-                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                                 >
                                                                     Restore
                                                                 </button>
                                                                 <button
                                                                     onClick={() =>
-                                                                        setDeleteId(
-                                                                            c.id,
+                                                                        setDeleteTarget(
+                                                                            c,
                                                                         )
                                                                     }
-                                                                    className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                                 >
                                                                     Delete
                                                                 </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleAccept(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating ||
+                                                                        status ===
+                                                                            "accepted"
+                                                                    }
+                                                                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600 transition-all hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Accept
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        setCancelTarget(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating ||
+                                                                        status ===
+                                                                            "cancelled"
+                                                                    }
+                                                                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        openRescheduleModal(
+                                                                            c,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        updating
+                                                                    }
+                                                                    className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                >
+                                                                    Reschedule
+                                                                </button>
+
+                                                             
                                                             </>
                                                         )}
                                                     </div>
@@ -1191,39 +1252,31 @@ export default function AdminBookingConsultations() {
                         )}
                     </div>
 
-                    {/* TABLE SUMMARY FOOTER & PAGINATION */}
-                    {consultations.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl gap-4 sm:gap-0">
-                            <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase text-center sm:text-left">
-                                Total:{" "}
-                                {typeof meta !== "undefined" && meta?.total
-                                    ? meta.total
-                                    : consultations.length}{" "}
-                                Record(s)
-                                {typeof meta !== "undefined" &&
-                                    meta?.last_page > 1 &&
-                                    ` (Page ${meta.current_page} of ${meta.last_page})`}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl">
+                            <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
+                                Page {page} of {totalPages}
                             </p>
 
-                            {totalPages > 1 && (
-                                <div className="flex gap-2">
-                                    <button
-                                        disabled={page === 1}
-                                        onClick={() => setPage((p) => p - 1)}
-                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                    >
-                                        <ChevronLeft className="w-3 h-3" /> Prev
-                                    </button>
-                                    <button
-                                        disabled={page === totalPages}
-                                        onClick={() => setPage((p) => p + 1)}
-                                        className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                    >
-                                        Next{" "}
-                                        <ChevronRight className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            )}
+                            <div className="flex gap-2">
+                                <button
+                                    disabled={page === 1}
+                                    onClick={() => setPage((p) => p - 1)}
+                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                >
+                                    <ChevronLeft className="w-3 h-3" />
+                                    Prev
+                                </button>
+
+                                <button
+                                    disabled={page === totalPages}
+                                    onClick={() => setPage((p) => p + 1)}
+                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                >
+                                    Next
+                                    <ChevronRight className="w-3 h-3" />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1267,8 +1320,7 @@ export default function AdminBookingConsultations() {
                                         Client
                                     </p>
                                     <p className="text-2xl font-black text-neutral-900 leading-tight">
-                                        {selected.first_name}{" "}
-                                        {selected.last_name}
+                                        {selected.first_name} {selected.last_name}
                                     </p>
                                     <p className="text-sm font-medium text-neutral-600 mt-1">
                                         {selected.email}
@@ -1307,8 +1359,7 @@ export default function AdminBookingConsultations() {
                                         Booking Status
                                     </p>
                                     {(() => {
-                                        const status =
-                                            getBookingStatus(selected);
+                                        const status = getBookingStatus(selected);
                                         const meta = getStatusMeta(status);
 
                                         return (
@@ -1355,9 +1406,7 @@ export default function AdminBookingConsultations() {
                                 {activeTab === "archived" ? (
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() =>
-                                                handleRestore(selected)
-                                            }
+                                            onClick={() => handleRestore(selected)}
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         >
@@ -1377,11 +1426,9 @@ export default function AdminBookingConsultations() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 gap-2">
                                         <button
-                                            onClick={() =>
-                                                handleAccept(selected)
-                                            }
+                                            onClick={() => handleAccept(selected)}
                                             disabled={
                                                 updating ||
                                                 getBookingStatus(selected) ===
@@ -1419,16 +1466,7 @@ export default function AdminBookingConsultations() {
                                             Reschedule
                                         </button>
 
-                                        <button
-                                            onClick={() =>
-                                                setArchiveTarget(selected)
-                                            }
-                                            disabled={updating}
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                        >
-                                            <ArchiveIcon className="w-4 h-4" />
-                                            Archive
-                                        </button>
+                                        
                                     </div>
                                 )}
                             </div>
@@ -1472,9 +1510,7 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating
-                                        ? "Cancelling..."
-                                        : "Yes, cancel it"}
+                                    {updating ? "Cancelling..." : "Yes, cancel it"}
                                 </button>
                                 <button
                                     onClick={() => setCancelTarget(null)}
@@ -1525,18 +1561,57 @@ export default function AdminBookingConsultations() {
                                     <label className="block text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
                                         New Schedule
                                     </label>
-                                    <input
-                                        type="datetime-local"
-                                        value={rescheduleForm.consultation_date}
-                                        onChange={(e) =>
-                                            setRescheduleForm((prev) => ({
-                                                ...prev,
-                                                consultation_date:
-                                                    e.target.value,
-                                            }))
-                                        }
-                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
-                                    />
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* DATE */}
+                                        <input
+                                            type="date"
+                                            value={rescheduleForm.consultation_date?.split("T")[0] || ""}
+                                            onChange={(e) =>
+                                                setRescheduleForm((prev) => ({
+                                                    ...prev,
+                                                    consultation_date: `${e.target.value}T${prev.consultation_date?.split("T")[1] || "09:00"}`,
+                                                }))
+                                            }
+                                            min={new Date().toISOString().split("T")[0]}
+                                            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+                                        />
+
+                                        {/* TIME (30-min slots, 9AM–5PM) */}
+                                        <select
+                                            value={rescheduleForm.consultation_date?.split("T")[1] || ""}
+                                            onChange={(e) =>
+                                                setRescheduleForm((prev) => ({
+                                                    ...prev,
+                                                    consultation_date: `${prev.consultation_date?.split("T")[0] || ""}T${e.target.value}`,
+                                                }))
+                                            }
+                                            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+                                        >
+                                            <option value="" disabled hidden>
+                                                Select Time
+                                            </option>
+
+                                            {Array.from({ length: 17 }).map((_, i) => {
+                                                const totalMinutes = 9 * 60 + i * 30;
+                                                const hours = Math.floor(totalMinutes / 60);
+                                                const minutes = totalMinutes % 60;
+
+                                                const formattedHours12 = hours % 12 === 0 ? 12 : hours % 12;
+                                                const ampm = hours < 12 ? "AM" : "PM";
+
+                                                const label = `${formattedHours12}:${minutes === 0 ? "00" : minutes} ${ampm}`;
+                                                const val = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+
+                                                return (
+                                                    <option key={val} value={val}>
+                                                        {label}
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+
                                 </div>
 
                                 <div>
@@ -1616,11 +1691,9 @@ export default function AdminBookingConsultations() {
                                 <button
                                     onClick={confirmArchive}
                                     disabled={updating}
-                                    className="w-full rounded-full bg-amber-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
+                                    className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating
-                                        ? "Archiving..."
-                                        : "Yes, archive it"}
+                                    {updating ? "Archiving..." : "Yes, archive it"}
                                 </button>
                                 <button
                                     onClick={() => setArchiveTarget(null)}
@@ -1670,9 +1743,7 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating
-                                        ? "Deleting..."
-                                        : "Yes, delete it"}
+                                    {updating ? "Deleting..." : "Yes, delete it"}
                                 </button>
                                 <button
                                     onClick={() => setDeleteTarget(null)}
