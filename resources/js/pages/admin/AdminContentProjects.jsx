@@ -132,7 +132,6 @@ export default function AdminContentProjects() {
 
     const [page, setPage] = useState(1);
 
-    // Separated state for Archiving, Deleting, and Bulk Actions
     const [archiveId, setArchiveId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -158,20 +157,37 @@ export default function AdminContentProjects() {
 
     const [selected, setSelected] = useState(null);
 
-    // --- UI State for Filters ---
     const [searchTerm, setSearchTerm] = useState("");
     const [filterCategory, setFilterCategory] = useState("");
 
+    // --- CTA Settings State ---
+    const [ctaSettings, setCtaSettings] = useState({ image: null, text: "" });
+    const [ctaForm, setCtaForm] = useState({ image: null, text: "" });
+    const [ctaPreview, setCtaPreview] = useState(null);
+    const [ctaSaving, setCtaSaving] = useState(false);
+    const [ctaSuccess, setCtaSuccess] = useState("");
+
     /* ---------------- FETCH ---------------- */
+    const fetchCtaSettings = async () => {
+        try {
+            const res = await fetch("/api/settings/projects-cta");
+            const data = await res.json();
+            setCtaSettings(data);
+            setCtaForm({ image: null, text: data.text || "" });
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     useEffect(() => {
         const init = async () => {
             await fetch("/sanctum/csrf-cookie", { credentials: "include" });
             await fetchAll();
+            await fetchCtaSettings();
         };
         init();
     }, []);
 
-    // Clear bulk selections if tab, search, or page changes
     useEffect(() => {
         setSelectedIds([]);
     }, [activeTab, page, searchTerm, filterCategory]);
@@ -257,11 +273,9 @@ export default function AdminContentProjects() {
             errors.cover_image = "Cover image is required";
         }
 
-        // Calculate total images (existing ones if editing + newly uploaded ones)
         const totalGalleryImages =
             (editing ? existingGallery.length : 0) + form.gallery.length;
 
-        // Validate that there are at least 3 images
         if (totalGalleryImages < 3) {
             errors.gallery = "At least 3 gallery images are required";
         }
@@ -381,6 +395,34 @@ export default function AdminContentProjects() {
             alert("Something went wrong. Check console for details.");
         } finally {
             setUpdating(false);
+        }
+    };
+
+    /* ---------------- CTA SAVE ---------------- */
+    const handleCtaSave = async () => {
+        setCtaSaving(true);
+        try {
+            const fd = new FormData();
+            if (ctaForm.image) fd.append("image", ctaForm.image);
+            fd.append("text", ctaForm.text);
+
+            const res = await fetch("/api/admin/settings/projects-cta", {
+                method: "POST",
+                body: fd,
+                credentials: "include",
+                headers: { ...getAuthHeaders(), Accept: "application/json" },
+            });
+            if (!res.ok) throw new Error("Failed to save");
+
+            await fetchCtaSettings();
+            setCtaPreview(null);
+            setCtaSuccess("Let's Talk Section Saved");
+            setTimeout(() => setCtaSuccess(""), 3000);
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong.");
+        } finally {
+            setCtaSaving(false);
         }
     };
 
@@ -664,7 +706,7 @@ export default function AdminContentProjects() {
                                             />
                                         </div>
 
-                                        {/* CATEGORY (Animated Select) */}
+                                        {/* CATEGORY */}
                                         <div className="w-full">
                                             <AnimatedSelect
                                                 label="Category"
@@ -878,7 +920,6 @@ export default function AdminContentProjects() {
                                                         : "border-neutral-300 bg-neutral-50/50"
                                                 }`}
                                             >
-                                                {/* Unified Upload Button inside the box */}
                                                 <label className="flex flex-col items-center justify-center w-full h-20 border border-neutral-200 bg-white rounded-lg cursor-pointer transition-all mb-4 shrink-0">
                                                     <div className="text-center flex flex-col items-center mt-1">
                                                         <ImagesIcon className="w-5 h-5 text-neutral-400 mb-1" />
@@ -912,7 +953,6 @@ export default function AdminContentProjects() {
                                                     />
                                                 </label>
 
-                                                {/* Beautiful Previews Grid */}
                                                 {(existingGallery.length > 0 ||
                                                     form.gallery.length >
                                                         0) && (
@@ -1164,7 +1204,7 @@ export default function AdminContentProjects() {
                                 />
                             </motion.div>
 
-                            {/* ACTION BUTTONS (Clear & Refresh) */}
+                            {/* ACTION BUTTONS */}
                             <motion.div
                                 layout
                                 className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3"
@@ -1192,10 +1232,8 @@ export default function AdminContentProjects() {
                                                 duration: 0.25,
                                                 ease: smoothEase,
                                             }}
-                                            /* MAGIC FIX: sm:!h-[42px] overrides the vertical height animation on desktop so it only slides horizontally! */
                                             className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
                                         >
-                                            {/* Inner div slides slightly from the left to complete the illusion */}
                                             <motion.div
                                                 initial={{ x: -20 }}
                                                 animate={{ x: 0 }}
@@ -1491,7 +1529,6 @@ export default function AdminContentProjects() {
                 <AnimatePresence>
                     {selected && (
                         <>
-                            {/* Backdrop */}
                             <motion.div
                                 key="detail-backdrop"
                                 initial={{ opacity: 0 }}
@@ -1501,7 +1538,6 @@ export default function AdminContentProjects() {
                                 onClick={() => setSelected(null)}
                             />
 
-                            {/* Drawer */}
                             <motion.div
                                 key="detail-drawer"
                                 initial={{ x: "100%" }}
@@ -1672,6 +1708,91 @@ export default function AdminContentProjects() {
                         </>
                     )}
                 </AnimatePresence>
+            </div>
+
+            {/* ── Let's Talk CTA Settings ── */}
+            <div className="mt-10 bg-white rounded-2xl border border-neutral-200 p-6 md:p-8">
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-bold tracking-tight text-neutral-900">
+                        Let's Talk Section
+                    </h2>
+                    <span className="px-3 py-1 bg-neutral-100 text-neutral-500 border border-neutral-200 rounded-md text-[10px] font-bold uppercase tracking-widest">
+                        Projects Page
+                    </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* IMAGE */}
+                    <div className="flex flex-col space-y-1.5">
+                        <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-500 uppercase mb-1.5">
+                            Background Image
+                        </label>
+                        <label className="relative flex flex-col items-center justify-center w-full min-h-[200px] border border-dashed rounded-xl cursor-pointer overflow-hidden transition-all border-neutral-300 bg-neutral-50/50 hover:bg-neutral-100">
+                            {ctaPreview || ctaSettings.image ? (
+                                <>
+                                    <img
+                                        src={ctaPreview || ctaSettings.image}
+                                        alt="CTA preview"
+                                        className="absolute inset-0 w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                        <UploadIcon className="w-6 h-6 text-white mb-2" />
+                                        <span className="text-[11px] font-bold text-white uppercase tracking-widest">
+                                            Change Image
+                                        </span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center p-4">
+                                    <UploadIcon className="w-6 h-6 mx-auto mb-2 text-neutral-400" />
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-neutral-500">
+                                        Upload Image
+                                    </p>
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+                                    setCtaForm((f) => ({ ...f, image: file }));
+                                    setCtaPreview(URL.createObjectURL(file));
+                                }}
+                            />
+                        </label>
+                    </div>
+
+                    {/* TEXT */}
+                    <div className="flex flex-col space-y-1.5">
+                        <label className="text-[11px] font-bold tracking-[0.05em] text-neutral-500 uppercase mb-1.5">
+                            Body Text
+                        </label>
+                        <textarea
+                            rows={8}
+                            value={ctaForm.text}
+                            onChange={(e) =>
+                                setCtaForm((f) => ({
+                                    ...f,
+                                    text: e.target.value,
+                                }))
+                            }
+                            placeholder="Enter the paragraph text for the Let's Talk section..."
+                            className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all hover:bg-white focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 resize-none"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-6 border-t border-neutral-100 mt-6">
+                    <button
+                        onClick={handleCtaSave}
+                        disabled={ctaSaving}
+                        className="rounded-xl bg-black px-6 py-3 text-sm font-medium text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+                    >
+                        {ctaSaving ? "Saving..." : "Save Changes"}
+                    </button>
+                </div>
             </div>
 
             {/* SINGLE ARCHIVE MODAL */}
@@ -1850,7 +1971,7 @@ export default function AdminContentProjects() {
                 )}
             </AnimatePresence>
 
-            {/* Toast Notification */}
+            {/* Toast Notifications */}
             <AnimatePresence>
                 {successMessage && (
                     <motion.div
@@ -1869,6 +1990,23 @@ export default function AdminContentProjects() {
                         </div>
                     </motion.div>
                 )}
+                {ctaSuccess && (
+                    <motion.div
+                        key="toast-cta"
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        transition={springTransition}
+                        className="fixed bottom-10 right-10 z-[110] pointer-events-none [font-family:var(--font-neue)]"
+                    >
+                        <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border bg-black text-white border-black">
+                            <CheckIcon className="w-4 h-4 text-emerald-400" />
+                            <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5">
+                                {ctaSuccess}
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
             </AnimatePresence>
         </div>
     );
@@ -1880,15 +2018,7 @@ export default function AdminContentProjects() {
 
 function FolderIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
     );
@@ -1896,15 +2026,7 @@ function FolderIcon({ className = "w-4 h-4" }) {
 
 function EyeIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <circle cx="12" cy="12" r="3" />
         </svg>
@@ -1913,15 +2035,7 @@ function EyeIcon({ className = "w-4 h-4" }) {
 
 function ArchiveIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="21 8 21 21 3 21 3 8" />
             <rect x="1" y="3" width="22" height="5" />
             <line x1="10" y1="12" x2="14" y2="12" />
@@ -1931,15 +2045,7 @@ function ArchiveIcon({ className = "w-4 h-4" }) {
 
 function RestoreIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />
         </svg>
@@ -1948,15 +2054,7 @@ function RestoreIcon({ className = "w-4 h-4" }) {
 
 function ChevronDown({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M6 9l6 6 6-6" />
         </svg>
     );
@@ -1964,15 +2062,7 @@ function ChevronDown({ className = "w-4 h-4" }) {
 
 function ChevronLeft({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M15 18l-6-6 6-6" />
         </svg>
     );
@@ -1980,15 +2070,7 @@ function ChevronLeft({ className = "w-4 h-4" }) {
 
 function ChevronRight({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M9 18l6-6-6-6" />
         </svg>
     );
@@ -1996,15 +2078,7 @@ function ChevronRight({ className = "w-4 h-4" }) {
 
 function CloseIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -2013,15 +2087,7 @@ function CloseIcon({ className = "w-4 h-4" }) {
 
 function TrashIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             <line x1="10" y1="11" x2="10" y2="17" />
@@ -2032,15 +2098,7 @@ function TrashIcon({ className = "w-4 h-4" }) {
 
 function CheckIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <polyline points="20 6 9 17 4 12" />
         </svg>
     );
@@ -2048,15 +2106,7 @@ function CheckIcon({ className = "w-4 h-4" }) {
 
 function UploadIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
@@ -2066,15 +2116,7 @@ function UploadIcon({ className = "w-4 h-4" }) {
 
 function ImagesIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
@@ -2084,15 +2126,7 @@ function ImagesIcon({ className = "w-4 h-4" }) {
 
 function SearchIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" />
         </svg>
@@ -2101,15 +2135,7 @@ function SearchIcon({ className = "w-4 h-4" }) {
 
 function RefreshIcon({ className = "w-4 h-4" }) {
     return (
-        <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
             <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
             <path d="M21 3v5h-5" />
         </svg>

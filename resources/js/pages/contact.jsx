@@ -1,17 +1,33 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import { motion, AnimatePresence } from "framer-motion";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function Contact() {
     const [inquiryType, setInquiryType] = useState("general");
     const isConsultation = inquiryType === "consultation";
     const [message, setMessage] = useState("");
 
+    // ── CMS Content ──────────────────────────────────────────
+    const [content, setContent] = useState(null);
+    const [contentLoading, setContentLoading] = useState(true);
+
+    useEffect(() => {
+        fetch(`${API_BASE}/api/contact-content`, {
+            headers: { Accept: "application/json" },
+        })
+            .then((res) => res.json())
+            .then((json) => setContent(json?.data || null))
+            .catch(console.error)
+            .finally(() => setContentLoading(false));
+    }, []);
+    // ─────────────────────────────────────────────────────────
+
     const buttonText = useMemo(() => {
         return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT INQUIRY";
     }, [isConsultation]);
 
-    // Tracked form values
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
@@ -23,29 +39,37 @@ export default function Contact() {
     const [consultationTime, setConsultationTime] = useState("");
     const [consultationFiles, setConsultationFiles] = useState([]);
 
-    // Submission state
     const [submitting, setSubmitting] = useState(false);
-    const [submitSuccess, setSubmitSuccess] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [formKey, setFormKey] = useState(0);
 
-        const handleSubmit = async (e) => {
-            e.preventDefault();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-             console.log("SUBMIT CLICKED"); // ✅ HEREs
-
+        // Validation for General Inquiry
+        if (!isConsultation) {
             if (!firstName.trim() || !lastName.trim() || !email.trim() || !message.trim()) {
                 setSubmitError("Please fill in all required fields.");
                 return;
             }
+        } else {
+            // Validation for Consultation
+            if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+                setSubmitError("Please fill in all required fields.");
+                return;
+            }
+        }
 
-            try {
-                setSubmitting(true); 
-                const res = await fetch("http://localhost:8000/api/inquiries", {
+        try {
+            setSubmitting(true);
+
+            if (!isConsultation) {
+                // General Inquiry submission
+                const res = await fetch(`${API_BASE}/api/inquiries`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Accept": "application/json", 
+                        Accept: "application/json",
                     },
                     body: JSON.stringify({
                         name: `${firstName} ${lastName}`,
@@ -56,61 +80,140 @@ export default function Contact() {
                 });
 
                 const data = await res.json();
-
                 console.log("SUCCESS:", data);
 
                 Swal.fire({
                     icon: "success",
                     title: "Inquiry Sent!",
-                    text: "We’ll get back to you soon.",
+                    text: "We'll get back to you soon.",
+                });
+            } else {
+                // Consultation booking submission
+                const res = await fetch(`${API_BASE}/api/consultations`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                    body: JSON.stringify({
+                        first_name: firstName,
+                        last_name: lastName,
+                        email,
+                        phone,
+                        location,
+                        project_type: projectType,
+                        message: consultationMessage,
+                        consultation_date: consultationDate && consultationTime 
+                            ? `${consultationDate} ${consultationTime}:00`
+                            : null,
+                    }),
                 });
 
-                setFirstName("");
-                setLastName("");
-                setEmail("");
-                setPhone("");
-                setMessage("");
+                const data = await res.json();
+                console.log("CONSULTATION SUCCESS:", data);
 
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setSubmitting(false); 
+                Swal.fire({
+                    icon: "success",
+                    title: "Consultation Booked!",
+                    text: "We'll contact you shortly to confirm your consultation.",
+                });
             }
+
+            // Reset form
+            setFirstName("");
+            setLastName("");
+            setEmail("");
+            setPhone("");
+            setMessage("");
+            setLocation("");
+            setProjectType("");
+            setConsultationMessage("");
+            setConsultationDate("");
+            setConsultationTime("");
+            setConsultationFiles([]);
+            setSubmitError("");
+            
+        } catch (err) {
+            console.error(err);
+            setSubmitError("An error occurred. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Format office hours
+    const formatOfficeHours = () => {
+        if (!content) return "";
+        
+        const { office_day_from, office_day_to, office_time_from, office_time_to } = content;
+        
+        if (!office_day_from || !office_time_from) return "";
+        
+        const formatTime = (time) => {
+            if (!time) return "";
+            const [hours, minutes] = time.split(":");
+            const hour = parseInt(hours);
+            const ampm = hour >= 12 ? "PM" : "AM";
+            const hour12 = hour % 12 || 12;
+            return `${hour12}:${minutes} ${ampm}`;
         };
-    
+        
+        const days = office_day_from === office_day_to 
+            ? office_day_from 
+            : `${office_day_from}–${office_day_to}`;
+            
+        const times = `${formatTime(office_time_from)}–${formatTime(office_time_to)}`;
+        
+        return `${times} (${days})`;
+    };
+
+    // Derived values with fallbacks
+    const heroImageUrl = content?.hero_image
+        ? `${API_BASE}/storage/${content.hero_image}`
+        : "/images/PLACEHOLDER.png";
 
     return (
         <section className="w-full bg-white">
             <div className="mx-auto max-w-screen-2xl px-6 pb-12 pt-32 md:pb-16 md:pt-40 [font-family:var(--font-neue)]">
                 <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
+
+                    {/* ── Left: Contact Info ── */}
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight text-black md:text-5xl">
-                            Connect
+                            {content?.page_heading || "Connect"}
                         </h1>
 
                         <p className="mt-4 max-w-sm text-sm leading-relaxed text-gray-500">
-                            At vero eos et accusamus et iusto odio dignissimos
+                            {content?.page_description || "At vero eos et accusamus et iusto odio dignissimos"}
                         </p>
 
                         <div className="mt-10 space-y-8 text-[13px] tracking-wide text-gray-600">
                             <div>
                                 <p className="text-[10px] font-bold tracking-[0.15em] text-black uppercase mb-3">
-                                    Metro Manila
+                                    {content?.location_label || "Metro Manila"}
                                 </p>
                                 <p className="leading-relaxed">
-                                    911 Josefina II, Sampaloc, Manila, 1008
-                                    <br />
-                                    Metro Manila
+                                    {content?.address_line_1 || "911 Josefina II, Sampaloc, Manila, 1008"}
+                                    {content?.address_line_2 && (
+                                        <>
+                                            <br />
+                                            {content.address_line_2}
+                                        </>
+                                    )}
                                 </p>
                             </div>
 
                             <div className="space-y-3">
-                                <div className="flex items-center gap-3">
-                                    <span>9AM–6PM (Mon–Fri)</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <span>0932 454 9434</span>
-                                </div>
+                                {formatOfficeHours() && (
+                                    <div className="flex items-center gap-3">
+                                        <span>{formatOfficeHours()}</span>
+                                    </div>
+                                )}
+                                {content?.phone && (
+                                    <div className="flex items-center gap-3">
+                                        <span>{content.phone}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-2">
@@ -119,16 +222,17 @@ export default function Contact() {
                                 </p>
                                 <div className="max-w-xs border-b border-gray-200 pb-3">
                                     <span className="text-black">
-                                        rmty.architects@gmail.com
+                                        {content?.email || "rmty.architects@gmail.com"}
                                     </span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* ── Right: Hero Image ── */}
                     <div className="relative overflow-hidden rounded-none bg-gray-100">
                         <img
-                            src="/images/PLACEHOLDER.png"
+                            src={heroImageUrl}
                             alt="Interior design"
                             className="h-[300px] w-full object-cover md:h-[380px]"
                         />
@@ -145,6 +249,7 @@ export default function Contact() {
                 </div>
             </div>
 
+            {/* ── Contact Form Section ── */}
             <div className="bg-[#f7f7f8] border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-24">
                     <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
@@ -159,9 +264,7 @@ export default function Contact() {
                                 layout
                                 key={`contact-form-${formKey}`}
                                 className="mx-auto w-full max-w-2xl [font-family:var(--font-neue)]"
-                                
                                 onSubmit={handleSubmit}
-                                
                             >
                                 <div className="mb-14">
                                     <p className="flex text-[10px] tracking-widest text-gray-500 uppercase mb-3">
@@ -173,179 +276,77 @@ export default function Contact() {
                                             type="button"
                                             onClick={() => setInquiryType("general")}
                                             className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
-                                                inquiryType === "general"
-                                                    ? "text-white"
-                                                    : "text-gray-500 hover:text-black"
+                                                inquiryType === "general" ? "text-white" : "text-gray-500 hover:text-black"
                                             }`}
                                         >
                                             {inquiryType === "general" && (
                                                 <motion.div
                                                     layoutId="activePill"
                                                     className="absolute inset-0 rounded-full bg-black"
-                                                    transition={{
-                                                        type: "spring",
-                                                        bounce: 0.2,
-                                                        duration: 0.6,
-                                                    }}
+                                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                                 />
                                             )}
-                                            <span className="relative z-10">
-                                                General Inquiry
-                                            </span>
+                                            <span className="relative z-10">General Inquiry</span>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setInquiryType("consultation")}
                                             className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
-                                                inquiryType === "consultation"
-                                                    ? "text-white"
-                                                    : "text-gray-500 hover:text-black"
+                                                inquiryType === "consultation" ? "text-white" : "text-gray-500 hover:text-black"
                                             }`}
                                         >
                                             {inquiryType === "consultation" && (
                                                 <motion.div
                                                     layoutId="activePill"
                                                     className="absolute inset-0 rounded-full bg-black"
-                                                    transition={{
-                                                        type: "spring",
-                                                        bounce: 0.2,
-                                                        duration: 0.6,
-                                                    }}
+                                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                                                 />
                                             )}
-                                            <span className="relative z-10">
-                                                Book Consultation
-                                            </span>
+                                            <span className="relative z-10">Book Consultation</span>
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-8">
                                     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                        <UnderlineInput
-                                            label="First Name"
-                                            placeholder="Enter your first name"
-                                            value={firstName}
-                                            onValueChange={setFirstName}
-                                        />
-                                        <UnderlineInput
-                                            label="Last Name"
-                                            placeholder="Enter your last name"
-                                            value={lastName}
-                                            onValueChange={setLastName}
-                                        />
+                                        <UnderlineInput label="First Name" placeholder="Enter your first name" value={firstName} onValueChange={setFirstName} />
+                                        <UnderlineInput label="Last Name" placeholder="Enter your last name" value={lastName} onValueChange={setLastName} />
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                        <UnderlineInput
-                                            label="Email"
-                                            type="email"
-                                            placeholder="Enter your email address"
-                                            value={email}
-                                            onValueChange={setEmail}
-                                        />
-                                        <UnderlineInput
-                                            label="Phone"
-                                            type="tel"
-                                            isPhone
-                                            placeholder="Enter your 11-digit phone number"
-                                            value={phone}
-                                            onValueChange={setPhone}
-                                        />
+                                        <UnderlineInput label="Email" type="email" placeholder="Enter your email address" value={email} onValueChange={setEmail} />
+                                        <UnderlineInput label="Phone" type="tel" isPhone placeholder="Enter your 11-digit phone number" value={phone} onValueChange={setPhone} />
                                     </div>
 
                                     <AnimatePresence mode="wait">
                                         {inquiryType === "general" ? (
-                                            <motion.div
-                                                key="general-fields"
-                                                initial={{ opacity: 0, y: 15 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -15 }}
-                                                transition={{
-                                                    duration: 0.3,
-                                                    ease: "easeOut",
-                                                }}
-                                            >
+                                            <motion.div key="general-fields" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3, ease: "easeOut" }}>
                                                 <GeneralMessageField value={message} onValueChange={setMessage} />
                                             </motion.div>
                                         ) : (
-                                            <motion.div
-                                                key="consultation-fields"
-                                                initial={{ opacity: 0, y: 15 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -15 }}
-                                                transition={{
-                                                    duration: 0.3,
-                                                    ease: "easeOut",
-                                                }}
-                                                className="space-y-8"
-                                            >
+                                            <motion.div key="consultation-fields" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3, ease: "easeOut" }} className="space-y-8">
                                                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                                    <UnderlineInput
-                                                        label="Location"
-                                                        placeholder="Enter project location"
-                                                        value={location}
-                                                        onValueChange={setLocation}
-                                                    />
-                                                    <UnderlineInput
-                                                        label="Project Type"
-                                                        options={[
-                                                            "Residential",
-                                                            "Commercial",
-                                                            "Master Planning",
-                                                            "Interior Architecture",
-                                                        ]}
-                                                        value={projectType}
-                                                        onValueChange={setProjectType}
-                                                    />
+                                                    <UnderlineInput label="Location" placeholder="Enter project location" value={location} onValueChange={setLocation} />
+                                                    <UnderlineInput label="Project Type" options={["Residential", "Commercial", "Master Planning", "Interior Architecture"]} value={projectType} onValueChange={setProjectType} />
                                                 </div>
 
-                                                <ConsultationMessageField
-                                                    value={consultationMessage}
-                                                    onValueChange={setConsultationMessage}
-                                                />
+                                                <ConsultationMessageField value={consultationMessage} onValueChange={setConsultationMessage} />
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                {/* First row: Date + Time side by side */}
-                                                <UnderlineInput
-                                                    label="Consultation Date"
-                                                    type="date"
-                                                    value={consultationDate}
-                                                    onValueChange={setConsultationDate}
-                                                />
-
-                                                <UnderlineInput
-                                                    label="Consultation Time"
-                                                    type="time"
-                                                    value={consultationTime}
-                                                    onValueChange={setConsultationTime}
-                                                />
-
-                                                {/* Second row: Wide FileDrop spanning both columns */}
-                                                <div className="md:col-span-2">
-                                                    <FileDrop
-                                                    label="Additional Information"
-                                                    files={consultationFiles}
-                                                    onFilesChange={setConsultationFiles}
-                                                    />
+                                                    <UnderlineInput label="Consultation Date" type="date" value={consultationDate} onValueChange={setConsultationDate} />
+                                                    <UnderlineInput label="Consultation Time" type="time" value={consultationTime} onValueChange={setConsultationTime} />
+                                                    <div className="md:col-span-2">
+                                                        <FileDrop label="Additional Information" files={consultationFiles} onFilesChange={setConsultationFiles} />
+                                                    </div>
                                                 </div>
-                                                </div>
-
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
 
                                     <AnimatePresence>
-                                        
-                                        
                                         {submitError && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: 8 }}
-                                                className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[11px] font-bold tracking-wider text-red-700 uppercase"
-                                            >
+                                            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[11px] font-bold tracking-wider text-red-700 uppercase">
                                                 {submitError}
                                             </motion.div>
                                         )}
@@ -368,8 +369,7 @@ export default function Contact() {
             </div>
         </section>
     );
-};
-
+}
 /* ---------------- INPUT COMPONENT ---------------- */
 
 function UnderlineInput({

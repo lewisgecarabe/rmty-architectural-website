@@ -8,6 +8,7 @@ use App\Models\AdminActivity;
 use App\Models\Project;
 use App\Models\ProjectImage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
@@ -161,20 +162,61 @@ class ProjectController extends Controller
     }
 
     // DELETE SINGLE GALLERY IMAGE
-public function deleteGalleryImage(Request $request, $id, $imageId)
-{
-    $project = Project::findOrFail($id);
-    $image   = ProjectImage::where('id', $imageId)
-                ->where('project_id', $project->id)
-                ->firstOrFail();
+    public function deleteGalleryImage(Request $request, $id, $imageId)
+    {
+        $project = Project::findOrFail($id);
+        $image   = ProjectImage::where('id', $imageId)
+                    ->where('project_id', $project->id)
+                    ->firstOrFail();
 
-    Storage::disk('public')->delete($image->image_path);
-    $image->delete();
+        Storage::disk('public')->delete($image->image_path);
+        $image->delete();
 
-    $this->logActivity($request, 'updated', $project);
+        $this->logActivity($request, 'updated', $project);
 
-    return response()->json(['message' => 'Gallery image deleted']);
-}
+        return response()->json(['message' => 'Gallery image deleted']);
+    }
+
+    // GET /api/settings/projects-cta  (public)
+    public function getProjectsCta()
+    {
+        $image = DB::table('settings')->where('key', 'projects_cta_image')->value('value');
+        $text  = DB::table('settings')->where('key', 'projects_cta_text')->value('value');
+
+        return response()->json([
+            'image' => $image ? Storage::url($image) : null,
+            'text'  => $text ?? '',
+        ]);
+    }
+
+    // POST /api/admin/settings/projects-cta  (admin)
+    public function updateProjectsCta(Request $request)
+    {
+        $request->validate([
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'text'  => 'nullable|string',
+        ]);
+
+        if ($request->hasFile('image')) {
+            $old = DB::table('settings')->where('key', 'projects_cta_image')->value('value');
+            if ($old) Storage::disk('public')->delete($old);
+
+            $path = $request->file('image')->store('settings', 'public');
+            DB::table('settings')->updateOrInsert(
+                ['key' => 'projects_cta_image'],
+                ['value' => $path]
+            );
+        }
+
+        if ($request->has('text')) {
+            DB::table('settings')->updateOrInsert(
+                ['key' => 'projects_cta_text'],
+                ['value' => $request->text]
+            );
+        }
+
+        return response()->json(['message' => 'Saved']);
+    }
 
     // Helper to reduce repetition
     private function logActivity(Request $request, string $action, $project, $id = null, $title = null): void

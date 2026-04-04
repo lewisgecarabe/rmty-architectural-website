@@ -1,6 +1,5 @@
 <?php
 
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\ProjectController;
@@ -14,6 +13,7 @@ use App\Http\Controllers\Api\GoogleOAuthController;
 use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\HomePageContentController;
+use App\Http\Controllers\Api\ContactPageContentController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use Illuminate\Http\Request;
@@ -21,8 +21,6 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Inquiry;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
-
-
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard', function () {
@@ -42,6 +40,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/services', [ServiceController::class, 'index']);
 Route::get('/about', [AboutSectionController::class, 'index']);
 Route::get('/home-content', [HomePageContentController::class, 'index']);
+Route::get('/contact-content', [ContactPageContentController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/projects', [ProjectController::class, 'adminIndex']);
@@ -63,8 +62,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/about/{id}', [AboutSectionController::class, 'update']);
     Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
 
-    Route::get('/admin/home-content', [HomePageContentController::class, 'index']); 
+    Route::get('/admin/home-content', [HomePageContentController::class, 'index']);
     Route::post('/admin/home-content', [HomePageContentController::class, 'store']);
+
+    Route::get('/admin/contact-content', [ContactPageContentController::class, 'index']);
+    Route::post('/admin/contact-content', [ContactPageContentController::class, 'store']);
 });
 
 // Consultation booking — public (contact form)
@@ -89,7 +91,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/inquiries/stats', [InquiryController::class, 'stats']);
     Route::get('/inquiries', [InquiryController::class, 'index']);
-    
     Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show']);
     Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
@@ -102,32 +103,36 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
 });
 
+// Public
+Route::get('/settings/projects-cta', [ProjectController::class, 'getProjectsCta']);
+
+// Admin (protected)
+Route::post('/admin/settings/projects-cta', [ProjectController::class, 'updateProjectsCta'])
+    ->middleware('auth:sanctum');
+
 // ── OAuth Callbacks (public — no auth, Google/Facebook redirect here) ──
-Route::get('/admin/google/callback',   [GoogleOAuthController::class,   'handleCallback']);
+Route::get('/admin/google/callback', [GoogleOAuthController::class, 'handleCallback']);
 Route::get('/admin/facebook/callback', [FacebookOAuthController::class, 'handleCallback']);
 
 // ── Platform Settings (protected) ────────────────────────────
 Route::get('/admin/google/auth-url', [GoogleOAuthController::class, 'getAuthUrl']);
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/admin/google/auth-url',        [GoogleOAuthController::class,   'getAuthUrl']);
-    Route::get('/admin/google/status',          [GoogleOAuthController::class,   'status']);
-    Route::delete('/admin/google/disconnect',   [GoogleOAuthController::class,   'disconnect']);
-Route::post('/admin/facebook/connect-manual',  [FacebookOAuthController::class, 'connectManual']);
-Route::post('/admin/instagram/connect-manual', [FacebookOAuthController::class, 'connectInstagramManual']);
-Route::delete('/admin/instagram/disconnect',   [FacebookOAuthController::class, 'disconnectInstagram']);
-    Route::get('/admin/facebook/auth-url',      [FacebookOAuthController::class, 'getAuthUrl']);
-    Route::get('/admin/facebook/status',        [FacebookOAuthController::class, 'status']);
-    Route::delete('/admin/facebook/disconnect', [FacebookOAuthController::class, 'disconnect']);
+    Route::get('/admin/google/auth-url', [GoogleOAuthController::class, 'getAuthUrl']);
+    Route::get('/admin/google/status', [GoogleOAuthController::class, 'status']);
+    Route::delete('/admin/google/disconnect', [GoogleOAuthController::class, 'disconnect']);
 
+    Route::post('/admin/facebook/connect-manual', [FacebookOAuthController::class, 'connectManual']);
+    Route::post('/admin/instagram/connect-manual', [FacebookOAuthController::class, 'connectInstagramManual']);
+    Route::delete('/admin/instagram/disconnect', [FacebookOAuthController::class, 'disconnectInstagram']);
+
+    Route::get('/admin/facebook/auth-url', [FacebookOAuthController::class, 'getAuthUrl']);
+    Route::get('/admin/facebook/status', [FacebookOAuthController::class, 'status']);
+    Route::delete('/admin/facebook/disconnect', [FacebookOAuthController::class, 'disconnect']);
 });
 
 // ── Webhook Routes (public — verified by platform signatures) ──
-// NOTE: These MUST be excluded from Sanctum's stateful middleware.
-//       Since they live in api.php they are already CSRF-exempt.
-//       If you ever add EnsureFrontendRequestsAreStateful globally,
-//       make sure these paths are listed in SANCTUM_STATEFUL_DOMAINS exclusions.
 Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
-    Route::post('/gmail',  [GmailWebhookController::class, 'handle']);
-    Route::get('/meta',    [MetaWebhookController::class,  'verify']);
-    Route::post('/meta',   [MetaWebhookController::class,  'handle']);
+    Route::post('/gmail', [GmailWebhookController::class, 'handle']);
+    Route::get('/meta', [MetaWebhookController::class, 'verify']);
+    Route::post('/meta', [MetaWebhookController::class, 'handle']);
 });

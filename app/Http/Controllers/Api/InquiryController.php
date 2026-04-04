@@ -58,10 +58,10 @@ class InquiryController
 
         try {
         $result = $this->gmailSender->send(
-            toEmail: 'lgecarane@gmail.com',
-            toName: 'Trinidad',
+            toEmail: 'eljilizenn@gmail.com',
+            toName: 'Lizen',
             subject: 'New Inquiry from ' . $inquiry->name,
-            body: view('emails.reply', [
+            body: view('emails.inquiry_full', [
                 'inquiry' => $inquiry,
                 'senderName' => auth()->user()->name ?? 'RMTY Architects'
                 
@@ -82,7 +82,7 @@ class InquiryController
             ]
         ]);
 
-        Mail::to('lgecarane@gmail.com')
+        Mail::to('eljilizenn@gmail.com')
             ->send(new InquiryNotification($inquiry));
 
     } catch (\Exception $e) {

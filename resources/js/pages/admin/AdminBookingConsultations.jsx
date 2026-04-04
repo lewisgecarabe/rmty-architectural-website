@@ -502,60 +502,60 @@ export default function AdminBookingConsultations() {
         },
     ];
 
-   const sendUpdateRequest = async (id, payload) => {
-    const fd = buildFormData(payload);
+    const sendUpdateRequest = async (id, payload) => {
+        const fd = buildFormData(payload);
 
-    const headers = getAuthHeaders();
-    delete headers["Content-Type"];
-    delete headers["content-type"];
+        const headers = getAuthHeaders();
+        delete headers["Content-Type"];
+        delete headers["content-type"];
 
-    const res = await fetch(`/api/consultations/${id}`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-        headers,
-    });
+        const res = await fetch(`/api/consultations/${id}`, {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+            headers,
+        });
 
-    if (!res.ok) {
-        throw new Error(await getErrorMessage(res));
-    }
-
-    return res.json();
-};
-
-  const updateConsultationRecord = async ({
-    id,
-    payload,
-    successText,
-    afterSuccess,
-}) => {
-    setUpdating(true);
-
-    try {
-        const result = await sendUpdateRequest(id, payload);
-        await fetchConsultations();
-
-        const status = String(payload?.status || "").toLowerCase();
-        const shouldAttemptSms = ["accepted", "cancelled", "rescheduled"].includes(status);
-
-        if (shouldAttemptSms) {
-            showToast(
-                result?.sms_sent
-                    ? `${successText} • SMS sent`
-                    : `${successText} • SMS not sent`
-            );
-        } else {
-            showToast(successText);
+        if (!res.ok) {
+            throw new Error(await getErrorMessage(res));
         }
 
-        if (afterSuccess) afterSuccess();
-    } catch (err) {
-        console.error(err);
-        alert(err.message || "Something went wrong.");
-    } finally {
-        setUpdating(false);
-    }
-};
+        return res.json();
+    };
+
+    const updateConsultationRecord = async ({
+        id,
+        payload,
+        successText,
+        afterSuccess,
+    }) => {
+        setUpdating(true);
+
+        try {
+            const result = await sendUpdateRequest(id, payload);
+            await fetchConsultations();
+
+            const status = String(payload?.status || "").toLowerCase();
+            const shouldAttemptSms = ["accepted", "cancelled", "rescheduled"].includes(status);
+
+            if (shouldAttemptSms) {
+                showToast(
+                    result?.sms_sent
+                        ? `${successText} • SMS sent`
+                        : `${successText} • SMS not sent`
+                );
+            } else {
+                showToast(successText);
+            }
+
+            if (afterSuccess) afterSuccess();
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "Something went wrong.");
+        } finally {
+            setUpdating(false);
+        }
+    };
 
     /* ---------------- BULK SELECTION ---------------- */
     const handleSelectAll = (e) => {
@@ -856,8 +856,6 @@ export default function AdminBookingConsultations() {
                             </span>
 
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-
-                                {/* ACCEPT / MARK AS READ */}
                                 <button
                                     onClick={() => setBulkAction("accept")}
                                     className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer whitespace-nowrap"
@@ -865,7 +863,6 @@ export default function AdminBookingConsultations() {
                                     Mark as Accepted
                                 </button>
 
-                                {/* CANCEL */}
                                 <button
                                     onClick={() => setBulkAction("cancel")}
                                     className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
@@ -873,7 +870,6 @@ export default function AdminBookingConsultations() {
                                     Cancel Selected
                                 </button>
 
-                                {/* ARCHIVE */}
                                 <button
                                     onClick={() => setBulkAction("archive")}
                                     className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
@@ -881,7 +877,6 @@ export default function AdminBookingConsultations() {
                                     Archive Selected
                                 </button>
 
-                                {/* CLEAR */}
                                 <button
                                     onClick={() => setSelectedIds([])}
                                     className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
@@ -1160,7 +1155,7 @@ export default function AdminBookingConsultations() {
                                                         e.stopPropagation()
                                                     }
                                                 >
-                                                    <div className="flex flex-wrap justify-end gap-2">
+                                                    <div className="flex flex-nowrap justify-end gap-2 overflow-x-auto no-scrollbar">
                                                         {activeTab ===
                                                         "archived" ? (
                                                             <>
@@ -1238,8 +1233,6 @@ export default function AdminBookingConsultations() {
                                                                 >
                                                                     Reschedule
                                                                 </button>
-
-                                                             
                                                             </>
                                                         )}
                                                     </div>
@@ -1426,7 +1419,7 @@ export default function AdminBookingConsultations() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 gap-2">
+                                    <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar">
                                         <button
                                             onClick={() => handleAccept(selected)}
                                             disabled={
@@ -1434,7 +1427,7 @@ export default function AdminBookingConsultations() {
                                                 getBookingStatus(selected) ===
                                                     "accepted"
                                             }
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs font-bold text-emerald-700 uppercase tracking-wider transition-all hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs font-bold text-emerald-700 uppercase tracking-wider transition-all hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
                                         >
                                             <CheckIcon className="w-4 h-4" />
                                             Accept
@@ -1449,7 +1442,7 @@ export default function AdminBookingConsultations() {
                                                 getBookingStatus(selected) ===
                                                     "cancelled"
                                             }
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs font-bold text-red-600 uppercase tracking-wider transition-all hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-3 text-xs font-bold text-red-600 uppercase tracking-wider transition-all hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
                                         >
                                             <BanIcon className="w-4 h-4" />
                                             Cancel
@@ -1460,13 +1453,11 @@ export default function AdminBookingConsultations() {
                                                 openRescheduleModal(selected)
                                             }
                                             disabled={updating}
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
                                         >
                                             <ClockIcon className="w-4 h-4" />
                                             Reschedule
                                         </button>
-
-                                        
                                     </div>
                                 )}
                             </div>
@@ -1561,9 +1552,8 @@ export default function AdminBookingConsultations() {
                                     <label className="block text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
                                         New Schedule
                                     </label>
-                                    
+
                                     <div className="grid grid-cols-2 gap-3">
-                                        {/* DATE */}
                                         <input
                                             type="date"
                                             value={rescheduleForm.consultation_date?.split("T")[0] || ""}
@@ -1577,7 +1567,6 @@ export default function AdminBookingConsultations() {
                                             className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
                                         />
 
-                                        {/* TIME (30-min slots, 9AM–5PM) */}
                                         <select
                                             value={rescheduleForm.consultation_date?.split("T")[1] || ""}
                                             onChange={(e) =>
@@ -1611,7 +1600,6 @@ export default function AdminBookingConsultations() {
                                             })}
                                         </select>
                                     </div>
-
                                 </div>
 
                                 <div>

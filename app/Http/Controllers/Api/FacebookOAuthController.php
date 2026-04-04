@@ -63,7 +63,7 @@ class FacebookOAuthController
             $igId = $this->getInstagramId($page['id'], $page['token']);
             if ($igId) {
                 PlatformSetting::setValue('instagram', 'account_id',   $igId,          $userId);
-                PlatformSetting::setValue('instagram', 'page_token',   $page['token'], $userId);
+                PlatformSetting::setValue('instagram', 'access_token',   $page['token'], $userId);
                 PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString(), $userId);
             }
 
@@ -190,25 +190,37 @@ class FacebookOAuthController
     }
 
     // POST /api/admin/instagram/connect-manual
-    public function connectInstagramManual(Request $request): JsonResponse
-    {
-        $userId    = auth()->id() ?? (int) $request->input('user_id');
-        $validated = $request->validate([
-            'page_token' => 'required|string',
-            'account_id' => 'required|string',
-        ]);
+    // POST /api/admin/instagram/connect-manual
+public function connectInstagramManual(Request $request): JsonResponse
+{
+    $request->validate([
+        'access_token' => 'nullable|string',
+        'page_token'   => 'nullable|string',
+        'page_id'      => 'nullable|string',
+        'account_id'   => 'nullable|string',
+    ]);
 
-        PlatformSetting::setValue('instagram', 'page_token',   $validated['page_token'], $userId);
-        PlatformSetting::setValue('instagram', 'account_id',   $validated['account_id'], $userId);
-        PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString(), $userId);
+    $userId = auth()->id();
 
-        Log::info('[RMTY Instagram] Manually connected', [
-            'user_id'    => $userId,
-            'account_id' => $validated['account_id'],
-        ]);
+    $token = $request->input('access_token') ?? $request->input('page_token');
+    $pageId = $request->input('page_id')
+        ?? $request->input('account_id')
+        ?? PlatformSetting::getValue('facebook', 'page_id', $userId)
+        ?? '688344834362399';
 
-        return response()->json(['message' => 'Instagram connected successfully.']);
+    if (!$token) {
+        return response()->json(['error' => 'Missing Instagram token'], 422);
     }
+
+    PlatformSetting::setValue('instagram', 'access_token', $token, $userId);
+    PlatformSetting::setValue('instagram', 'page_id', $pageId, $userId);
+    PlatformSetting::setValue('instagram', 'connected_at', now()->toDateTimeString(), $userId);
+
+    return response()->json([
+        'message' => 'Instagram connected',
+        'page_id' => $pageId,
+    ]);
+}
 
     // DELETE /api/admin/instagram/disconnect
     public function disconnectInstagram(): JsonResponse
