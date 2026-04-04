@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import RootLayout from "./layouts/RootLayout";
 
@@ -33,6 +33,13 @@ import AdminInquiries from "./pages/admin/AdminInquiries";
 import AdminPlatformSettings from "./pages/admin/AdminPlatformSettings";
 import AdminContentHome from "./pages/admin/AdminContentHome";
 
+function ProtectedRoute() {
+    const token =
+        localStorage.getItem("admin_token") ||
+        localStorage.getItem("token");
+    return token ? <Outlet /> : <Navigate to="/admin/login" replace />;
+}
+
 ReactDOM.createRoot(document.getElementById("app")).render(
     <BrowserRouter>
         <Routes>
@@ -49,6 +56,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
             <Route path="/admin/login" element={<AuthPage />} />
             <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
+            <Route element={<ProtectedRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
                 <Route path="content/home" element={<AdminContentHome />} />
                 <Route
@@ -73,6 +81,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="profile" element={<AdminProfile />} />
                 <Route path="inquiries" element={<AdminInquiries />} />
                 <Route path="settings" element={<AdminPlatformSettings />} />
+            </Route>
             </Route>
         </Routes>
     </BrowserRouter>,
