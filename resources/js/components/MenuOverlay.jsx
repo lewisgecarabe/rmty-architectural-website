@@ -142,21 +142,6 @@ export default function MenuOverlay({ onClose }) {
 
                     {/* RIGHT: Image Preview */}
                     <div className="hidden md:block md:col-span-7 h-[400px] relative overflow-hidden rounded-lg">
-                        <AnimatePresence mode="wait">
-                            {hoveredIndex !== null && (
-                                <motion.img
-                                    key={NAV_LINKS[hoveredIndex].label}
-                                    src={NAV_LINKS[hoveredIndex].src}
-                                    alt="preview"
-                                    variants={imageVariants}
-                                    initial="hidden"
-                                    animate="visible"
-                                    exit="exit"
-                                    className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
-                                />
-                            )}
-                        </AnimatePresence>
-
                         {hoveredIndex === null && (
                             <motion.div
                                 initial={{ opacity: 0 }}

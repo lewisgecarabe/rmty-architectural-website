@@ -1,47 +1,94 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { getServicesContent } from "../stores/servicesContent";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+function ImagePlaceholder({ className = "", label = "Image" }) {
+    return (
+        <div
+            className={`flex items-center justify-center bg-black text-white w-full h-full ${className}`}
+        >
+            <div className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-80">
+                {label}
+            </div>
+        </div>
+    );
+}
+
+// Reusable Image with Loading Overlay
+function ImageWithLoader({ src, alt, className }) {
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    return (
+        <div className="relative w-full h-full overflow-hidden">
+            <AnimatePresence>
+                {!isLoaded && (
+                    <motion.div
+                        key="image-loading"
+                        initial={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-neutral-100 flex items-center justify-center z-10"
+                    >
+                        <div className="w-8 h-8 border-4 border-neutral-300 border-t-black rounded-full animate-spin" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <img
+                src={src}
+                alt={alt}
+                onLoad={() => setIsLoaded(true)}
+                className={`${className} transition-opacity duration-500 ${
+                    isLoaded ? "opacity-100" : "opacity-0"
+                }`}
+            />
+        </div>
+    );
+}
 
 export default function Services() {
     const [openIndex, setOpenIndex] = useState(null);
-    const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const content = useMemo(() => getServicesContent(), []);
-    const hero = content.hero ?? {};
-    const section = content.section ?? {};
-    const cta = content.cta ?? {};
+    const [hero, setHero] = useState({});
+    const [section, setSection] = useState({});
+    const [cta, setCta] = useState({});
+    const [services, setServices] = useState([]);
 
     useEffect(() => {
-        fetch("/api/services")
+        fetch(`${API_BASE}/api/services`)
             .then((res) => res.json())
-            .then((data) => setServices(Array.isArray(data) ? data : []))
+            .then((data) => {
+                if (Array.isArray(data)) {
+                    setHero(data.find((s) => s.sort_order === 0) || {});
+                    setSection(data.find((s) => s.sort_order === 1) || {});
+                    setCta(data.find((s) => s.sort_order === 2) || {});
+                    setServices(data.filter((s) => s.sort_order >= 3));
+                }
+            })
             .catch(() => setServices([]))
             .finally(() => setLoading(false));
     }, []);
+
+    const heroTitleParts = hero.title ? hero.title.split("|") : [];
+    const heroTitle1 = heroTitleParts[0]?.trim() || "DESIGNING WITH";
+    const heroTitle2 = heroTitleParts[1]?.trim() || "INTENTIONS";
 
     return (
         <section className="w-full bg-white [font-family:var(--font-neue)]">
             {/* ================= TOP HERO ================= */}
             <div className="w-full bg-[#f7f7f8]">
-                {/* Perfectly aligned container matching the navbar */}
                 <div className="mx-auto max-w-screen-2xl px-6 pt-36 pb-20 md:pt-44 md:pb-24 min-h-[400px] md:min-h-[400px]">
                     <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
-                        {/* Left title */}
                         <div className="space-y-1">
-                            <h1 className="text-4xl font-bold tracking-tight text-black md:text-6xl">
-                                {hero.titleLine1 || "DESIGNING WITH"}
+                            <h1 className="text-4xl font-bold tracking-tight text-black md:text-6xl uppercase">
+                                {hero.title || "DESIGNING WITH INTENTIONS"}
                             </h1>
-                            <h2 className="text-4xl font-bold tracking-tight text-black md:text-6xl">
-                                {hero.titleLine2 || "INTENTIONS"}
-                            </h2>
                         </div>
-
-                        {/* Right paragraph */}
-                        <p className="max-w-md text-sm leading-relaxed text-gray-500 md:justify-self-end mt-2 md:mt-4">
-                            {hero.paragraph ||
-                                "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga."}
+                        <p className="max-w-md text-sm leading-relaxed text-gray-500 md:justify-self-end mt-2 md:mt-4 whitespace-pre-wrap">
+                            {hero.content ||
+                                "At vero eos et accusamus et iusto odio..."}
                         </p>
                     </div>
                 </div>
@@ -51,15 +98,37 @@ export default function Services() {
             <div className="w-full bg-white border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
                     <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
-                        {/* Left image */}
-                        <div className="relative overflow-hidden rounded-none bg-gray-100">
-                            <img
-                                src={section.image || "/images/SAMPLE PIC.png"}
-                                alt="Project"
-                                className="h-[380px] w-full object-cover md:h-[500px]"
-                            />
-                            <div className="absolute inset-0 bg-white/20" />
-                            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 text-[10px] tracking-widest uppercase font-bold text-black bg-white/60 backdrop-blur-sm py-2 mx-4 border border-white/40">
+                        <div className="relative overflow-hidden rounded-none bg-gray-100 h-[380px] md:h-[500px]">
+                            <AnimatePresence mode="wait">
+                                {loading ? (
+                                    <motion.div
+                                        key="loader"
+                                        className="absolute inset-0 flex items-center justify-center bg-neutral-50 z-30"
+                                    >
+                                        <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />
+                                    </motion.div>
+                                ) : section.image ? (
+                                    <ImageWithLoader
+                                        key="image"
+                                        src={`${API_BASE}/storage/${section.image}`}
+                                        alt="Project"
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    /* FIX: Added absolute inset-0 to make the placeholder fill the gray box */
+                                    <motion.div
+                                        key="placeholder"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="absolute inset-0"
+                                    >
+                                        <ImagePlaceholder label="PROJECT IMAGE" />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Tags stay on top */}
+                            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 text-[10px] tracking-widest uppercase font-bold text-black bg-white/60 backdrop-blur-sm py-2 mx-4 border border-white/40 z-20">
                                 <span className="opacity-80">📍</span>
                                 <span>
                                     {section.locationTag || "Tagaytay City"}
@@ -67,18 +136,15 @@ export default function Services() {
                             </div>
                         </div>
 
-                        {/* Right Content & Accordion */}
                         <div>
                             <h3 className="text-3xl font-normal tracking-tight text-black md:text-4xl whitespace-pre-line">
-                                {section.heading || "RMTY Design\nArchitects"}
+                                {section.title || "RMTY Design Architects"}
                             </h3>
-
-                            <p className="mt-6 max-w-md text-sm leading-relaxed text-gray-500">
-                                {section.paragraph ||
-                                    "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque"}
+                            <p className="mt-6 max-w-md text-sm leading-relaxed text-gray-500 whitespace-pre-wrap">
+                                {section.content ||
+                                    "At vero eos et accusamus..."}
                             </p>
 
-                            {/* Accordion List */}
                             <div className="mt-12 border-t border-gray-200">
                                 {loading ? (
                                     <p className="text-[10px] tracking-widest uppercase text-gray-400 py-6">
@@ -112,7 +178,6 @@ export default function Services() {
                                                         {isOpen ? "–" : "+"}
                                                     </span>
                                                 </button>
-
                                                 <AnimatePresence
                                                     initial={false}
                                                 >
@@ -137,7 +202,7 @@ export default function Services() {
                                                             className="overflow-hidden"
                                                         >
                                                             <div className="pb-6 pr-8">
-                                                                <p className="text-[13px] leading-relaxed text-gray-500">
+                                                                <p className="text-[13px] leading-relaxed text-gray-500 whitespace-pre-wrap">
                                                                     {
                                                                         item.content
                                                                     }
@@ -159,25 +224,44 @@ export default function Services() {
             {/* ================= SEE OTHER PROJECTS CTA ================= */}
             <div className="w-full bg-white border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
-                    <div className="relative overflow-hidden rounded-none bg-black">
-                        <img
-                            src={cta.image || "/images/SOP.png"}
-                            alt="Other projects"
-                            className="h-[300px] w-full object-cover md:h-[400px] opacity-70"
-                        />
-                        <div className="absolute inset-0 bg-black/20" />
+                    {/* FIX: Changed bg-black to bg-gray-100 to match the other image container */}
+                    <div className="relative overflow-hidden rounded-none bg-gray-100 h-[300px] md:h-[400px]">
+                        <AnimatePresence mode="wait">
+                            {loading ? (
+                                <motion.div
+                                    key="cta-loader"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    /* FIX: Changed bg-neutral-900 to bg-neutral-50 and border colors to match */
+                                    className="absolute inset-0 flex items-center justify-center bg-neutral-50 z-30"
+                                >
+                                    <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />
+                                </motion.div>
+                            ) : cta.image ? (
+                                <ImageWithLoader
+                                    src={`${API_BASE}/storage/${cta.image}`}
+                                    alt="Other projects"
+                                    className="h-full w-full object-cover opacity-70"
+                                />
+                            ) : (
+                                <ImagePlaceholder
+                                    label=" "
+                                    className="h-full w-full"
+                                />
+                            )}
+                        </AnimatePresence>
 
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center justify-center z-20">
                             <Link
                                 to="/projects"
                                 className="border border-white px-10 py-4 text-[10px] font-bold tracking-[0.25em] uppercase text-white transition-colors duration-300 hover:bg-white hover:text-black"
                             >
-                                {cta.linkText || "SEE OTHER PROJECTS"}
+                                {cta.title || "SEE OTHER PROJECTS"}
                             </Link>
                         </div>
-
-                        <div className="absolute right-6 top-6 text-[10px] font-bold tracking-[0.15em] uppercase text-white/80">
-                            {cta.tag || "Architecture"}
+                        <div className="absolute right-6 top-6 text-[10px] font-bold tracking-[0.15em] uppercase text-white/80 z-20">
+                            {cta.content || "Architecture"}
                         </div>
                     </div>
                 </div>
