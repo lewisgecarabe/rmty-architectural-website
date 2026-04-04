@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function Contact() {
     const [inquiryType, setInquiryType] = useState("general");
     const isConsultation = inquiryType === "consultation";
+    const [message, setMessage] = useState("");
 
     const buttonText = useMemo(() => {
         return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT INQUIRY";
@@ -28,99 +29,55 @@ export default function Contact() {
     const [submitError, setSubmitError] = useState("");
     const [formKey, setFormKey] = useState(0);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+        const handleSubmit = async (e) => {
+            e.preventDefault();
 
-        if (!isConsultation) {
-            setSubmitError("General inquiry submission is not connected yet.");
-            return;
-        }
+             console.log("SUBMIT CLICKED"); // ✅ HEREs
 
-        if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-            setSubmitError("Please fill in your name and email before submitting.");
-            return;
-        }
-
-        setSubmitting(true);
-        setSubmitError("");
-        setSubmitSuccess(false);
-
-        try {
-            const formData = new FormData();
-            formData.append("first_name", firstName.trim());
-            formData.append("last_name", lastName.trim());
-            formData.append("email", email.trim());
-
-            if (phone.trim()) formData.append("phone", phone.trim());
-            if (location.trim()) formData.append("location", location.trim());
-            if (projectType) formData.append("project_type", projectType);
-            if (consultationMessage.trim()) {
-                formData.append("message", consultationMessage.trim());
-            }
-            
-            if (consultationDate) {
-            const datetime = consultationTime
-                ? `${consultationDate}T${consultationTime}`
-                : consultationDate;
-            formData.append("consultation_date", datetime);
+            if (!firstName.trim() || !lastName.trim() || !email.trim() || !message.trim()) {
+                setSubmitError("Please fill in all required fields.");
+                return;
             }
 
-            consultationFiles.forEach((file) => {
-                formData.append("attachments[]", file);
-            });
-
-            const res = await fetch("/api/consultations", {
-                method: "POST",
-                headers: {
-                    Accept: "application/json",
-                },
-                body: formData,
-            });
-
-            if (res.ok) {
-
-                Swal.fire({
-                    title: "Booking Under Review",
-                    text: "Your consultation request has been received and is now under review. We’ll send you a confirmation text once it’s approved.",
-                    icon: "success",
-                    confirmButtonText: "OK",
-
-                    //  DESIGN CUSTOMIZATION
-                    background: "#ffffff",
-                    color: "#000000",
-                    confirmButtonColor: "#000000",
-
-                    // Rounded clean look (matches your UI)
-                    customClass: {
-                        popup: "rounded-2xl px-6 py-8",
-                        title: "text-lg font-bold tracking-wide",
-                        confirmButton: "rounded-full px-6 py-3 text-xs tracking-widest"
-                    }
+            try {
+                setSubmitting(true); 
+                const res = await fetch("http://localhost:8000/api/inquiries", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json", 
+                    },
+                    body: JSON.stringify({
+                        name: `${firstName} ${lastName}`,
+                        email,
+                        phone,
+                        message,
+                    }),
                 });
 
-                setSubmitSuccess(true);
+                const data = await res.json();
+
+                console.log("SUCCESS:", data);
+
+                Swal.fire({
+                    icon: "success",
+                    title: "Inquiry Sent!",
+                    text: "We’ll get back to you soon.",
+                });
+
                 setFirstName("");
                 setLastName("");
                 setEmail("");
                 setPhone("");
-                setLocation("");
-                setProjectType("");
-                setConsultationMessage("");
-                setConsultationDate("");
-                setConsultationFiles([]);
-                setFormKey((k) => k + 1);
-            } else {
-                const data = await res.json().catch(() => ({}));
-                setSubmitError(
-                    data.message || "Submission failed. Please try again.",
-                );
+                setMessage("");
+
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setSubmitting(false); 
             }
-        } catch {
-            setSubmitError("Network error. Please check your connection.");
-        } finally {
-            setSubmitting(false);
-        }
-    };
+        };
+    
 
     return (
         <section className="w-full bg-white">
@@ -199,10 +156,12 @@ export default function Contact() {
 
                         <div>
                             <motion.form
-                                key={`contact-form-${formKey}`}
                                 layout
+                                key={`contact-form-${formKey}`}
                                 className="mx-auto w-full max-w-2xl [font-family:var(--font-neue)]"
+                                
                                 onSubmit={handleSubmit}
+                                
                             >
                                 <div className="mb-14">
                                     <p className="flex text-[10px] tracking-widest text-gray-500 uppercase mb-3">
@@ -308,7 +267,7 @@ export default function Contact() {
                                                     ease: "easeOut",
                                                 }}
                                             >
-                                                <GeneralMessageField />
+                                                <GeneralMessageField value={message} onValueChange={setMessage} />
                                             </motion.div>
                                         ) : (
                                             <motion.div
@@ -409,7 +368,7 @@ export default function Contact() {
             </div>
         </section>
     );
-}
+};
 
 /* ---------------- INPUT COMPONENT ---------------- */
 
@@ -577,8 +536,7 @@ function UnderlineInput({
 
 /* ---------------- GENERAL MESSAGE ---------------- */
 
-function GeneralMessageField() {
-    const [value, setValue] = useState("");
+function GeneralMessageField({ value = "", onValueChange }) {
     const [error, setError] = useState("");
 
     const handleChange = (e) => {
@@ -595,7 +553,7 @@ function GeneralMessageField() {
             setError("");
         }
 
-        setValue(inputValue);
+        onValueChange?.(inputValue);
     };
 
     return (
@@ -603,6 +561,7 @@ function GeneralMessageField() {
             <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
                 <span>Message</span>
             </label>
+
             <textarea
                 rows={4}
                 value={value}
@@ -614,6 +573,7 @@ function GeneralMessageField() {
                         : "border-gray-300 focus:border-black text-black"
                 }`}
             />
+
             <AnimatePresence mode="wait">
                 {error && (
                     <motion.p

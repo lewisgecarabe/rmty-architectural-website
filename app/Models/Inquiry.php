@@ -36,6 +36,7 @@ class Inquiry extends Model
         'status',
         'replied_at',
         'raw_payload',
+        
     ];
 
     protected $casts = [
@@ -107,3 +108,4 @@ class Inquiry extends Model
         };
     }
 }
+

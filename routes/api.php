@@ -1,5 +1,6 @@
 <?php
 
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\ProjectController;
@@ -20,6 +21,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Inquiry;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
+
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard', function () {
@@ -65,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Consultation booking — public (contact form)
+Route::post('/inquiries', [InquiryController::class, 'store']);
 Route::post('/consultations', [ConsultationController::class, 'store']);
 
  Route::post('password/send-otp', [PasswordResetController::class, 'sendOtp']);
@@ -85,7 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/inquiries/stats', [InquiryController::class, 'stats']);
     Route::get('/inquiries', [InquiryController::class, 'index']);
-    Route::post('/inquiries', [InquiryController::class, 'store']);
+    
     Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show']);
     Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
@@ -110,8 +114,9 @@ Route::get('/admin/google/callback',   [GoogleOAuthController::class,   'handleC
 Route::get('/admin/facebook/callback', [FacebookOAuthController::class, 'handleCallback']);
 
 // ── Platform Settings (protected) ────────────────────────────
+Route::get('/admin/google/auth-url', [GoogleOAuthController::class, 'getAuthUrl']);
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/admin/google/auth-url',        [GoogleOAuthController::class,   'getAuthUrl']);
+    
     Route::get('/admin/google/status',          [GoogleOAuthController::class,   'status']);
     Route::delete('/admin/google/disconnect',   [GoogleOAuthController::class,   'disconnect']);
 Route::post('/admin/facebook/connect-manual',  [FacebookOAuthController::class, 'connectManual']);
@@ -128,30 +133,4 @@ Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
     Route::post('/gmail',  [GmailWebhookController::class, 'handle']);
     Route::get('/meta',    [MetaWebhookController::class,  'verify']);
     Route::post('/meta',   [MetaWebhookController::class,  'handle']);
-});
-
-// Notice the route is '/webhooks/sms' to match your ngrok log
-Route::post('/webhooks/sms', function (Request $request) {
-    
-    Log::info('[Semaphore Webhook] Incoming SMS', $request->all());
-
-    return response('OK', 200);
-});
-
-Route::post('/webhooks/sms', function (Request $request) {
-    
-    // 1. Log it just in case
-    Log::info('[Test Webhook] Incoming Data', $request->all());
-
-    // 2. Save it to your database
-    Inquiry::create([
-        'name'        => 'SMS Test Client',
-        'phone'       => $request->input('from'),
-        'message'     => $request->input('text'),
-        'status'      => 'new',
-        'source'      => 'sms', // You can add 'sms' to your database if you want to track it
-    ]);
-
-    // 3. Send the thumbs up back to Thunder Client
-    return response('SMS Saved Successfully!', 200);
 });

@@ -2,7 +2,7 @@ import "./Bootstrap";
 import "../css/app.css";
 import "leaflet/dist/leaflet.css";
 
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 
@@ -33,11 +33,61 @@ import AdminInquiries from "./pages/admin/AdminInquiries";
 import AdminPlatformSettings from "./pages/admin/AdminPlatformSettings";
 import AdminContentHome from "./pages/admin/AdminContentHome";
 
+const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+function clearSession() {
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("admin_last_activity");
+}
+
 function ProtectedRoute() {
     const token =
         localStorage.getItem("admin_token") ||
         localStorage.getItem("token");
-    return token ? <Outlet /> : <Navigate to="/admin/login" replace />;
+
+    const lastActivity = parseInt(
+        localStorage.getItem("admin_last_activity") || "0",
+        10,
+    );
+    const isExpired = lastActivity > 0 && Date.now() - lastActivity > TIMEOUT_MS;
+
+    useEffect(() => {
+        if (!token) return;
+
+        if (!localStorage.getItem("admin_last_activity")) {
+            localStorage.setItem("admin_last_activity", Date.now().toString());
+        }
+
+        const stamp = () =>
+            localStorage.setItem("admin_last_activity", Date.now().toString());
+
+        const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+        events.forEach((e) => window.addEventListener(e, stamp, { passive: true }));
+
+        const timer = setInterval(() => {
+            const last = parseInt(
+                localStorage.getItem("admin_last_activity") || "0",
+                10,
+            );
+            if (last > 0 && Date.now() - last > TIMEOUT_MS) {
+                clearSession();
+                window.location.replace("/admin/login");
+            }
+        }, 60_000);
+
+        return () => {
+            events.forEach((e) => window.removeEventListener(e, stamp));
+            clearInterval(timer);
+        };
+    }, [token]);
+
+    if (!token || isExpired) {
+        clearSession();
+        return <Navigate to="/admin/login" replace />;
+    }
+
+    return <Outlet />;
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(
