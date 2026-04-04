@@ -7,14 +7,28 @@ function getToken() {
     return localStorage.getItem("admin_token") || localStorage.getItem("token");
 }
 
+function getCsrfToken() {
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function apiFetch(path, options = {}) {
+    const token = getToken();
+    const headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(options.headers || {}),
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    // Send CSRF token if present (required when Sanctum stateful middleware is active)
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers["X-XSRF-TOKEN"] = csrfToken;
+
     const res = await fetch(`${API_BASE}/api${path}`, {
         ...options,
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
-            ...(options.headers || {}),
-        },
+        headers,
+        credentials: "include", // always send cookies
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
