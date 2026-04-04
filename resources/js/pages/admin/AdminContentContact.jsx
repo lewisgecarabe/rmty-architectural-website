@@ -10,15 +10,65 @@ function getToken() {
 
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 
-const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS_OF_WEEK = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+];
 
 const TIME_OPTIONS = [
-    "00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00", "03:30",
-    "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30",
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-    "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
-    "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00", "23:30"
+    "00:00",
+    "00:30",
+    "01:00",
+    "01:30",
+    "02:00",
+    "02:30",
+    "03:00",
+    "03:30",
+    "04:00",
+    "04:30",
+    "05:00",
+    "05:30",
+    "06:00",
+    "06:30",
+    "07:00",
+    "07:30",
+    "08:00",
+    "08:30",
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
+    "18:00",
+    "18:30",
+    "19:00",
+    "19:30",
+    "20:00",
+    "20:30",
+    "21:00",
+    "21:30",
+    "22:00",
+    "22:30",
+    "23:00",
+    "23:30",
 ];
 
 function InputField({
@@ -299,7 +349,7 @@ export default function AdminContentContact() {
                 <div className="flex flex-wrap gap-3 w-full md:w-auto">
                     <Link
                         to="/contact"
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 px-5 py-2.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-black"
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-xl bg-white border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-black"
                     >
                         View Site
                     </Link>
@@ -325,7 +375,7 @@ export default function AdminContentContact() {
                             setFiles({ hero_image: null });
                             setPreviews({ hero_image: null });
                         }}
-                        className="flex-1 md:flex-none px-5 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm font-bold cursor-pointer transition-colors hover:bg-red-50 text-red-600 hover:border-red-200"
+                        className="flex-1 md:flex-none px-5 py-2.5 rounded-xl border border-neutral-200 bg-white text-sm font-medium cursor-pointer transition-colors hover:bg-red-50 text-red-600 hover:border-red-200"
                     >
                         Clear Form
                     </motion.button>
@@ -336,7 +386,7 @@ export default function AdminContentContact() {
                         type="button"
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-sm font-bold disabled:opacity-70 cursor-pointer transition-colors hover:bg-neutral-800"
+                        className="flex-[2] md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-sm font-medium disabled:opacity-70 cursor-pointer transition-colors hover:bg-neutral-800"
                     >
                         {saving ? "Saving..." : "Save Configuration"}
                     </motion.button>
@@ -460,11 +510,14 @@ export default function AdminContentContact() {
                     <ImagePlaceholder
                         label="Contact Image"
                         previewUrl={previews.hero_image}
-                        onChange={(file) => handleImageChange("hero_image", file)}
+                        onChange={(file) =>
+                            handleImageChange("hero_image", file)
+                        }
                     />
                 </div>
             </div>
 
+            {/* Notification Toast */}
             <AnimatePresence>
                 {toast && (
                     <motion.div
@@ -475,13 +528,14 @@ export default function AdminContentContact() {
                         className="fixed bottom-10 right-10 z-[110] pointer-events-none"
                     >
                         <div
-                            className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border ${
-                                toast.type === "success"
-                                    ? "bg-black text-white border-black"
-                                    : "bg-red-600 text-white border-red-700"
-                            }`}
+                            className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border ${toast.type === "success" ? "bg-black text-white border-black" : "bg-red-600 text-white border-red-700"}`}
                         >
-                            <p className="text-[11px] font-bold uppercase tracking-widest mt-0.5">
+                            {toast.type === "success" ? (
+                                <CheckIcon className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                                <CloseIcon className="w-4 h-4 text-white" />
+                            )}
+                            <p className="text-[11px] font-bold uppercase tracking-widest mt-0.5 text-white">
                                 {toast.msg}
                             </p>
                         </div>
@@ -489,6 +543,20 @@ export default function AdminContentContact() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+function CheckIcon({ className }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            className={`w-4 h-4 ${className}`}
+        >
+            <polyline points="20 6 9 17 4 12" />
+        </svg>
     );
 }
 

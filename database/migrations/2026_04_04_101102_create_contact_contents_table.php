@@ -8,24 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('contact_contents', function (Blueprint $table) {
-            // Add new office hours columns
-            $table->string('office_day_from')->nullable()->after('address_line_2');
-            $table->string('office_day_to')->nullable()->after('office_day_from');
-            $table->string('office_time_from')->nullable()->after('office_day_to');
-            $table->string('office_time_to')->nullable()->after('office_time_from');
+        // We CREATE the bare foundation here
+        Schema::create('contact_contents', function (Blueprint $table) {
+            $table->id(); // Your second file attaches everything starting after this!
+            $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::table('contact_contents', function (Blueprint $table) {
-            $table->dropColumn([
-                'office_day_from',
-                'office_day_to',
-                'office_time_from',
-                'office_time_to',
-            ]);
-        });
+        Schema::dropIfExists('contact_contents');
     }
 };

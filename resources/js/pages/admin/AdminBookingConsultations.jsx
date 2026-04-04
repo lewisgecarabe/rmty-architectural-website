@@ -27,7 +27,9 @@ const isArchivedConsultation = (consultation) =>
 const getBookingStatus = (consultation) => {
     if (isArchivedConsultation(consultation)) return "archived";
 
-    const raw = String(consultation?.status || "").trim().toLowerCase();
+    const raw = String(consultation?.status || "")
+        .trim()
+        .toLowerCase();
 
     if (
         raw === "accepted" ||
@@ -87,8 +89,7 @@ const getStatusMeta = (status) => {
         case "accepted":
             return {
                 label: "Accepted",
-                className:
-                    "border-emerald-200 bg-emerald-50 text-emerald-700",
+                className: "border-emerald-200 bg-emerald-50 text-emerald-700",
                 dotClassName: "bg-emerald-500",
             };
         case "cancelled":
@@ -106,15 +107,13 @@ const getStatusMeta = (status) => {
         case "archived":
             return {
                 label: "Archived",
-                className:
-                    "border-neutral-200 bg-neutral-100 text-neutral-500",
+                className: "border-neutral-200 bg-neutral-100 text-neutral-500",
                 dotClassName: "bg-neutral-400",
             };
         default:
             return {
                 label: "Pending",
-                className:
-                    "border-amber-200 bg-amber-50 text-amber-700",
+                className: "border-amber-200 bg-amber-50 text-amber-700",
                 dotClassName: "bg-amber-500",
             };
     }
@@ -536,13 +535,17 @@ export default function AdminBookingConsultations() {
             await fetchConsultations();
 
             const status = String(payload?.status || "").toLowerCase();
-            const shouldAttemptSms = ["accepted", "cancelled", "rescheduled"].includes(status);
+            const shouldAttemptSms = [
+                "accepted",
+                "cancelled",
+                "rescheduled",
+            ].includes(status);
 
             if (shouldAttemptSms) {
                 showToast(
                     result?.sms_sent
                         ? `${successText} • SMS sent`
-                        : `${successText} • SMS not sent`
+                        : `${successText} • SMS not sent`,
                 );
             } else {
                 showToast(successText);
@@ -586,7 +589,7 @@ export default function AdminBookingConsultations() {
                         : { is_published: 0, status: "archived" };
 
                 await Promise.all(
-                    selectedIds.map((id) => sendUpdateRequest(id, payload))
+                    selectedIds.map((id) => sendUpdateRequest(id, payload)),
                 );
 
                 await fetchConsultations();
@@ -594,35 +597,32 @@ export default function AdminBookingConsultations() {
                 showToast(
                     bulkAction === "restore"
                         ? "Records restored successfully"
-                        : "Records archived successfully"
+                        : "Records archived successfully",
                 );
-
             } else if (bulkAction === "accept") {
                 await Promise.all(
                     selectedIds.map((id) =>
                         sendUpdateRequest(id, {
                             status: "accepted",
                             is_published: 1,
-                        })
-                    )
+                        }),
+                    ),
                 );
 
                 await fetchConsultations();
                 showToast("Selected bookings marked as accepted");
-
             } else if (bulkAction === "cancel") {
                 await Promise.all(
                     selectedIds.map((id) =>
                         sendUpdateRequest(id, {
                             status: "cancelled",
                             is_published: 1,
-                        })
-                    )
+                        }),
+                    ),
                 );
 
                 await fetchConsultations();
                 showToast("Selected bookings cancelled");
-
             } else if (bulkAction === "delete") {
                 await Promise.all(
                     selectedIds.map((id) =>
@@ -634,14 +634,13 @@ export default function AdminBookingConsultations() {
                             if (!res.ok) {
                                 throw new Error(await getErrorMessage(res));
                             }
-                        })
-                    )
+                        }),
+                    ),
                 );
 
                 await fetchConsultations();
                 showToast("Records deleted permanently");
             }
-
         } catch (err) {
             console.error(err);
             alert(err.message || "An error occurred during bulk action.");
@@ -820,8 +819,10 @@ export default function AdminBookingConsultations() {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4 border-b border-neutral-200 pb-6 mb-6">
-                <div className="flex flex-wrap gap-3">
+            {/* ================= TABS & SEARCH ROW ================= */}
+            <div className="flex flex-col xl:flex-row gap-4 border-b border-neutral-200 pb-6 mb-6 items-start xl:items-center w-full">
+                {/* TABS - Left side on Desktop, Full width horizontal scroll on Mobile */}
+                <div className="flex overflow-x-auto no-scrollbar w-full xl:w-auto gap-2 shrink-0 pb-1 xl:pb-0">
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
@@ -830,7 +831,8 @@ export default function AdminBookingConsultations() {
                                 setPage(1);
                                 setSelected(null);
                             }}
-                            className={`rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer ${
+                            // FIX: Added whitespace-nowrap and shrink-0 so they don't get squashed on mobile
+                            className={`whitespace-nowrap shrink-0 rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer flex-1 md:flex-none text-center ${
                                 activeTab === tab.id
                                     ? "border-neutral-900 bg-neutral-900 text-white"
                                     : "border-neutral-200 bg-white text-neutral-600 hover:text-neutral-900 hover:border-neutral-300"
@@ -841,166 +843,172 @@ export default function AdminBookingConsultations() {
                     ))}
                 </div>
 
-                <AnimatePresence mode="wait">
-                    {selectedIds.length > 0 ? (
-                        <motion.div
-                            key="bulk-actions"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center gap-3 w-full bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 justify-end"
-                        >
-                            <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
-                                {selectedIds.length} Selected
-                            </span>
-
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <button
-                                    onClick={() => setBulkAction("accept")}
-                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer whitespace-nowrap"
-                                >
-                                    Mark as Accepted
-                                </button>
-
-                                <button
-                                    onClick={() => setBulkAction("cancel")}
-                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
-                                >
-                                    Cancel Selected
-                                </button>
-
-                                <button
-                                    onClick={() => setBulkAction("archive")}
-                                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
-                                >
-                                    Archive Selected
-                                </button>
-
-                                <button
-                                    onClick={() => setSelectedIds([])}
-                                    className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
-                                    title="Clear Selection"
-                                >
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key="filters"
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2, ease: smoothEase }}
-                            className="flex flex-col sm:flex-row items-center w-full"
-                        >
+                {/* SEARCH & ACTIONS - Right side on Desktop */}
+                {/* FIX 1: Removed xl:w-auto and xl:justify-end so this container can grow fully */}
+                <div className="w-full flex-1 min-w-0 flex">
+                    <AnimatePresence mode="wait">
+                        {selectedIds.length > 0 ? (
                             <motion.div
-                                layout
-                                className="relative w-full flex-1 min-w-0"
+                                key="bulk-actions"
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                className="flex flex-col sm:flex-row items-center gap-3 w-full bg-neutral-50 px-4 py-2.5 sm:py-0 sm:h-[42px] rounded-xl border border-neutral-200 xl:justify-end"
                             >
-                                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search clients, phone, email, or status..."
-                                    value={searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
-                                />
+                                <span className="text-sm font-bold text-neutral-700 sm:mr-2 whitespace-nowrap">
+                                    {selectedIds.length} Selected
+                                </span>
+
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <button
+                                        onClick={() => setBulkAction("accept")}
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        Mark as Accepted
+                                    </button>
+
+                                    <button
+                                        onClick={() => setBulkAction("cancel")}
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-red-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-600 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        Cancel Selected
+                                    </button>
+
+                                    <button
+                                        onClick={() => setBulkAction("archive")}
+                                        className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-700 hover:border-black hover:text-black transition-all cursor-pointer whitespace-nowrap"
+                                    >
+                                        Archive Selected
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSelectedIds([])}
+                                        className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer rounded-lg hover:bg-neutral-200 ml-1 shrink-0"
+                                        title="Clear Selection"
+                                    >
+                                        <CloseIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </motion.div>
-
+                        ) : (
                             <motion.div
+                                key="filters"
                                 layout
-                                className="w-full sm:w-auto min-w-[11rem] sm:max-w-[50%] shrink-0 mt-3 sm:mt-0 sm:ml-3"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.2, ease: smoothEase }}
+                                /* FIX 2: Removed xl:justify-end and xl:max-w-2xl so it spans 100% of the available area */
+                                className="flex flex-col sm:flex-row items-center w-full"
                             >
-                                <AnimatedSelect
-                                    value={filterType}
-                                    placeholder="All Projects"
-                                    options={PROJECT_TYPES}
-                                    className="py-2.5"
-                                    onChange={(id) => {
-                                        setFilterType(id);
-                                        setPage(1);
-                                    }}
-                                />
-                            </motion.div>
+                                <motion.div
+                                    layout
+                                    /* FIX 3: flex-1 allows this specific input wrapper to stretch and eat up all empty space */
+                                    className="relative w-full flex-1 min-w-0"
+                                >
+                                    <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search clients, phone, email..."
+                                        value={searchTerm}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            setPage(1);
+                                        }}
+                                        className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
+                                    />
+                                </motion.div>
 
-                            <motion.div
-                                layout
-                                className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3"
-                            >
-                                <AnimatePresence>
-                                    {(searchTerm || filterType !== "") && (
-                                        <motion.div
-                                            layout
-                                            initial={{
-                                                opacity: 0,
-                                                height: 0,
-                                                width: 0,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                height: "auto",
-                                                width: "auto",
-                                            }}
-                                            exit={{
-                                                opacity: 0,
-                                                height: 0,
-                                                width: 0,
-                                            }}
-                                            transition={{
-                                                duration: 0.25,
-                                                ease: smoothEase,
-                                            }}
-                                            className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
-                                        >
+                                <motion.div
+                                    layout
+                                    className="w-full sm:w-auto min-w-[11rem] sm:max-w-[50%] shrink-0 mt-3 sm:mt-0 sm:ml-3"
+                                >
+                                    <AnimatedSelect
+                                        value={filterType}
+                                        placeholder="All Projects"
+                                        options={PROJECT_TYPES}
+                                        className="py-2.5"
+                                        onChange={(id) => {
+                                            setFilterType(id);
+                                            setPage(1);
+                                        }}
+                                    />
+                                </motion.div>
+
+                                <motion.div
+                                    layout
+                                    className="flex flex-col sm:flex-row items-center w-full sm:w-auto mt-3 sm:mt-0 sm:ml-3 shrink-0"
+                                >
+                                    <AnimatePresence>
+                                        {(searchTerm || filterType !== "") && (
                                             <motion.div
-                                                initial={{ x: -20 }}
-                                                animate={{ x: 0 }}
-                                                exit={{ x: -20 }}
+                                                layout
+                                                initial={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                    width: 0,
+                                                }}
+                                                animate={{
+                                                    opacity: 1,
+                                                    height: "auto",
+                                                    width: "auto",
+                                                }}
+                                                exit={{
+                                                    opacity: 0,
+                                                    height: 0,
+                                                    width: 0,
+                                                }}
                                                 transition={{
                                                     duration: 0.25,
                                                     ease: smoothEase,
                                                 }}
-                                                className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
+                                                className="overflow-hidden self-stretch sm:self-auto shrink-0 sm:!h-[42px]"
                                             >
-                                                <button
-                                                    onClick={() => {
-                                                        setSearchTerm("");
-                                                        setFilterType("");
-                                                        setPage(1);
+                                                <motion.div
+                                                    initial={{ x: -20 }}
+                                                    animate={{ x: 0 }}
+                                                    exit={{ x: -20 }}
+                                                    transition={{
+                                                        duration: 0.25,
+                                                        ease: smoothEase,
                                                     }}
-                                                    className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    className="pb-3 sm:pb-0 sm:pr-3 w-full h-full"
                                                 >
-                                                    Clear
-                                                </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSearchTerm("");
+                                                            setFilterType("");
+                                                            setPage(1);
+                                                        }}
+                                                        className="w-full sm:w-auto text-red-400 rounded-xl bg-white border border-neutral-200 h-[42px] hover:border-neutral-300 px-6 text-sm hover:text-red-600 font-medium transition-colors active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </motion.div>
                                             </motion.div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+                                        )}
+                                    </AnimatePresence>
 
-                                <motion.button
-                                    layout
-                                    transition={{
-                                        duration: 0.25,
-                                        ease: smoothEase,
-                                    }}
-                                    onClick={fetchConsultations}
-                                    className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
-                                    title="Refresh Table"
-                                >
-                                    <RefreshIcon
-                                        className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
-                                    />
-                                </motion.button>
+                                    <motion.button
+                                        layout
+                                        transition={{
+                                            duration: 0.25,
+                                            ease: smoothEase,
+                                        }}
+                                        onClick={fetchConsultations}
+                                        className="w-full sm:w-[42px] h-[42px] shrink-0 rounded-xl border border-neutral-200 bg-white text-neutral-400 hover:text-black transition-colors flex justify-center items-center cursor-pointer overflow-hidden hover:border-neutral-300"
+                                        title="Refresh Table"
+                                    >
+                                        <RefreshIcon
+                                            className={`w-4 h-4 shrink-0 ${loading ? "animate-spin text-black" : ""}`}
+                                        />
+                                    </motion.button>
+                                </motion.div>
                             </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[500px]">
@@ -1044,7 +1052,9 @@ export default function AdminBookingConsultations() {
                                         <th className="py-4 px-5 w-12 align-middle">
                                             <input
                                                 type="checkbox"
-                                                checked={areAllCurrentPageSelected}
+                                                checked={
+                                                    areAllCurrentPageSelected
+                                                }
                                                 onChange={handleSelectAll}
                                                 className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                             />
@@ -1070,7 +1080,8 @@ export default function AdminBookingConsultations() {
                                 <tbody className="divide-y divide-neutral-100">
                                     {paginated.map((c) => {
                                         const status = getBookingStatus(c);
-                                        const statusMeta = getStatusMeta(status);
+                                        const statusMeta =
+                                            getStatusMeta(status);
 
                                         return (
                                             <tr
@@ -1126,7 +1137,8 @@ export default function AdminBookingConsultations() {
 
                                                 <td className="py-4 px-5 align-middle">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
-                                                        {c.project_type || "N/A"}
+                                                        {c.project_type ||
+                                                            "N/A"}
                                                     </span>
                                                 </td>
 
@@ -1313,7 +1325,8 @@ export default function AdminBookingConsultations() {
                                         Client
                                     </p>
                                     <p className="text-2xl font-black text-neutral-900 leading-tight">
-                                        {selected.first_name} {selected.last_name}
+                                        {selected.first_name}{" "}
+                                        {selected.last_name}
                                     </p>
                                     <p className="text-sm font-medium text-neutral-600 mt-1">
                                         {selected.email}
@@ -1352,7 +1365,8 @@ export default function AdminBookingConsultations() {
                                         Booking Status
                                     </p>
                                     {(() => {
-                                        const status = getBookingStatus(selected);
+                                        const status =
+                                            getBookingStatus(selected);
                                         const meta = getStatusMeta(status);
 
                                         return (
@@ -1399,7 +1413,9 @@ export default function AdminBookingConsultations() {
                                 {activeTab === "archived" ? (
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => handleRestore(selected)}
+                                            onClick={() =>
+                                                handleRestore(selected)
+                                            }
                                             disabled={updating}
                                             className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         >
@@ -1421,7 +1437,9 @@ export default function AdminBookingConsultations() {
                                 ) : (
                                     <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar">
                                         <button
-                                            onClick={() => handleAccept(selected)}
+                                            onClick={() =>
+                                                handleAccept(selected)
+                                            }
                                             disabled={
                                                 updating ||
                                                 getBookingStatus(selected) ===
@@ -1501,7 +1519,9 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating ? "Cancelling..." : "Yes, cancel it"}
+                                    {updating
+                                        ? "Cancelling..."
+                                        : "Yes, cancel it"}
                                 </button>
                                 <button
                                     onClick={() => setCancelTarget(null)}
@@ -1556,19 +1576,31 @@ export default function AdminBookingConsultations() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <input
                                             type="date"
-                                            value={rescheduleForm.consultation_date?.split("T")[0] || ""}
+                                            value={
+                                                rescheduleForm.consultation_date?.split(
+                                                    "T",
+                                                )[0] || ""
+                                            }
                                             onChange={(e) =>
                                                 setRescheduleForm((prev) => ({
                                                     ...prev,
                                                     consultation_date: `${e.target.value}T${prev.consultation_date?.split("T")[1] || "09:00"}`,
                                                 }))
                                             }
-                                            min={new Date().toISOString().split("T")[0]}
+                                            min={
+                                                new Date()
+                                                    .toISOString()
+                                                    .split("T")[0]
+                                            }
                                             className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
                                         />
 
                                         <select
-                                            value={rescheduleForm.consultation_date?.split("T")[1] || ""}
+                                            value={
+                                                rescheduleForm.consultation_date?.split(
+                                                    "T",
+                                                )[1] || ""
+                                            }
                                             onChange={(e) =>
                                                 setRescheduleForm((prev) => ({
                                                     ...prev,
@@ -1581,23 +1613,38 @@ export default function AdminBookingConsultations() {
                                                 Select Time
                                             </option>
 
-                                            {Array.from({ length: 17 }).map((_, i) => {
-                                                const totalMinutes = 9 * 60 + i * 30;
-                                                const hours = Math.floor(totalMinutes / 60);
-                                                const minutes = totalMinutes % 60;
+                                            {Array.from({ length: 17 }).map(
+                                                (_, i) => {
+                                                    const totalMinutes =
+                                                        9 * 60 + i * 30;
+                                                    const hours = Math.floor(
+                                                        totalMinutes / 60,
+                                                    );
+                                                    const minutes =
+                                                        totalMinutes % 60;
 
-                                                const formattedHours12 = hours % 12 === 0 ? 12 : hours % 12;
-                                                const ampm = hours < 12 ? "AM" : "PM";
+                                                    const formattedHours12 =
+                                                        hours % 12 === 0
+                                                            ? 12
+                                                            : hours % 12;
+                                                    const ampm =
+                                                        hours < 12
+                                                            ? "AM"
+                                                            : "PM";
 
-                                                const label = `${formattedHours12}:${minutes === 0 ? "00" : minutes} ${ampm}`;
-                                                const val = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+                                                    const label = `${formattedHours12}:${minutes === 0 ? "00" : minutes} ${ampm}`;
+                                                    const val = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 
-                                                return (
-                                                    <option key={val} value={val}>
-                                                        {label}
-                                                    </option>
-                                                );
-                                            })}
+                                                    return (
+                                                        <option
+                                                            key={val}
+                                                            value={val}
+                                                        >
+                                                            {label}
+                                                        </option>
+                                                    );
+                                                },
+                                            )}
                                         </select>
                                     </div>
                                 </div>
@@ -1681,7 +1728,9 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating ? "Archiving..." : "Yes, archive it"}
+                                    {updating
+                                        ? "Archiving..."
+                                        : "Yes, archive it"}
                                 </button>
                                 <button
                                     onClick={() => setArchiveTarget(null)}
@@ -1731,7 +1780,9 @@ export default function AdminBookingConsultations() {
                                     disabled={updating}
                                     className="w-full rounded-full bg-red-600 px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-red-700 disabled:opacity-50 cursor-pointer"
                                 >
-                                    {updating ? "Deleting..." : "Yes, delete it"}
+                                    {updating
+                                        ? "Deleting..."
+                                        : "Yes, delete it"}
                                 </button>
                                 <button
                                     onClick={() => setDeleteTarget(null)}

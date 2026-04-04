@@ -4,7 +4,13 @@ import "leaflet/dist/leaflet.css";
 
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+    Navigate,
+    Outlet,
+} from "react-router-dom";
 
 import RootLayout from "./layouts/RootLayout";
 
@@ -43,14 +49,14 @@ function clearSession() {
 
 function ProtectedRoute() {
     const token =
-        localStorage.getItem("admin_token") ||
-        localStorage.getItem("token");
+        localStorage.getItem("admin_token") || localStorage.getItem("token");
 
     const lastActivity = parseInt(
         localStorage.getItem("admin_last_activity") || "0",
         10,
     );
-    const isExpired = lastActivity > 0 && Date.now() - lastActivity > TIMEOUT_MS;
+    const isExpired =
+        lastActivity > 0 && Date.now() - lastActivity > TIMEOUT_MS;
 
     useEffect(() => {
         if (!token) return;
@@ -62,8 +68,16 @@ function ProtectedRoute() {
         const stamp = () =>
             localStorage.setItem("admin_last_activity", Date.now().toString());
 
-        const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
-        events.forEach((e) => window.addEventListener(e, stamp, { passive: true }));
+        const events = [
+            "mousemove",
+            "mousedown",
+            "keydown",
+            "touchstart",
+            "scroll",
+        ];
+        events.forEach((e) =>
+            window.addEventListener(e, stamp, { passive: true }),
+        );
 
         const timer = setInterval(() => {
             const last = parseInt(
@@ -108,18 +122,39 @@ ReactDOM.createRoot(document.getElementById("app")).render(
 
             <Route element={<ProtectedRoute />}>
                 <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route
+                        index
+                        element={<Navigate to="/admin/dashboard" replace />}
+                    />
                     <Route path="dashboard" element={<AdminDashboard />} />
-                    <Route path="consultations" element={<AdminBookingConsultations />} />
+                    <Route
+                        path="consultations"
+                        element={<AdminBookingConsultations />}
+                    />
                     <Route path="content/home" element={<AdminContentHome />} />
-                    <Route path="content/services" element={<AdminContentServices />} />
-                    <Route path="content/projects" element={<AdminContentProjects />} />
-                    <Route path="content/about" element={<AdminContentAbout />} />
-                    <Route path="content/contact" element={<AdminContentContact />} />
+                    <Route
+                        path="content/services"
+                        element={<AdminContentServices />}
+                    />
+                    <Route
+                        path="content/projects"
+                        element={<AdminContentProjects />}
+                    />
+                    <Route
+                        path="content/about"
+                        element={<AdminContentAbout />}
+                    />
+                    <Route
+                        path="content/contact"
+                        element={<AdminContentContact />}
+                    />
                     <Route path="users" element={<AdminManagement />} />
                     <Route path="profile" element={<AdminProfile />} />
                     <Route path="inquiries" element={<AdminInquiries />} />
-                    <Route path="settings" element={<AdminPlatformSettings />} />
+                    <Route
+                        path="settings"
+                        element={<AdminPlatformSettings />}
+                    />
                 </Route>
             </Route>
         </Routes>
