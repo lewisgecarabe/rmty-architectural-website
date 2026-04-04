@@ -3,68 +3,144 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectCard from "../components/ProjectCard";
 
-// Array of images for the hero carousel
-const heroImages = [
-    "./images/home-hero.webp",
-    "./images/home-hero-2.webp",
-    "./images/home-hero-3.webp",
-];
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+// Reusable Placeholder
+function ImagePlaceholder({ className = "", label = "Image" }) {
+    return (
+        <div
+            className={`grid place-items-center bg-neutral-200 text-neutral-500 ${className}`}
+        >
+            <div className="text-xs font-medium tracking-[0.2em] uppercase">
+                {label}
+            </div>
+        </div>
+    );
+}
 
 export default function Home() {
     const [featuredProjects, setFeaturedProjects] = useState([]);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [content, setContent] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // 1. Fetch featured projects
     useEffect(() => {
-        const fetchFeaturedProjects = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch("/api/projects");
-                const data = await res.json();
-                setFeaturedProjects(data.slice(0, 3));
+                let loadedContent = null;
+
+                // 1. Fetch Home Content
+                const contentRes = await fetch(`${API_BASE}/api/home-content`);
+                if (contentRes.ok) {
+                    const contentData = await contentRes.json();
+                    loadedContent = contentData.data;
+                    setContent(loadedContent);
+                }
+
+                // 2. Fetch Projects
+                const projectsRes = await fetch(`${API_BASE}/api/projects`);
+                if (projectsRes.ok) {
+                    const projectsData = await projectsRes.json();
+                    setFeaturedProjects(projectsData.slice(0, 3));
+                }
+
+                // 3. Preload the first hero image
+                if (
+                    loadedContent &&
+                    loadedContent.hero_image_1 &&
+                    loadedContent.hero_image_1.trim() !== ""
+                ) {
+                    await new Promise((resolve) => {
+                        const img = new Image();
+                        img.src = `${API_BASE}/storage/${loadedContent.hero_image_1}`;
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+                }
             } catch (error) {
-                console.error("Failed to fetch featured projects:", error);
+                console.error("Failed to fetch home data:", error);
+            } finally {
+                setLoading(false);
             }
         };
 
-        fetchFeaturedProjects();
+        fetchData();
         window.scrollTo(0, 0);
     }, []);
 
-    // 2. Hero Carousel Timer (Changes every 5 seconds)
+    const activeHeroImages = [
+        content?.hero_image_1 && content.hero_image_1.trim() !== ""
+            ? `${API_BASE}/storage/${content.hero_image_1}`
+            : null,
+        content?.hero_image_2 && content.hero_image_2.trim() !== ""
+            ? `${API_BASE}/storage/${content.hero_image_2}`
+            : null,
+        content?.hero_image_3 && content.hero_image_3.trim() !== ""
+            ? `${API_BASE}/storage/${content.hero_image_3}`
+            : null,
+    ];
+
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentImageIndex(
-                (prevIndex) => (prevIndex + 1) % heroImages.length,
+                (prevIndex) => (prevIndex + 1) % activeHeroImages.length,
             );
         }, 5000);
-
-        // Cleanup the timer when the component unmounts
         return () => clearInterval(timer);
-    }, []);
+    }, [activeHeroImages.length]);
+
+    // NOTICE: We removed the full-page "if (loading)" block here!
 
     return (
         <>
             {/* --- HERO SECTION --- */}
             <section className="relative w-full h-screen bg-black overflow-hidden">
-                {/* Animated Background Layer */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black">
-                    <AnimatePresence mode="popLayout">
-                        <motion.img
-                            key={currentImageIndex} // Key tells Framer Motion when to trigger the animation
-                            src={heroImages[currentImageIndex]}
-                            alt={`RMTY Hero ${currentImageIndex + 1}`}
-                            // Initial state: Invisible and slightly zoomed in
-                            initial={{ opacity: 0, scale: 1.05 }}
-                            // Animate state: Fully visible, normal scale
-                            animate={{ opacity: 1, scale: 1 }}
-                            // Exit state: Fades out
-                            exit={{ opacity: 0 }}
-                            // Transition timing: Slow, smooth 1.5 second crossfade
-                            transition={{ duration: 1.5, ease: "easeInOut" }}
-                            className="absolute inset-0 w-full h-full object-cover"
-                        />
+                    {/* USER'S LOADING OVERLAY FOR HERO */}
+                    <AnimatePresence>
+                        {loading && (
+                            <motion.div
+                                key="hero-loading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 gap-4"
+                            >
+                                <div className="w-8 h-8 border-4 border-neutral-800 border-t-white rounded-full animate-spin" />
+                            </motion.div>
+                        )}
                     </AnimatePresence>
-                    {/* Dark Overlay so the white text is always readable */}
+
+                    <AnimatePresence mode="popLayout">
+                        {!loading && activeHeroImages[currentImageIndex] ? (
+                            <motion.img
+                                key={`img-${currentImageIndex}`}
+                                src={activeHeroImages[currentImageIndex]}
+                                alt={`RMTY Hero ${currentImageIndex + 1}`}
+                                initial={{ opacity: 0, scale: 1.05 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{
+                                    duration: 1.5,
+                                    ease: "easeInOut",
+                                }}
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        ) : !loading ? (
+                            <motion.div
+                                key={`placeholder-${currentImageIndex}`}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 w-full h-full"
+                            >
+                                <ImagePlaceholder
+                                    label={`HERO IMAGE ${currentImageIndex + 1}`}
+                                    className="w-full h-full"
+                                />
+                            </motion.div>
+                        ) : null}
+                    </AnimatePresence>
                     <div className="absolute inset-0 bg-black/30 z-10" />
                 </div>
 
@@ -73,16 +149,14 @@ export default function Home() {
                         <div className="md:col-span-2">
                             <div className="text-white [font-family:var(--font-neue)] mb-6 md:mb-12">
                                 <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold tracking-tighter uppercase leading-none">
-                                    RMTY Designs
+                                    {content?.hero_title_1 || "RMTY Designs"}
                                 </h1>
                                 <h2 className="text-2xl md:text-3xl lg:text-5xl font-normal tracking-tight leading-none mt-2">
-                                    Studio
+                                    {content?.hero_title_2 || "Studio"}
                                 </h2>
                             </div>
                         </div>
-                        <div className="hidden md:block"></div>
                     </div>
-
                     <div className="w-full flex items-end mt-2 md:justify-center">
                         <div className="w-full md:w-1/2 md:h-10 border-b-2 border-white"></div>
                     </div>
@@ -94,39 +168,53 @@ export default function Home() {
                 <div className="max-w-screen-2xl mx-auto px-6">
                     <div className="mb-16 max-w-2xl">
                         <h3 className="text-3xl md:text-4xl font-bold uppercase tracking-tight mb-6">
-                            Design With Purpose
+                            {content?.featured_heading || "Design With Purpose"}
                         </h3>
-                        <p className="text-gray-600 text-sm md:text-base leading-relaxed">
-                            At vero eos et accusamus et iusto odio dignissimos
-                            ducimus qui blanditiis praesentium voluptatum
-                            deleniti atque corrupti quos dolores et quas
-                            molestias excepturi sint occaecati cupiditate non
-                            provident, similique sunt in culpa qui officia
-                            deserunt mollitia animi.
+                        <p className="text-gray-600 text-sm md:text-base leading-relaxed whitespace-pre-wrap">
+                            {content?.featured_description ||
+                                "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi."}
                         </p>
                     </div>
 
-                    {/* Dynamic Grid of Featured Projects */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-                        {featuredProjects.map((project) => (
-                            <div
-                                key={project.id || project.slug}
-                                className={project.colSpan || "col-span-1"}
-                            >
-                                <ProjectCard
-                                    title={project.title}
-                                    category={
-                                        project.category?.name ||
-                                        project.location
-                                    }
-                                    slug={project.slug || project.id}
-                                    image={project.image}
-                                    aspectRatio={
-                                        project.aspect || "aspect-[4/3]"
-                                    }
-                                />
-                            </div>
-                        ))}
+                        {/* FEATURED PROJECTS OVERLAY */}
+                        <AnimatePresence>
+                            {loading && (
+                                <motion.div
+                                    key="projects-loading"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="col-span-full h-64 bg-white/80 z-20 flex flex-col items-center justify-center p-8 gap-4 rounded-2xl"
+                                >
+                                    <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />
+                                    <p className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
+                                        Fetching Projects
+                                    </p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {!loading &&
+                            featuredProjects.map((project) => (
+                                <div
+                                    key={project.id || project.slug}
+                                    className={project.colSpan || "col-span-1"}
+                                >
+                                    <ProjectCard
+                                        title={project.title}
+                                        category={
+                                            project.category?.name ||
+                                            project.location
+                                        }
+                                        slug={project.slug || project.id}
+                                        image={project.image}
+                                        aspectRatio={
+                                            project.aspect || "aspect-[4/3]"
+                                        }
+                                    />
+                                </div>
+                            ))}
                     </div>
 
                     <div className="mt-20 flex justify-center">
@@ -148,52 +236,76 @@ export default function Home() {
                 <div className="max-w-screen-2xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="flex flex-col items-start justify-center h-full">
                         <h2 className="text-4xl md:text-6xl font-normal tracking-tight mb-12">
-                            Contact Us.
+                            {content?.contact_heading || "Contact Us."}
                         </h2>
                         <div className="space-y-8 w-full max-w-md">
                             <div>
                                 <p className="text-gray-500 text-sm mb-1">
-                                    Email
+                                    {content?.contact_email_label || "Email"}
                                 </p>
                                 <a
-                                    href="mailto:rmty.architects@gmail.com"
+                                    href={`mailto:${content?.contact_email || "rmty.architects@gmail.com"}`}
                                     className="text-lg md:text-xl font-medium hover:text-gray-300 transition-colors"
                                 >
-                                    rmty.architects@gmail.com
+                                    {content?.contact_email ||
+                                        "rmty.architects@gmail.com"}
                                 </a>
                             </div>
                             <div>
                                 <p className="text-gray-500 text-sm mb-1">
-                                    Phone
+                                    {content?.contact_phone_label || "Phone"}
                                 </p>
                                 <p className="text-lg md:text-xl font-medium">
-                                    0915 896 2275
+                                    {content?.contact_phone || "0915 896 2275"}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-gray-500 text-sm mb-1">
-                                    Address
+                                    {content?.contact_address_label ||
+                                        "Address"}
                                 </p>
-                                <p className="text-lg md:text-xl font-medium leading-relaxed">
-                                    911 Josefina 2 Sampaloc, Manila,
-                                    <br />
-                                    Philippines
+                                <p className="text-lg md:text-xl font-medium leading-relaxed whitespace-pre-wrap">
+                                    {content?.contact_address ||
+                                        "911 Josefina 2 Sampaloc, Manila,\nPhilippines"}
                                 </p>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex flex-col gap-6">
-                        <div className="w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden">
-                            <div className="relative w-full h-full group">
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <img
-                                        src="./images/home-contact-us.webp"
-                                        alt="Contact Image"
-                                        className="w-full h-full object-cover grayscale"
-                                    />
+                        <div className="w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden rounded-sm relative">
+                            {/* USER'S LOADING OVERLAY FOR CONTACT IMAGE */}
+                            <AnimatePresence>
+                                {loading && (
+                                    <motion.div
+                                        key="contact-loading"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 bg-black/80 z-20 flex flex-col items-center justify-center p-8 gap-4"
+                                    >
+                                        <div className="w-8 h-8 border-4 border-neutral-800 border-t-white rounded-full animate-spin" />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {!loading && (
+                                <div className="relative w-full h-full group">
+                                    {content?.contact_image &&
+                                    content.contact_image.trim() !== "" ? (
+                                        <img
+                                            src={`${API_BASE}/storage/${content.contact_image}`}
+                                            alt="Contact"
+                                            className="w-full h-full object-cover grayscale"
+                                        />
+                                    ) : (
+                                        <ImagePlaceholder
+                                            label="CONTACT IMAGE"
+                                            className="w-full h-full"
+                                        />
+                                    )}
                                 </div>
-                            </div>
+                            )}
                         </div>
                         <div>
                             <Link
@@ -201,7 +313,7 @@ export default function Home() {
                                 className="group inline-flex items-center gap-3 text-2xl md:text-3xl font-normal hover:opacity-80 transition-opacity"
                             >
                                 <span className="border-b border-transparent group-hover:border-white transition-all">
-                                    Let’s Talk!
+                                    {content?.contact_cta || "Let’s Talk!"}
                                 </span>
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"

@@ -87,6 +87,16 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 
     const contentNav = [
         {
+            label: "Home",
+            to: "/admin/content/home",
+            icon: <HomeIcon />,
+        },
+        {
+            label: "About Us",
+            to: "/admin/content/about",
+            icon: <DocumentIcon />,
+        },
+        {
             label: "Projects",
             to: "/admin/content/projects",
             icon: <FolderIcon />,
@@ -97,9 +107,9 @@ function AdminSidebar({ isOpen, setIsOpen }) {
             icon: <LayersIcon />,
         },
         {
-            label: "About Us",
-            to: "/admin/content/about",
-            icon: <DocumentIcon />,
+            label: "Contact",
+            to: "/admin/content/contact",
+            icon: <ContactIcon />,
         },
     ];
 
@@ -1377,6 +1387,51 @@ function UploadIcon({ className = "w-4 h-4" }) {
                 y1="3"
                 x2="12"
                 y2="15"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+function HomeIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="9 22 9 12 15 12 15 22"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
+function ContactIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+        >
+            <path
+                d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline
+                points="22,6 12,13 2,6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
             />

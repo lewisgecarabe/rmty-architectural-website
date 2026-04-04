@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Inquiry;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\InquiryNotification;
 
 class InquiryNormalizer
 {
@@ -110,31 +112,39 @@ class InquiryNormalizer
     }
 
     // ─── Website Contact Form ─────────────────────────────────────
-    public function fromWebsite(array $data): ?Inquiry
+    public function fromWebsite(array $data, ?int $userId = null): ?Inquiry
     {
         try {
-            return $this->store([
+            $inquiry = $this->store([
                 'platform' => 'website',
                 'name'     => $data['name'] ?? null,
                 'email'    => $data['email'] ?? null,
                 'phone'    => $data['phone'] ?? null,
                 'message'  => $data['message'],
             ]);
+
         } catch (\Throwable $e) {
             Log::error('[Inquiry] Website normalize error', ['error' => $e->getMessage()]);
             return null;
         }
     }
 
+
     // ─── Internal ─────────────────────────────────────────────────
     private function store(array $data): Inquiry
     {
         if (!empty($data['external_id'])) {
-            return Inquiry::firstOrCreate(
+            $inquiry = Inquiry::firstOrCreate(
                 ['external_id' => $data['external_id']],
                 $data
             );
+        } else {
+            $inquiry = Inquiry::create($data);
         }
-        return Inquiry::create($data);
+
+        
+        Mail::to('gecarane@gmail.com')->send(new InquiryNotification($inquiry));
+
+        return $inquiry;
     }
 }

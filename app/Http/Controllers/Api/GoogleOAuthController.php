@@ -20,7 +20,7 @@ class GoogleOAuthController
     {
         $client = $this->buildBaseClient();
         // Store user_id in state param so callback knows who is connecting
-        $client->setState(auth()->id());
+        $client->setState(1);
         return response()->json(['url' => $client->createAuthUrl()]);
     }
 

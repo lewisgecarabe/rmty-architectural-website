@@ -1,5 +1,6 @@
 <?php
 
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\ProjectController;
@@ -12,10 +13,16 @@ use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\GoogleOAuthController;
 use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\HomePageContentController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Models\Inquiry;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
+
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/dashboard', function () {
@@ -34,6 +41,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 
 Route::get('/services', [ServiceController::class, 'index']);
 Route::get('/about', [AboutSectionController::class, 'index']);
+Route::get('/home-content', [HomePageContentController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/projects', [ProjectController::class, 'adminIndex']);
@@ -54,9 +62,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/about/{id}', [AboutSectionController::class, 'update']);
     Route::post('/about/{id}', [AboutSectionController::class, 'update']);
     Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
+
+    Route::get('/admin/home-content', [HomePageContentController::class, 'index']); 
+    Route::post('/admin/home-content', [HomePageContentController::class, 'store']);
 });
 
 // Consultation booking — public (contact form)
+Route::post('/inquiries', [InquiryController::class, 'store']);
 Route::post('/consultations', [ConsultationController::class, 'store']);
 
 Route::post('password/send-otp', [PasswordResetController::class, 'sendOtp']);
@@ -77,7 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/inquiries/stats', [InquiryController::class, 'stats']);
     Route::get('/inquiries', [InquiryController::class, 'index']);
-    Route::post('/inquiries', [InquiryController::class, 'store']);
+    
     Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show']);
     Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
@@ -95,17 +107,18 @@ Route::get('/admin/google/callback',   [GoogleOAuthController::class,   'handleC
 Route::get('/admin/facebook/callback', [FacebookOAuthController::class, 'handleCallback']);
 
 // ── Platform Settings (protected) ────────────────────────────
+Route::get('/admin/google/auth-url', [GoogleOAuthController::class, 'getAuthUrl']);
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/admin/google/auth-url',          [GoogleOAuthController::class,   'getAuthUrl']);
-    Route::get('/admin/google/status',            [GoogleOAuthController::class,   'status']);
-    Route::delete('/admin/google/disconnect',     [GoogleOAuthController::class,   'disconnect']);
+    Route::get('/admin/google/auth-url',        [GoogleOAuthController::class,   'getAuthUrl']);
+    Route::get('/admin/google/status',          [GoogleOAuthController::class,   'status']);
+    Route::delete('/admin/google/disconnect',   [GoogleOAuthController::class,   'disconnect']);
+Route::post('/admin/facebook/connect-manual',  [FacebookOAuthController::class, 'connectManual']);
+Route::post('/admin/instagram/connect-manual', [FacebookOAuthController::class, 'connectInstagramManual']);
+Route::delete('/admin/instagram/disconnect',   [FacebookOAuthController::class, 'disconnectInstagram']);
+    Route::get('/admin/facebook/auth-url',      [FacebookOAuthController::class, 'getAuthUrl']);
+    Route::get('/admin/facebook/status',        [FacebookOAuthController::class, 'status']);
+    Route::delete('/admin/facebook/disconnect', [FacebookOAuthController::class, 'disconnect']);
 
-    Route::post('/admin/facebook/connect-manual',  [FacebookOAuthController::class, 'connectManual']);
-    Route::post('/admin/instagram/connect-manual', [FacebookOAuthController::class, 'connectInstagramManual']);
-    Route::delete('/admin/instagram/disconnect',   [FacebookOAuthController::class, 'disconnectInstagram']);
-    Route::get('/admin/facebook/auth-url',         [FacebookOAuthController::class, 'getAuthUrl']);
-    Route::get('/admin/facebook/status',           [FacebookOAuthController::class, 'status']);
-    Route::delete('/admin/facebook/disconnect',    [FacebookOAuthController::class, 'disconnect']);
 });
 
 // ── Webhook Routes (public — verified by platform signatures) ──

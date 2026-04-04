@@ -21,8 +21,8 @@ class GmailSender
         string $body,
         ?string $threadId  = null,
         ?string $inReplyTo = null,
-        ?int    $userId    = null
-    ): bool {
+        ?int    $userId    = 1,
+    ): array {
         try {
             $client = $this->buildClient($userId);
             $gmail  = new Gmail($client);
@@ -37,13 +37,27 @@ class GmailSender
             $message->setRaw($raw);
             if ($threadId) $message->setThreadId($threadId);
 
-            $gmail->users_messages->send('me', $message);
+            $sentMessage = $gmail->users_messages->send('me', $message);
 
-            Log::info('[RMTY Gmail] Reply sent', [
-                'to'      => $toEmail,
-                'user_id' => $userId,
+            
+            $threadId = $sentMessage->getThreadId();
+            $messageId = $sentMessage->getId();
+
+            Log::info('[RMTY Gmail] Message sent with thread', [
+                'threadId' => $threadId,
+                'messageId' => $messageId,
             ]);
-            return true;
+
+            
+            return [
+                'threadId' => $threadId,
+                'messageId' => $messageId,
+            ];
+
+            return [
+                'threadId' => $threadId,
+                'messageId' => $messageId,
+            ];
 
         } catch (\Throwable $e) {
             Log::error('[RMTY Gmail] Send failed', [
@@ -56,35 +70,40 @@ class GmailSender
     }
 
     private function buildRaw(
-        string $to,
-        string $toName,
-        string $subject,
-        string $body,
-        ?string $inReplyTo,
-        string $fromEmail
-    ): string {
-        $name    = config('services.google.reply_from_name', 'RMTY Architectural');
-        $subject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+    string $to,
+    string $toName,
+    string $subject,
+    string $body,
+    ?string $inReplyTo,
+    string $fromEmail
+): string {
+    $name    = config('services.google.reply_from_name', 'RMTY Architectural');
+    $subject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
-        $headers = [
-            "From: {$name} <{$fromEmail}>",
-            "To: {$toName} <{$to}>",
-            "Subject: {$subject}",
-            "MIME-Version: 1.0",
-            "Content-Type: text/plain; charset=UTF-8",
-            "Content-Transfer-Encoding: quoted-printable",
-        ];
+    
+    $messageId = '<' . uniqid() . '@rmty-architectural.com>';
 
-        if ($inReplyTo) {
-            $headers[] = "In-Reply-To: {$inReplyTo}";
-            $headers[] = "References: {$inReplyTo}";
-        }
+    $headers = [
+        "Message-ID: {$messageId}",
+        "From: {$name} <{$fromEmail}>",
+        "To: {$toName} <{$to}>",
+        "Subject: {$subject}",
+        "MIME-Version: 1.0",
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: quoted-printable",
+    ];
 
-        $headers[] = "";
-        $headers[] = quoted_printable_encode($body);
-
-        return rtrim(strtr(base64_encode(implode("\r\n", $headers)), '+/', '-_'), '=');
+    
+    if ($inReplyTo) {
+        $headers[] = "In-Reply-To: <{$inReplyTo}>";
+        $headers[] = "References: <{$inReplyTo}>";
     }
+
+    $headers[] = "";
+    $headers[] = quoted_printable_encode($body);
+
+    return rtrim(strtr(base64_encode(implode("\r\n", $headers)), '+/', '-_'), '=');
+}
 
     private function buildClient(?int $userId): GoogleClient
     {

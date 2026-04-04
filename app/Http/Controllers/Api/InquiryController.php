@@ -1,13 +1,14 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
+use App\Mail\InquiryNotification;
 use App\Models\Inquiry;
 use App\Services\InquiryNormalizer;
 use App\Services\GmailSender;
 use App\Services\FacebookSender;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -35,19 +36,60 @@ class InquiryController
     }
 
     // POST /api/inquiries
-    public function store(Request $request): JsonResponse
+    
+   public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'    => 'nullable|string|max:255',
-            'email'   => 'nullable|email|max:255',
-            'phone'   => 'nullable|string|max:50',
-            'message' => 'required|string|max:5000',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'phone' => 'nullable|string|max:20',
+            'message' => 'required|string',
         ]);
 
-        return response()->json(
-            $this->normalizer->fromWebsite($validated, auth()->id()),
-            201
+        
+        $inquiry = Inquiry::create([
+            'platform' => 'website',
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'message' => $validated['message'],
+            'status' => 'new',
+        ]);
+
+        try {
+        $result = $this->gmailSender->send(
+            toEmail: 'lgecarane@gmail.com',
+            toName: 'Trinidad',
+            subject: 'New Inquiry from ' . $inquiry->name,
+            body: view('emails.reply', [
+                'inquiry' => $inquiry,
+                'senderName' => auth()->user()->name ?? 'RMTY Architects'
+                
+            ])->render(),
+            threadId: null,
+            inReplyTo: null,
+            userId: 1,
         );
+
+        if (!$result || !isset($result['threadId'])) {
+            throw new \Exception('Failed to send Gmail message');
+        }
+
+        $inquiry->update([
+            'raw_payload' => [
+                'threadId' => $result['threadId'],
+                'gmailMessageId' => $result['messageId'],
+            ]
+        ]);
+
+        Mail::to('lgecarane@gmail.com')
+            ->send(new InquiryNotification($inquiry));
+
+    } catch (\Exception $e) {
+        \Log::error('MAIL ERROR: ' . $e->getMessage());
+        
+    }
+        return response()->json($inquiry, 201);
     }
 
     // GET /api/inquiries/{id}
@@ -205,6 +247,6 @@ class InquiryController
             $subject = trim(str_replace('Subject:', '', explode("\n", $message)[0]));
             return str_starts_with(strtolower($subject), 're:') ? $subject : 'Re: ' . $subject;
         }
-        return 'Re: Your Inquiry';
+        return 'Re: Your Inquiry with RMTY Architectural';
     }
 }
