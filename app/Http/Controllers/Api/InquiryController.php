@@ -220,7 +220,7 @@ class InquiryController
             }
         }
 
-        $inReplyTo  = $payload['userRfcMessageId'] ?? null;
+        $inReplyTo = $payload['gmailMessageId'] ?? $payload['userRfcMessageId'] ?? null;
         $references = $payload['userRfcRefs']      ?? null;
         $subject    = $this->buildSubject($inquiry->message);
 
@@ -245,9 +245,19 @@ class InquiryController
             return response()->json(['error' => 'Failed to send. Make sure Gmail is connected in your settings.'], 500);
         }
 
-        // Build updated References chain for next reply.
-        // If there was no prior anchor (old inquiry), use THIS reply's RFC ID as the new anchor
-        // so any future reply will chain correctly.
+       Inquiry::create([
+            'platform'    => 'gmail',
+            'external_id' => $sent['messageId'] ?? null,
+            'name'        => 'You',
+            'email'       => $inquiry->email,
+            'message'     => $message,
+            'status'      => 'replied',
+            'raw_payload' => [
+                'threadId'       => $sent['threadId'] ?? null,
+                'gmailMessageId' => $sent['rfcMessageId'] ?? null,
+            ],
+        ]);
+
         $newRfcId = $sent['rfcMessageId'];
         $newRefs  = $inReplyTo
             ? ($references ? "{$references} {$inReplyTo}" : $inReplyTo)
