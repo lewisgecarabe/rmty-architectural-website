@@ -34,9 +34,9 @@ class Inquiry extends Model
         'phone',
         'message',
         'status',
+        'admin_reply',
         'replied_at',
         'raw_payload',
-        
     ];
 
     protected $casts = [
