@@ -56,39 +56,85 @@ class InquiryController
             'status' => 'new',
         ]);
 
-        try {
-        $result = $this->gmailSender->send(
-            toEmail: 'lgecarane@gmail.com',
-            toName: 'Trinidad',
-            subject: 'New Inquiry from ' . $inquiry->name,
-            body: view('emails.reply', [
-                'inquiry' => $inquiry,
-                'senderName' => auth()->user()->name ?? 'RMTY Architects'
-                
-            ])->render(),
-            threadId: null,
-            inReplyTo: null,
-            userId: 1,
-        );
+        // Find the most recent prior inquiry for this email that has a user thread anchor
+        $prior = $inquiry->email
+            ? Inquiry::where('email', $inquiry->email)
+                ->where('id', '!=', $inquiry->id)
+                ->whereNotNull('raw_payload')
+                ->latest()
+                ->get()
+                ->first(fn($i) => !empty($i->raw_payload['userRfcMessageId']))
+            : null;
 
-        if (!$result || !isset($result['threadId'])) {
-            throw new \Exception('Failed to send Gmail message');
+        $priorPayload       = $prior?->raw_payload ?? [];
+        $existingRfcId      = $priorPayload['userRfcMessageId'] ?? null;
+        $existingRfcRefs    = $priorPayload['userRfcRefs']      ?? null;
+        $existingUserThread = $priorPayload['userThreadId']     ?? null;
+
+        // 1. Admin notification — failure is logged but does NOT block user confirmation
+        $adminResult = null;
+        try {
+            $adminResult = $this->gmailSender->send(
+                toEmail:  'lgecarane@gmail.com',
+                toName:   'Trinidad',
+                subject:  'New Inquiry from ' . $inquiry->name,
+                body:     view('emails.reply', [
+                    'inquiry'    => $inquiry,
+                    'senderName' => 'RMTY Architects',
+                    'message'    => $inquiry->message,
+                ])->render(),
+                threadId:  $priorPayload['threadId']       ?? null,
+                inReplyTo: $priorPayload['gmailMessageId'] ?? null,
+                userId:    1,
+            );
+        } catch (\Throwable $e) {
+            \Log::error('[RMTY] Admin notification failed: ' . $e->getMessage());
         }
+
+        // 2. User confirmation — always attempted; chains into existing thread if one exists
+        $userConfirmResult = null;
+        if ($inquiry->email) {
+            try {
+                $userConfirmResult = $this->gmailSender->send(
+                    toEmail:    $inquiry->email,
+                    toName:     $inquiry->name ?? $inquiry->email,
+                    subject:    'Your Inquiry with RMTY Architectural',
+                    body:       view('emails.inquiry_confirmation', [
+                        'name'        => $inquiry->name ?? 'there',
+                        'userMessage' => $inquiry->message,
+                    ])->render(),
+                    threadId:   null,
+                    inReplyTo:  $existingRfcId,
+                    userId:     1,
+                    references: $existingRfcRefs,
+                );
+            } catch (\Throwable $e) {
+                \Log::error('[RMTY] User confirmation failed: ' . $e->getMessage());
+            }
+        }
+
+        // Store thread anchor so every future reply chains into the same Gmail thread
+        $confirmOk    = is_array($userConfirmResult);
+        $newUserRfcId = $confirmOk ? ($userConfirmResult['rfcMessageId'] ?? null) : null;
+        $newUserRefs  = $existingRfcId
+            ? ($existingRfcRefs ? "{$existingRfcRefs} {$existingRfcId}" : $existingRfcId)
+            : null;
 
         $inquiry->update([
             'raw_payload' => [
-                'threadId' => $result['threadId'],
-                'gmailMessageId' => $result['messageId'],
-            ]
+                'threadId'         => is_array($adminResult) ? ($adminResult['threadId']  ?? null) : null,
+                'gmailMessageId'   => is_array($adminResult) ? ($adminResult['messageId'] ?? null) : null,
+                'userRfcMessageId' => $newUserRfcId,
+                'userRfcRefs'      => $newUserRefs,
+                'userThreadId'     => $confirmOk ? ($userConfirmResult['threadId'] ?? $existingUserThread) : $existingUserThread,
+            ],
         ]);
 
-        Mail::to('lgecarane@gmail.com')
-            ->send(new InquiryNotification($inquiry));
-
-    } catch (\Exception $e) {
-        \Log::error('MAIL ERROR: ' . $e->getMessage());
-        
-    }
+        try {
+            Mail::to('lgecarane@gmail.com')->send(new InquiryNotification($inquiry));
+        } catch (\Throwable $e) {
+            \Log::error('[RMTY] InquiryNotification mail failed: ' . $e->getMessage());
+        }
         return response()->json($inquiry, 201);
     }
 
@@ -154,21 +200,68 @@ class InquiryController
             return response()->json(['error' => 'No email address found.'], 422);
         }
 
-        $subject = $this->buildSubject($inquiry->message);
+        $payload = $inquiry->raw_payload ?? [];
+
+        // If this inquiry has no thread anchor, search other inquiries from the same email
+        if (empty($payload['userRfcMessageId']) && $inquiry->email) {
+            $anchor = Inquiry::where('email', $inquiry->email)
+                ->where('id', '!=', $inquiry->id)
+                ->whereNotNull('raw_payload')
+                ->latest()
+                ->get()
+                ->first(fn($i) => !empty($i->raw_payload['userRfcMessageId']));
+
+            if ($anchor) {
+                $payload = array_merge($payload, [
+                    'userRfcMessageId' => $anchor->raw_payload['userRfcMessageId'],
+                    'userRfcRefs'      => $anchor->raw_payload['userRfcRefs']      ?? null,
+                    'userThreadId'     => $anchor->raw_payload['userThreadId']     ?? null,
+                ]);
+            }
+        }
+
+        $inReplyTo  = $payload['userRfcMessageId'] ?? null;
+        $references = $payload['userRfcRefs']      ?? null;
+        $subject    = $this->buildSubject($inquiry->message);
+
+        \Log::info('[RMTY Reply] Sending reply', [
+            'inquiry_id' => $inquiry->id,
+            'to'         => $inquiry->email,
+            'inReplyTo'  => $inReplyTo ?? '(none — will start new thread)',
+        ]);
 
         $sent = $this->gmailSender->send(
-            toEmail:   $inquiry->email,
-            toName:    $inquiry->name ?? $inquiry->email,
-            subject:   $subject,
-            body:      $message,
-            threadId:  $inquiry->raw_payload['threadId']       ?? null,
-            inReplyTo: $inquiry->raw_payload['gmailMessageId'] ?? null,
-            userId:    $userId
+            toEmail:    $inquiry->email,
+            toName:     $inquiry->name ?? $inquiry->email,
+            subject:    $subject,
+            body:       $message,
+            threadId:   null,
+            inReplyTo:  $inReplyTo,
+            userId:     $userId,
+            references: $references,
         );
 
-        if (!$sent) {
+        if (!$sent || !is_array($sent)) {
             return response()->json(['error' => 'Failed to send. Make sure Gmail is connected in your settings.'], 500);
         }
+
+        // Build updated References chain for next reply.
+        // If there was no prior anchor (old inquiry), use THIS reply's RFC ID as the new anchor
+        // so any future reply will chain correctly.
+        $newRfcId = $sent['rfcMessageId'];
+        $newRefs  = $inReplyTo
+            ? ($references ? "{$references} {$inReplyTo}" : $inReplyTo)
+            : null;
+
+        $inquiry->update([
+            'admin_reply' => $message,
+            'replied_at'  => now(),
+            'raw_payload' => array_merge($payload, [
+                'userRfcMessageId' => $newRfcId,
+                'userRfcRefs'      => $newRefs,
+                'userThreadId'     => $sent['threadId'] ?? ($payload['userThreadId'] ?? null),
+            ]),
+        ]);
 
         $inquiry->markReplied();
         return response()->json(['message' => 'Reply sent via Gmail.', 'inquiry' => $inquiry->fresh()]);
@@ -188,6 +281,7 @@ class InquiryController
             return response()->json(['error' => 'Failed to send. Make sure Facebook is connected in your settings.'], 500);
         }
 
+        $inquiry->update(['admin_reply' => $message, 'replied_at' => now()]);
         $inquiry->markReplied();
         return response()->json(['message' => 'Reply sent via Facebook.', 'inquiry' => $inquiry->fresh()]);
     }
@@ -218,6 +312,7 @@ class InquiryController
             return response()->json(['error' => 'Failed to send Instagram reply.'], 500);
         }
 
+        $inquiry->update(['admin_reply' => $message, 'replied_at' => now()]);
         $inquiry->markReplied();
         return response()->json(['message' => 'Reply sent via Instagram.', 'inquiry' => $inquiry->fresh()]);
     }

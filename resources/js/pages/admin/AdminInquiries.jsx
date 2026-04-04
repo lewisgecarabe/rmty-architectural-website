@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
@@ -160,7 +160,6 @@ export default function AdminInquiries() {
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selected, setSelected] = useState(null);
     const [filters, setFilters] = useState({
         search: "",
         platform: "",
@@ -168,6 +167,7 @@ export default function AdminInquiries() {
     });
     const [page, setPage] = useState(1);
     const [meta, setMeta] = useState({});
+    const [selectedThreadKey, setSelectedThreadKey] = useState(null);
     const [updating, setUpdating] = useState(false);
 
     // Bulk Actions
@@ -274,9 +274,8 @@ export default function AdminInquiries() {
         async (p = 1, f = filters, silent = false) => {
             try {
                 if (!silent) setLoading(true);
-                const params = new URLSearchParams({ page: p, per_page: 15 });
+                const params = new URLSearchParams({ page: p, per_page: 200 });
                 if (f.platform) params.set("platform", f.platform);
-                if (f.status) params.set("status", f.status);
                 if (f.search) params.set("search", f.search);
                 const [data, statsData] = await Promise.all([
                     apiFetch(`/inquiries?${params}`),
@@ -293,6 +292,40 @@ export default function AdminInquiries() {
             }
         },
         [filters],
+    );
+
+    const allThreads = useMemo(() => {
+        const map = {};
+        const sorted = [...inquiries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        sorted.forEach((inq) => {
+            const key = inq.email || inq.phone || `id_${inq.id}`;
+            if (!map[key]) {
+                map[key] = { key, name: inq.name || inq.first_name || "Unknown", email: inq.email, phone: inq.phone, platform: inq.platform, messages: [] };
+            }
+            map[key].messages.push(inq);
+        });
+        return Object.values(map).map((t) => ({
+            ...t,
+            latestMsg: t.messages[t.messages.length - 1],
+            hasNew: t.messages.some((m) => m.status === "new"),
+            hasReplied: t.messages.every((m) => m.status === "replied" || m.status === "archived") && t.messages.some((m) => m.status === "replied"),
+            isArchived: t.messages.every((m) => m.status === "archived"),
+            allIds: t.messages.map((m) => m.id),
+        })).sort((a, b) => new Date(b.latestMsg.created_at) - new Date(a.latestMsg.created_at));
+    }, [inquiries]);
+
+    const threads = useMemo(() => {
+        return allThreads.filter((t) => {
+            if (filters.status === "new") return t.hasNew;
+            if (filters.status === "replied") return !t.hasNew && t.hasReplied;
+            if (filters.status === "archived") return t.isArchived;
+            return true;
+        });
+    }, [allThreads, filters.status]);
+
+    const selectedThread = useMemo(
+        () => allThreads.find((t) => t.key === selectedThreadKey) ?? null,
+        [allThreads, selectedThreadKey],
     );
 
     useEffect(() => {
@@ -320,18 +353,20 @@ export default function AdminInquiries() {
     /* ---------------- BULK SELECTION ---------------- */
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            setSelectedIds(inquiries.map((i) => i.id));
+            setSelectedIds(threads.flatMap((t) => t.allIds));
         } else {
             setSelectedIds([]);
         }
     };
 
-    const handleSelect = (id) => {
-        setSelectedIds((prev) =>
-            prev.includes(id)
-                ? prev.filter((item) => item !== id)
-                : [...prev, id],
-        );
+    const handleSelectThread = (thread) => {
+        const ids = thread.allIds;
+        const allSelected = ids.every((id) => selectedIds.includes(id));
+        if (allSelected) {
+            setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+        } else {
+            setSelectedIds((prev) => [...new Set([...prev, ...ids])]);
+        }
     };
 
     /* ---------------- BULK ACTIONS ---------------- */
@@ -363,8 +398,8 @@ export default function AdminInquiries() {
             setInquiries((prev) =>
                 prev.filter((i) => !selectedIds.includes(i.id)),
             );
-            if (selected && selectedIds.includes(selected.id))
-                setSelected(null);
+            if (selectedThread && selectedThread.allIds.some((id) => selectedIds.includes(id)))
+                setSelectedThreadKey(null);
 
             await load(page, filters, true);
         } catch (e) {
@@ -381,24 +416,17 @@ export default function AdminInquiries() {
     async function handleStatus(id, status) {
         setUpdating(true);
         try {
-            // 1. Send the status update to the backend
             await apiFetch(`/inquiries/${id}`, {
                 method: "PUT",
                 body: JSON.stringify({ status }),
             });
 
-            // 2. Instantly remove the message from the current tab's view
-            setInquiries((prev) => prev.filter((i) => i.id !== id));
+            setInquiries((prev) =>
+                prev.map((i) => (i.id === id ? { ...i, status } : i)),
+            );
 
-            // 3. Close the Side Drawer immediately
-            if (selected?.id === id) setSelected(null);
-
-            // 4. Trigger the exact notification (capitalizing the status so it looks nice)
-            const formattedStatus =
-                status.charAt(0).toUpperCase() + status.slice(1);
+            const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1);
             showToast(`Marked as ${formattedStatus}`);
-
-            // 5. Silently reload the table data in the background to update the tab counts
             await load(page, filters, true);
         } catch {
             setError("Failed to update.");
@@ -416,15 +444,14 @@ export default function AdminInquiries() {
     async function handleDelete(deleteTargetId) {
         setUpdating(true);
         try {
-            await apiFetch(`/inquiries/${deleteTargetId}`, {
-                method: "DELETE",
-            });
+            await apiFetch(`/inquiries/${deleteTargetId}`, { method: "DELETE" });
 
             setInquiries((prev) => prev.filter((i) => i.id !== deleteTargetId));
-            if (selected?.id === deleteTargetId) setSelected(null);
+            if (selectedThread?.allIds.length === 1 && selectedThread.allIds[0] === deleteTargetId) {
+                setSelectedThreadKey(null);
+            }
             setDeleteId(null);
             showToast("Inquiry deleted.");
-
             await load(page, filters, true);
         } catch {
             setError("Failed to delete.");
@@ -436,28 +463,25 @@ export default function AdminInquiries() {
     async function handleReply(id) {
         setReplying(true);
         try {
-            const res = await apiFetch(`/inquiries/${id}/reply`, {
+            await apiFetch(`/inquiries/${id}/reply`, {
                 method: "POST",
                 body: JSON.stringify({ message: replyMsg }),
             });
 
-            // 1. Instantly remove the message from the current "New" tab view
-            setInquiries((prev) => prev.filter((i) => i.id !== id));
+            setInquiries((prev) =>
+                prev.map((i) =>
+                    i.id === id
+                        ? { ...i, status: "replied", admin_reply: replyMsg, replied_at: new Date().toISOString() }
+                        : i,
+                ),
+            );
 
-            // 2. Close the Side Drawer immediately
-            if (selected?.id === id) setSelected(null);
-
-            // 3. Clear the reply modal inputs
             setReplyId(null);
             setReplyMsg("");
-
-            // 4. Trigger the exact notification you want
             showToast("Replied successfully");
-
-            // 5. Silently reload the table data in the background to update the tab counts
             await load(page, filters, true);
         } catch {
-            setError("Failed to send reply.");
+            showToast("Failed to send reply.", "error");
         } finally {
             setReplying(false);
         }
@@ -749,7 +773,7 @@ export default function AdminInquiries() {
                     </AnimatePresence>
 
                     <div className="flex-1 overflow-auto no-scrollbar">
-                        {!loading && inquiries.length === 0 ? (
+                        {!loading && threads.length === 0 ? (
                             <div className="flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center gap-4">
                                 <InboxIcon className="w-12 h-12 text-neutral-300" />
                                 <div>
@@ -770,9 +794,10 @@ export default function AdminInquiries() {
                                             <input
                                                 type="checkbox"
                                                 checked={
-                                                    inquiries.length > 0 &&
-                                                    selectedIds.length ===
-                                                        inquiries.length
+                                                    threads.length > 0 &&
+                                                    threads.every((t) =>
+                                                        t.allIds.every((id) => selectedIds.includes(id))
+                                                    )
                                                 }
                                                 onChange={handleSelectAll}
                                                 className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
@@ -785,13 +810,13 @@ export default function AdminInquiries() {
                                             Platform
                                         </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 hidden md:table-cell w-1/3">
-                                            Message
+                                            Latest Message
                                         </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
-                                            Status
+                                            Messages
                                         </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-right">
-                                            Date
+                                            Last Activity
                                         </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 text-right">
                                             Action
@@ -799,174 +824,87 @@ export default function AdminInquiries() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
-                                    {inquiries.map((item) => {
-                                        const isUnread = !readIds.has(item.id);
+                                    {threads.map((thread) => {
+                                        const isUnread = thread.hasNew && !thread.messages.every((m) => readIds.has(m.id));
+                                        const isActive = selectedThread?.key === thread.key;
+                                        const threadSelected = thread.allIds.every((id) => selectedIds.includes(id));
                                         return (
                                             <tr
-                                                key={item.id}
+                                                key={thread.key}
                                                 onClick={() => {
-                                                    const next = selected?.id === item.id ? null : item;
-                                                    setSelected(next);
-                                                    if (next) markAsRead(item.id);
+                                                    setSelectedThreadKey(isActive ? null : thread.key);
+                                                    if (!isActive) thread.messages.forEach((m) => markAsRead(m.id));
                                                 }}
                                                 className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
-                                                    selected?.id === item.id
-                                                        ? "bg-neutral-50"
-                                                        : isUnread ? "bg-blue-50/20" : ""
+                                                    isActive ? "bg-neutral-50" : isUnread ? "bg-blue-50/20" : ""
                                                 }`}
                                             >
-                                                <td
-                                                    className="px-5 py-4 align-middle"
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
+                                                <td className="px-5 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedIds.includes(
-                                                            item.id,
-                                                        )}
-                                                        onChange={() =>
-                                                            handleSelect(
-                                                                item.id,
-                                                            )
-                                                        }
+                                                        checked={threadSelected}
+                                                        onChange={() => handleSelectThread(thread)}
                                                         className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                                     />
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
                                                     <div>
-                                                        <p
-                                                            className={`text-sm truncate max-w-[200px] ${isUnread ? "font-black text-black" : "font-normal text-neutral-400"}`}
-                                                        >
-                                                            {item.name ||
-                                                                item.first_name ||
-                                                                "Unknown"}
+                                                        <p className={`text-sm truncate max-w-[200px] ${isUnread ? "font-black text-black" : "font-normal text-neutral-500"}`}>
+                                                            {thread.name}
                                                         </p>
-                                                        {item.phone && (
-                                                            <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">
-                                                                {item.phone}
-                                                            </p>
+                                                        {thread.phone && (
+                                                            <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">{thread.phone}</p>
                                                         )}
-                                                        {item.email && (
-                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">
-                                                                {item.email}
-                                                            </p>
+                                                        {thread.email && (
+                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">{thread.email}</p>
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
-                                                    <span
-                                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                                                            typeof PLATFORM_COLORS !==
-                                                                "undefined" &&
-                                                            PLATFORM_COLORS[
-                                                                item.platform
-                                                            ]
-                                                                ? PLATFORM_COLORS[
-                                                                      item
-                                                                          .platform
-                                                                  ]
-                                                                : "bg-neutral-50 text-neutral-600 border-neutral-200"
-                                                        }`}
-                                                    >
-                                                        {typeof PLATFORM_LABELS !==
-                                                            "undefined" &&
-                                                        PLATFORM_LABELS[
-                                                            item.platform
-                                                        ]
-                                                            ? PLATFORM_LABELS[
-                                                                  item.platform
-                                                              ]
-                                                            : item.platform}
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[thread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}` }>
+                                                        {PLATFORM_LABELS[thread.platform] ?? thread.platform}
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle hidden md:table-cell">
-                                                    <p
-                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}
-                                                    >
-                                                        {item.message || "—"}
+                                                    <p className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}>
+                                                        {thread.latestMsg.admin_reply
+                                                            ? `You: ${thread.latestMsg.admin_reply}`
+                                                            : thread.latestMsg.message || "—"}
                                                     </p>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
-                                                    <span
-                                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                                                            typeof STATUS_COLORS !==
-                                                                "undefined" &&
-                                                            STATUS_COLORS[
-                                                                item.status
-                                                            ]
-                                                                ? STATUS_COLORS[
-                                                                      item
-                                                                          .status
-                                                                  ]
-                                                                : "bg-neutral-50 text-neutral-600 border-neutral-200"
-                                                        }`}
-                                                    >
-                                                        {item.status ||
-                                                            "Pending"}
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600">
+                                                            {thread.messages.length}
+                                                        </span>
+                                                        {thread.hasNew && (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-100">
+                                                                new
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle text-right">
                                                     <p className="text-xs font-medium text-neutral-500">
-                                                        {item.created_at
-                                                            ? new Date(
-                                                                  item.created_at,
-                                                              ).toLocaleDateString(
-                                                                  undefined,
-                                                                  {
-                                                                      month: "short",
-                                                                      day: "numeric",
-                                                                      year: "numeric",
-                                                                  },
-                                                              )
+                                                        {thread.latestMsg.created_at
+                                                            ? new Date(thread.latestMsg.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
                                                             : "—"}
                                                     </p>
                                                 </td>
-
-                                                <td
-                                                    className="px-5 py-4 align-middle text-right"
-                                                    onClick={(e) =>
-                                                        e.stopPropagation()
-                                                    }
-                                                >
-                                                    <div className="flex justify-end gap-2 mt-1">
+                                                <td className="px-5 py-4 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex justify-end gap-2">
                                                         <button
-                                                            onClick={() =>
-                                                                setSelected(
-                                                                    item,
-                                                                )
-                                                            }
+                                                            onClick={() => {
+                                                                setSelectedThreadKey(thread.key);
+                                                                thread.messages.forEach((m) => markAsRead(m.id));
+                                                            }}
                                                             className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-neutral-700 transition-all hover:border-black hover:text-black cursor-pointer"
                                                         >
-                                                            View
+                                                            Open
                                                         </button>
-
-                                                        {canReply(item) &&
-                                                            item.status === "new" && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setReplyId(
-                                                                            item.id,
-                                                                        );
-                                                                        setReplyMsg(
-                                                                            "",
-                                                                        );
-                                                                    }}
-                                                                    className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
-                                                                >
-                                                                    Reply
-                                                                </button>
-                                                            )}
-
-                                                        {filters.status !==
-                                                        "archived" ? (
+                                                        {filters.status !== "archived" ? (
                                                             <button
-                                                                onClick={() =>
-                                                                    setArchiveId(
-                                                                        item.id,
-                                                                    )
-                                                                }
+                                                                onClick={() => setArchiveId(thread.latestMsg.id)}
                                                                 className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
                                                             >
                                                                 Archive
@@ -974,22 +912,13 @@ export default function AdminInquiries() {
                                                         ) : (
                                                             <>
                                                                 <button
-                                                                    onClick={() =>
-                                                                        handleStatus(
-                                                                            item.id,
-                                                                            "new",
-                                                                        )
-                                                                    }
+                                                                    onClick={() => handleStatus(thread.latestMsg.id, "new")}
                                                                     className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
                                                                 >
                                                                     Restore
                                                                 </button>
                                                                 <button
-                                                                    onClick={() =>
-                                                                        setDeleteId(
-                                                                            item.id,
-                                                                        )
-                                                                    }
+                                                                    onClick={() => setDeleteId(thread.latestMsg.id)}
                                                                     className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
                                                                 >
                                                                     Delete
@@ -1006,222 +935,201 @@ export default function AdminInquiries() {
                         )}
                     </div>
 
-                    {/* TABLE SUMMARY FOOTER & PAGINATION */}
-                    {inquiries.length > 0 && (
+                    {/* TABLE SUMMARY FOOTER */}
+                    {threads.length > 0 && (
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl gap-4 sm:gap-0">
                             <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase text-center sm:text-left">
-                                Total:{" "}
-                                {typeof meta !== "undefined" && meta?.total
-                                    ? meta.total
-                                    : inquiries.length}{" "}
-                                Record(s)
-                                {typeof meta !== "undefined" &&
-                                    meta?.last_page > 1 &&
-                                    ` (Page ${meta.current_page} of ${meta.last_page})`}
+                                {threads.length} Conversation{threads.length !== 1 ? "s" : ""}
+                                {" · "}{inquiries.length} Message{inquiries.length !== 1 ? "s" : ""}
                             </p>
 
-                            {typeof meta !== "undefined" &&
-                                meta?.last_page > 1 && (
-                                    <div className="flex justify-center sm:justify-end gap-2">
-                                        <button
-                                            disabled={meta.current_page === 1}
-                                            onClick={() => {
-                                                setPage((p) => p - 1);
-                                                if (typeof load !== "undefined")
-                                                    load(page - 1, filters);
-                                            }}
-                                            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                        >
-                                            <ChevronLeft className="w-3 h-3" />{" "}
-                                            Prev
-                                        </button>
-                                        <button
-                                            disabled={
-                                                meta.current_page ===
-                                                meta.last_page
-                                            }
-                                            onClick={() => {
-                                                setPage((p) => p + 1);
-                                                if (typeof load !== "undefined")
-                                                    load(page + 1, filters);
-                                            }}
-                                            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
-                                        >
-                                            Next{" "}
-                                            <ChevronRight className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                )}
+                            <button
+                                onClick={() => load(1, filters)}
+                                className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase hover:text-black transition-colors cursor-pointer"
+                            >
+                                Refresh
+                            </button>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* SIDE-DRAWER PANEL FOR INQUIRY DETAILS */}
+            {/* CHAT THREAD DRAWER */}
             <AnimatePresence>
-                {selected && (
+                {selectedThread && (
                     <>
                         <motion.div
-                            key="detail-backdrop"
+                            key="thread-backdrop"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
-                            onClick={() => setSelected(null)}
+                            onClick={() => { setSelectedThreadKey(null); setReplyId(null); setReplyMsg(""); }}
                         />
-
                         <motion.div
-                            key="detail-drawer"
+                            key="thread-drawer"
                             initial={{ x: "100%" }}
                             animate={{ x: 0 }}
                             exit={{ x: "100%" }}
                             transition={drawerTransition}
                             className="fixed top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-white z-[80] flex flex-col border-l border-neutral-200 [font-family:var(--font-neue)]"
                         >
-                            <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
-                                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-widest">
-                                    View Message
-                                </h3>
-                                <button
-                                    onClick={() => setSelected(null)}
-                                    className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer"
-                                >
-                                    <CloseIcon className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
-                                <div className="border-b border-neutral-100 pb-6">
-                                    <div className="min-w-0">
-                                        <p className="text-base font-black text-neutral-900 truncate">
-                                            {selected.name ||
-                                                selected.first_name ||
-                                                "Unknown"}
-                                        </p>
-                                        {selected.phone && (
-                                            <p className="text-sm font-medium text-neutral-600 mt-1 truncate">
-                                                {selected.phone}
-                                            </p>
-                                        )}
-                                        {selected.email && (
-                                            <p className="text-[11px] font-medium text-neutral-500 mt-0.5 truncate">
-                                                {selected.email}
-                                            </p>
-                                        )}
-                                    </div>
+                            {/* Drawer Header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-black text-neutral-900 truncate">{selectedThread.name}</p>
+                                    {selectedThread.email && <p className="text-[11px] font-medium text-neutral-400 truncate">{selectedThread.email}</p>}
+                                    {selectedThread.phone && <p className="text-[11px] font-medium text-neutral-400 truncate">{selectedThread.phone}</p>}
                                 </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                        Subject
-                                    </p>
-                                    <p className="text-lg font-bold text-neutral-900 leading-tight">
-                                        {selected.subject || "No Subject"}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                        Message
-                                    </p>
-                                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-                                        <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
-                                            {selected.message ||
-                                                "No content provided."}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-6 border-t border-neutral-100 bg-neutral-50/50 space-y-3 shrink-0">
-                                {/* EXTERNAL REPLY LINK */}
-                                <a
-                                    href={getExternalReplyLink(selected)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer"
-                                >
-                                    <ExternalLinkIcon className="w-4 h-4" />
-                                    {getExternalReplyLabel(selected.platform)}
-                                </a>
-
-                                {/* IN-APP REPLY */}
-                                {canReply(selected) &&
-                                    String(selected.status).toLowerCase() ===
-                                        "new" && (
-                                        <button
-                                            onClick={() => {
-                                                setReplyId(selected.id);
-                                                setReplyMsg("");
-                                            }}
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-xs font-bold text-white uppercase tracking-wider transition-all hover:bg-neutral-800 active:scale-[0.98] cursor-pointer mt-3"
-                                        >
-                                            <ReplyIcon className="w-4 h-4" />
-                                            Reply in Dashboard
-                                        </button>
-                                    )}
-
-                                <div className="flex gap-2 pt-3">
-                                    {String(selected.status).toLowerCase() ===
-                                        "new" && (
-                                        <button
-                                            onClick={() =>
-                                                handleStatus(
-                                                    selected.id,
-                                                    "replied",
-                                                )
-                                            }
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-700 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <CheckIcon className="w-4 h-4" />{" "}
-                                            Mark Replied
-                                        </button>
-                                    )}
-
-                                    {filters.status !== "archived" ? (
-                                        <button
-                                            onClick={() => {
-                                                setArchiveId
-                                                    ? setArchiveId(selected.id)
-                                                    : null;
-                                            }}
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-3.5 text-xs font-bold text-amber-600 uppercase tracking-wider transition-all hover:border-amber-400 hover:text-amber-700 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <ArchiveIcon className="w-4 h-4" />{" "}
-                                            Archive
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => {
-                                                handleStatus
-                                                    ? handleStatus(
-                                                          selected.id,
-                                                          "new",
-                                                      )
-                                                    : null;
-                                            }}
-                                            disabled={updating}
-                                            className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3.5 text-xs font-bold text-blue-600 uppercase tracking-wider transition-all hover:border-blue-400 hover:text-blue-700 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            <RestoreIcon className="w-4 h-4" />{" "}
-                                            Restore
-                                        </button>
-                                    )}
-
-                                    <button
-                                        onClick={() => {
-                                            setDeleteId
-                                                ? setDeleteId(selected.id)
-                                                : null;
-                                        }}
-                                        className="flex-shrink-0 flex items-center justify-center rounded-xl border border-red-200 text-red-600 transition-all hover:border-red-400 hover:text-red-700 px-4 py-3.5 cursor-pointer"
-                                        title="Delete Message"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
+                                <div className="flex items-center gap-3 shrink-0 ml-3">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[selectedThread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}`}>
+                                        {PLATFORM_LABELS[selectedThread.platform] ?? selectedThread.platform}
+                                    </span>
+                                    <button onClick={() => { setSelectedThreadKey(null); setReplyId(null); setReplyMsg(""); }} className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer">
+                                        <CloseIcon className="w-5 h-5" />
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Chat Timeline */}
+                            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 no-scrollbar">
+                                {selectedThread.messages.map((msg, idx) => (
+                                    <div key={msg.id} className="space-y-2">
+                                        {/* Date separator */}
+                                        {(idx === 0 || new Date(msg.created_at).toDateString() !== new Date(selectedThread.messages[idx - 1].created_at).toDateString()) && (
+                                            <div className="flex items-center gap-3 my-3">
+                                                <div className="flex-1 h-px bg-neutral-100" />
+                                                <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase whitespace-nowrap">
+                                                    {new Date(msg.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                                </span>
+                                                <div className="flex-1 h-px bg-neutral-100" />
+                                            </div>
+                                        )}
+
+                                        {/* User message bubble (left) */}
+                                        <div className="flex items-end gap-2">
+                                            <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-[10px] font-black text-neutral-600 uppercase">
+                                                {(selectedThread.name || "?")[0]}
+                                            </div>
+                                            <div className="max-w-[78%]">
+                                                {msg.subject && (
+                                                    <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 ml-1">{msg.subject}</p>
+                                                )}
+                                                <div className="bg-neutral-100 rounded-2xl rounded-bl-sm px-4 py-3">
+                                                    <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">{msg.message || "—"}</p>
+                                                </div>
+                                                <p className="text-[10px] font-medium text-neutral-400 mt-1 ml-1">
+                                                    {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                                    {msg.status === "archived" && <span className="ml-2 text-amber-500">archived</span>}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Admin reply bubble (right) */}
+                                        {msg.admin_reply && (
+                                            <div className="flex items-end gap-2 justify-end">
+                                                <div className="max-w-[78%]">
+                                                    <div className="bg-black rounded-2xl rounded-br-sm px-4 py-3">
+                                                        <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">{msg.admin_reply}</p>
+                                                    </div>
+                                                    <p className="text-[10px] font-medium text-neutral-400 mt-1 mr-1 text-right">
+                                                        {msg.replied_at
+                                                            ? new Date(msg.replied_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+                                                            : "Sent"} · You
+                                                    </p>
+                                                </div>
+                                                <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center shrink-0 text-[10px] font-black text-white uppercase">A</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Reply Box */}
+                            {(() => {
+                                const latestNew = [...selectedThread.messages].reverse().find((m) => m.status === "new");
+                                if (!latestNew || !canReply(latestNew)) return (
+                                    <div className="px-4 py-3 border-t border-neutral-100 bg-neutral-50/50 shrink-0">
+                                        <a
+                                            href={getExternalReplyLink(selectedThread.latestMsg)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer"
+                                        >
+                                            <ExternalLinkIcon className="w-4 h-4" />
+                                            {getExternalReplyLabel(selectedThread.latestMsg.platform)}
+                                        </a>
+                                    </div>
+                                );
+                                return (
+                                    <div className="border-t border-neutral-100 bg-white shrink-0 p-4 space-y-3">
+                                        <textarea
+                                            rows={3}
+                                            placeholder={`Reply to ${selectedThread.name}...`}
+                                            value={replyMsg}
+                                            onChange={(e) => { setReplyMsg(e.target.value); setReplyId(latestNew.id); }}
+                                            className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 resize-none [font-family:inherit]"
+                                        />
+                                        <div className="flex gap-2">
+                                            <a
+                                                href={getExternalReplyLink(latestNew)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-[10px] font-bold text-neutral-600 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer shrink-0"
+                                                title={getExternalReplyLabel(latestNew.platform)}
+                                            >
+                                                <ExternalLinkIcon className="w-3.5 h-3.5" />
+                                            </a>
+                                            <button
+                                                onClick={() => handleReply(latestNew.id)}
+                                                disabled={replying || !replyMsg.trim()}
+                                                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-40 cursor-pointer"
+                                            >
+                                                {replying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><ReplyIcon className="w-4 h-4" /> Send Reply</>}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Footer actions */}
+                            <div className="px-4 pb-4 flex gap-2 shrink-0">
+                                {selectedThread.hasNew && (
+                                    <button
+                                        onClick={() => {
+                                            const newIds = selectedThread.messages.filter((m) => m.status === "new").map((m) => m.id);
+                                            Promise.all(newIds.map((id) => apiFetch(`/inquiries/${id}`, { method: "PUT", body: JSON.stringify({ status: "replied" }) }))).then(() => { showToast("Marked as Replied"); load(page, filters, true); });
+                                        }}
+                                        disabled={updating}
+                                        className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider transition-all hover:border-blue-400 disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <CheckIcon className="w-3.5 h-3.5" /> Mark Replied
+                                    </button>
+                                )}
+                                {filters.status !== "archived" ? (
+                                    <button
+                                        onClick={() => setArchiveId(selectedThread.latestMsg.id)}
+                                        disabled={updating}
+                                        className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider transition-all hover:border-amber-400 disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <ArchiveIcon className="w-3.5 h-3.5" /> Archive
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => handleStatus(selectedThread.latestMsg.id, "new")}
+                                        disabled={updating}
+                                        className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-[10px] font-bold text-blue-600 uppercase tracking-wider transition-all hover:border-blue-400 disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <RestoreIcon className="w-3.5 h-3.5" /> Restore
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setDeleteId(selectedThread.latestMsg.id)}
+                                    className="flex items-center justify-center rounded-xl border border-red-200 text-red-600 transition-all hover:border-red-400 px-3 py-2.5 cursor-pointer"
+                                    title="Delete"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
                             </div>
                         </motion.div>
                     </>
@@ -1422,96 +1330,6 @@ export default function AdminInquiries() {
                 )}
             </AnimatePresence>
 
-            {/* Reply Modal */}
-            <AnimatePresence>
-                {replyId && (
-                    <motion.div
-                        key="modal-reply"
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 [font-family:var(--font-neue)]"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <div
-                            className="absolute inset-0 bg-black/20 cursor-pointer"
-                            onClick={() => {
-                                setReplyId(null);
-                                setReplyMsg("");
-                            }}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            transition={springTransition}
-                            className="relative w-full max-w-lg rounded-[2rem] bg-white p-8 border border-neutral-100 pointer-events-auto shadow-2xl"
-                        >
-                            <h3 className="text-xl font-black text-neutral-900 mb-1">
-                                Compose Reply
-                            </h3>
-                            {(() => {
-                                const inq = inquiries.find(
-                                    (i) => i.id === replyId,
-                                );
-                                const via = {
-                                    gmail: "Gmail",
-                                    facebook: "Facebook Messenger",
-                                    instagram: "Instagram DM",
-                                    viber: "Viber",
-                                    sms: "SMS",
-                                    website: "Email",
-                                };
-                                return (
-                                    <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-6">
-                                        Replying via{" "}
-                                        {via[
-                                            String(inq?.platform).toLowerCase()
-                                        ] ?? inq?.platform}{" "}
-                                        {inq?.email
-                                            ? `to ${inq.email}`
-                                            : inq?.name
-                                              ? `to ${inq.name}`
-                                              : ""}
-                                    </p>
-                                );
-                            })()}
-
-                            <textarea
-                                rows={5}
-                                placeholder="Type your message here..."
-                                value={replyMsg}
-                                onChange={(e) => setReplyMsg(e.target.value)}
-                                className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 p-4 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 hover:bg-white resize-none mb-6"
-                            />
-
-                            <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setReplyId(null);
-                                        setReplyMsg("");
-                                    }}
-                                    className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-sm font-bold text-neutral-700 transition-colors hover:bg-neutral-50 cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleReply(replyId)}
-                                    disabled={replying || !replyMsg.trim()}
-                                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-neutral-800 cursor-pointer"
-                                >
-                                    {replying ? (
-                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        "Send Reply"
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Toast Notification */}
             <AnimatePresence>
