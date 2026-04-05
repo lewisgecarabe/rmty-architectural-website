@@ -180,7 +180,7 @@ export default function MenuOverlay({ onClose }) {
                     </div>
                     <div>
                         <p className="mb-1 text-black">Contact</p>
-                        <p>hello@rmty.com</p>
+                        <p>rmty.architects@gmail.com</p>
                         <p>(+63) 923 432 0324</p>
                     </div>
                     <div>
@@ -190,7 +190,7 @@ export default function MenuOverlay({ onClose }) {
                         </p>
                     </div>
                     <div className="md:text-right">
-                        <p>© 2024 RMTY Designs</p>
+                        <p>© 2026 RMTY Designs</p>
                     </div>
                 </div>
             </div>
