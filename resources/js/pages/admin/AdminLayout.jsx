@@ -337,6 +337,8 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 
     const dropdownRef = useRef(null);
     const notifRef = useRef(null);
+    const notifDropdownRef = useRef(null);
+    const [notifPos, setNotifPos] = useState({ top: 0, right: 0 });
 
     const getPageTitle = () => {
         const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -353,7 +355,10 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             ) {
                 setDropdownOpen(false);
             }
-            if (notifRef.current && !notifRef.current.contains(e.target)) {
+            if (
+                notifRef.current && !notifRef.current.contains(e.target) &&
+                notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)
+            ) {
                 setNotifOpen(false);
             }
         };
@@ -500,6 +505,10 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
+                                    if (!notifOpen && notifRef.current) {
+                                        const rect = notifRef.current.getBoundingClientRect();
+                                        setNotifPos({ top: rect.bottom + 12, right: window.innerWidth - rect.right });
+                                    }
                                     setNotifOpen(!notifOpen);
                                     setDropdownOpen(false);
                                 }}
@@ -514,34 +523,25 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                     <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
                                 )}
                             </button>
+                        </div>
+                        {createPortal(
                             <AnimatePresence>
                                 {notifOpen && (
                                     <motion.div
-                                        initial={{
-                                            opacity: 0,
-                                            y: 10,
-                                            scale: 0.95,
-                                        }}
+                                        ref={notifDropdownRef}
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{
-                                            opacity: 0,
-                                            y: 10,
-                                            scale: 0.95,
-                                        }}
-                                        transition={{
-                                            duration: 0.2,
-                                            ease: smoothEase,
-                                        }}
-                                        className="absolute right-0 top-[calc(100%+12px)] w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        transition={{ duration: 0.2, ease: smoothEase }}
+                                        style={{ position: "fixed", top: notifPos.top, right: notifPos.right, width: 280 }}
+                                        className="bg-white border border-neutral-200 rounded-2xl p-4 z-[9999] shadow-xl origin-top-right"
                                     >
                                         <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-100">
                                             <span className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
                                                 Notifications
                                             </span>
                                             <button
-                                                onClick={() =>
-                                                    setNotifOpen(false)
-                                                }
+                                                onClick={() => setNotifOpen(false)}
                                                 className="text-neutral-400 hover:text-neutral-900 cursor-pointer outline-none"
                                             >
                                                 <CloseIcon className="w-4 h-4" />
@@ -589,8 +589,9 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                         )}
                                     </motion.div>
                                 )}
-                            </AnimatePresence>
-                        </div>
+                            </AnimatePresence>,
+                            document.body
+                        )}
 
                         {/* Profile Block */}
                         <div className="relative" ref={dropdownRef}>
