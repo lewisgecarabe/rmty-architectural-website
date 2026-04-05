@@ -42,12 +42,12 @@ class PlatformSetting extends Model
 
     // ── Find user_id by their connected Facebook page_id ─────────
     // Used by webhook to identify which user owns the incoming message
-    public static function findUserByPageId(string $pageId): ?int
-    {
-        $record = static::where('platform', 'facebook')
-            ->where('key', 'page_id')
-            ->where('value', $pageId)
-            ->first();
-        return $record?->user_id;
-    }
+   public static function getUserByPageId(string $pageId): ?int
+{
+    return self::where('platform', 'facebook')
+        ->where('key', 'page_id')
+        ->where('value', $pageId)
+        ->value('user_id');
+}
+
 }

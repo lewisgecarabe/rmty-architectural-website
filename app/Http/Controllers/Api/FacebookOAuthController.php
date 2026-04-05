@@ -22,7 +22,16 @@ class FacebookOAuthController
         $params = http_build_query([
             'client_id'     => config('services.meta.app_id'),
             'redirect_uri'  => config('app.url') . '/api/admin/facebook/callback',
-            'scope'         => 'pages_messaging,pages_show_list',
+'scope' => implode(',', [
+    'public_profile',
+    'business_management',
+    'pages_show_list',
+    'pages_messaging',
+    'pages_read_engagement',
+    'pages_manage_metadata',
+    'instagram_basic',
+    'instagram_manage_messages'
+]),
             'response_type' => 'code',
             'state'         => auth()->id(), // pass user_id via state
         ]);
@@ -184,7 +193,7 @@ class FacebookOAuthController
     private function subscribeWebhook(string $pageId, string $token): void
     {
         Http::post("https://graph.facebook.com/{$this->apiVersion}/{$pageId}/subscribed_apps", [
-            'subscribed_fields' => 'messages,messaging_postbacks',
+            'subscribed_fields' => 'messages,messaging_postbacks,instagram',
             'access_token'      => $token,
         ]);
     }
@@ -229,5 +238,17 @@ public function connectInstagramManual(Request $request): JsonResponse
         PlatformSetting::clearPlatform('instagram', $userId);
         return response()->json(['message' => 'Instagram disconnected.']);
     }
+
+    private function getSenderName(string $psid, string $pageToken): ?string
+{
+    $res = Http::get("https://graph.facebook.com/{$this->apiVersion}/{$psid}", [
+        'fields' => 'name',
+        'access_token' => $pageToken,
+    ]);
+
+    $data = $res->json();
+
+    return $data['name'] ?? null;
+}
 
 }
