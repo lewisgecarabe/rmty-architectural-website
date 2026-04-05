@@ -274,6 +274,14 @@ class InquiryController
         ]);
 
         $inquiry->markReplied();
+
+        // Mark all other 'new' inquiries from the same email thread as replied
+        Inquiry::where('email', $inquiry->email)
+            ->where('id', '!=', $inquiry->id)
+            ->where('status', 'new')
+            ->where('name', '!=', 'You')
+            ->each(fn($i) => $i->markReplied());
+
         return response()->json(['message' => 'Reply sent via Gmail.', 'inquiry' => $inquiry->fresh()]);
     }
 
@@ -293,6 +301,17 @@ class InquiryController
 
         $inquiry->update(['admin_reply' => $message, 'replied_at' => now()]);
         $inquiry->markReplied();
+
+        // Mark all other 'new' inquiries from the same Facebook sender as replied
+        $senderId = $inquiry->raw_payload['sender_id'] ?? null;
+        if ($senderId) {
+            Inquiry::where('platform', 'facebook')
+                ->where('id', '!=', $inquiry->id)
+                ->where('status', 'new')
+                ->whereJsonContains('raw_payload->sender_id', $senderId)
+                ->each(fn($i) => $i->markReplied());
+        }
+
         return response()->json(['message' => 'Reply sent via Facebook.', 'inquiry' => $inquiry->fresh()]);
     }
 
@@ -324,6 +343,17 @@ class InquiryController
 
         $inquiry->update(['admin_reply' => $message, 'replied_at' => now()]);
         $inquiry->markReplied();
+
+        // Mark all other 'new' inquiries from the same Instagram sender as replied
+        $senderId = $inquiry->raw_payload['sender_id'] ?? null;
+        if ($senderId) {
+            Inquiry::where('platform', 'instagram')
+                ->where('id', '!=', $inquiry->id)
+                ->where('status', 'new')
+                ->whereJsonContains('raw_payload->sender_id', $senderId)
+                ->each(fn($i) => $i->markReplied());
+        }
+
         return response()->json(['message' => 'Reply sent via Instagram.', 'inquiry' => $inquiry->fresh()]);
     }
 

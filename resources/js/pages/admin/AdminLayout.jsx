@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 const smoothEase = [0.22, 1, 0.36, 1];
@@ -322,8 +322,11 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 ───────────────────────────────────────── */
 function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     const location = useLocation();
+    const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
+    const [notifItems, setNotifItems] = useState([]);
+    const [notifCount, setNotifCount] = useState(0);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -381,6 +384,52 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             cancelled = true;
         };
     }, [imageHash]);
+
+    useEffect(() => {
+        const authHeaders = () => {
+            const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        };
+
+        const fetchNotifications = async () => {
+            try {
+                const seenIds = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
+                const res = await fetch("/api/inquiries?status=new&per_page=20", {
+                    credentials: "include",
+                    headers: authHeaders(),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = data.data || [];
+                const items = list
+                    .filter((inq) => inq.name !== "You")
+                    .map((inq) => ({
+                        id: `inq-${inq.id}`,
+                        title: inq.name || "Unknown",
+                        subtitle: inq.email || inq.platform || "",
+                        platform: inq.platform,
+                        time: inq.created_at,
+                    }));
+                const unseen = items.filter((item) => !seenIds.includes(item.id));
+                setNotifItems(unseen);
+                setNotifCount(unseen.length);
+            } catch {
+                // silent
+            }
+        };
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const markAllSeen = () => {
+        const allIds = notifItems.map((n) => n.id);
+        const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
+        localStorage.setItem("seenNotifs", JSON.stringify([...new Set([...existing, ...allIds])]));
+        setNotifItems([]);
+        setNotifCount(0);
+    };
 
     const confirmLogout = () => {
         localStorage.removeItem("admin_token");
@@ -457,7 +506,13 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                 className="relative text-neutral-400 hover:text-black transition-colors duration-200 outline-none cursor-pointer"
                             >
                                 <SleekBellIcon />
-                                <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                {notifCount > 0 ? (
+                                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-[#f7f7f8] text-[9px] font-black text-white leading-none">
+                                        {notifCount > 9 ? "9+" : notifCount}
+                                    </span>
+                                ) : (
+                                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                )}
                             </button>
                             <AnimatePresence>
                                 {notifOpen && (
@@ -492,12 +547,46 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                                 <CloseIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <div className="flex flex-col items-center justify-center py-6 text-center">
-                                            <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
-                                            <p className="text-sm font-medium text-neutral-500">
-                                                You're all caught up!
-                                            </p>
-                                        </div>
+                                        {notifItems.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                                                <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
+                                                <p className="text-sm font-medium text-neutral-500">
+                                                    You're all caught up!
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto -mx-1">
+                                                    {notifItems.map((item) => (
+                                                        <button
+                                                            key={item.id}
+                                                            onClick={() => {
+                                                                navigate("/admin/inquiries");
+                                                                markAllSeen();
+                                                                setNotifOpen(false);
+                                                            }}
+                                                            className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 text-left transition-colors cursor-pointer w-full"
+                                                        >
+                                                            <div className="mt-1 h-2 w-2 rounded-full shrink-0 bg-blue-500" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[12px] font-bold text-neutral-900 leading-tight truncate">
+                                                                    New inquiry from {item.title}
+                                                                </p>
+                                                                <p className="text-[11px] text-neutral-400 truncate">
+                                                                    {item.subtitle}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <button
+                                                    onClick={markAllSeen}
+                                                    className="mt-3 pt-2.5 border-t border-neutral-100 w-full text-center text-[11px] font-bold text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer"
+                                                >
+                                                    Mark all as read
+                                                </button>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>

@@ -468,12 +468,18 @@ export default function AdminInquiries() {
                 body: JSON.stringify({ message: replyMsg }),
             });
 
+            // Mark ALL new messages in the same thread as replied (not just the one being replied to)
+            const thread = allThreads.find((t) => t.allIds.includes(id));
+            const threadNewIds = thread
+                ? thread.messages.filter((m) => m.status === "new").map((m) => m.id)
+                : [id];
+
             setInquiries((prev) =>
-                prev.map((i) =>
-                    i.id === id
-                        ? { ...i, status: "replied", admin_reply: replyMsg, replied_at: new Date().toISOString() }
-                        : i,
-                ),
+                prev.map((i) => {
+                    if (i.id === id) return { ...i, status: "replied", admin_reply: replyMsg, replied_at: new Date().toISOString() };
+                    if (threadNewIds.includes(i.id)) return { ...i, status: "replied" };
+                    return i;
+                }),
             );
 
             setReplyId(null);
@@ -993,7 +999,9 @@ export default function AdminInquiries() {
 
                             {/* Chat Timeline */}
                             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 no-scrollbar">
-                                {selectedThread.messages.map((msg, idx) => (
+                                {selectedThread.messages.map((msg, idx) => {
+                                    const isAdminMsg = msg.name === "You";
+                                    return (
                                     <div key={msg.id} className="space-y-2">
                                         {/* Date separator */}
                                         {(idx === 0 || new Date(msg.created_at).toDateString() !== new Date(selectedThread.messages[idx - 1].created_at).toDateString()) && (
@@ -1006,43 +1014,64 @@ export default function AdminInquiries() {
                                             </div>
                                         )}
 
-                                        {/* User message bubble (left) */}
-                                        <div className="flex items-end gap-2">
-                                            <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-[10px] font-black text-neutral-600 uppercase">
-                                                {(selectedThread.name || "?")[0]}
-                                            </div>
-                                            <div className="max-w-[78%]">
-                                                {msg.subject && (
-                                                    <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 ml-1">{msg.subject}</p>
-                                                )}
-                                                <div className="bg-neutral-100 rounded-2xl rounded-bl-sm px-4 py-3">
-                                                    <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">{msg.message || "—"}</p>
-                                                </div>
-                                                <p className="text-[10px] font-medium text-neutral-400 mt-1 ml-1">
-                                                    {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                                                    {msg.status === "archived" && <span className="ml-2 text-amber-500">archived</span>}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Admin reply bubble (right) */}
-                                        {msg.admin_reply && (
+                                        {isAdminMsg ? (
+                                            /* Admin sent message bubble (right) */
                                             <div className="flex items-end gap-2 justify-end">
                                                 <div className="max-w-[78%]">
+                                                    {msg.subject && (
+                                                        <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 mr-1 text-right">{msg.subject}</p>
+                                                    )}
                                                     <div className="bg-black rounded-2xl rounded-br-sm px-4 py-3">
-                                                        <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">{msg.admin_reply}</p>
+                                                        <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">{msg.message || "—"}</p>
                                                     </div>
                                                     <p className="text-[10px] font-medium text-neutral-400 mt-1 mr-1 text-right">
-                                                        {msg.replied_at
-                                                            ? new Date(msg.replied_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-                                                            : "Sent"} · You
+                                                        {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })} · You
                                                     </p>
                                                 </div>
                                                 <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center shrink-0 text-[10px] font-black text-white uppercase">A</div>
                                             </div>
+                                        ) : (
+                                            /* Client message bubble (left) */
+                                            <>
+                                                <div className="flex items-end gap-2">
+                                                    <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-[10px] font-black text-neutral-600 uppercase">
+                                                        {(selectedThread.name || "?")[0]}
+                                                    </div>
+                                                    <div className="max-w-[78%]">
+                                                        {msg.subject && (
+                                                            <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 ml-1">{msg.subject}</p>
+                                                        )}
+                                                        <div className="bg-neutral-100 rounded-2xl rounded-bl-sm px-4 py-3">
+                                                            <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">{msg.message || "—"}</p>
+                                                        </div>
+                                                        <p className="text-[10px] font-medium text-neutral-400 mt-1 ml-1">
+                                                            {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                                            {msg.status === "archived" && <span className="ml-2 text-amber-500">archived</span>}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Inline admin reply stored on the original inquiry record */}
+                                                {msg.admin_reply && (
+                                                    <div className="flex items-end gap-2 justify-end">
+                                                        <div className="max-w-[78%]">
+                                                            <div className="bg-black rounded-2xl rounded-br-sm px-4 py-3">
+                                                                <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">{msg.admin_reply}</p>
+                                                            </div>
+                                                            <p className="text-[10px] font-medium text-neutral-400 mt-1 mr-1 text-right">
+                                                                {msg.replied_at
+                                                                    ? new Date(msg.replied_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+                                                                    : "Sent"} · You
+                                                            </p>
+                                                        </div>
+                                                        <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center shrink-0 text-[10px] font-black text-white uppercase">A</div>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             {/* Reply Box */}
