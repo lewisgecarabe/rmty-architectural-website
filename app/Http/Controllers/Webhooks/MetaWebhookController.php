@@ -32,68 +32,61 @@ class MetaWebhookController
         return response('Forbidden', 403);
     }
 
-    public function handle(Request $request): Response
+ public function handle(Request $request): Response
 {
     if (!$this->verifySignature($request)) {
         Log::warning('[RMTY Meta] Invalid signature');
         return response('Unauthorized', 401);
     }
 
-    $body   = $request->json()->all();
-    $object = $body['object'] ?? '';
+    Log::info('[META FULL PAYLOAD]', $request->all());
+
+    $body = $request->json()->all();
 
     foreach ($body['entry'] ?? [] as $entry) {
-        // FACEBOOK MESSAGES
-        if ($object === 'page') {
-            $pageId = $entry['id'] ?? null;
-            $setting = $pageId ? PlatformSetting::findUserByPageId($pageId) : null;
-            $userId  = $setting?->user_id;
+        $pageId = $entry['id'] ?? null;
+        $userId = $pageId ? PlatformSetting::getUserByPageId($pageId) : null;
 
-            foreach ($entry['messaging'] ?? [] as $event) {
-                if (!isset($event['message']['text'])) continue;
-                if (isset($event['message']['is_echo'])) continue;
+        foreach ($entry['messaging'] ?? [] as $event) {
+            if (!isset($event['message']['text'])) continue;
+            if (isset($event['message']['is_echo'])) continue;
 
-                $senderId  = $event['sender']['id'] ?? '';
-                $messageId = $event['message']['mid'] ?? uniqid();
-                $text      = $event['message']['text'] ?? '';
+            $senderId  = $event['sender']['id'] ?? '';
+            $messageId = $event['message']['mid'] ?? uniqid();
+            $text      = $event['message']['text'] ?? '';
 
-                $name = $this->getFacebookName($senderId, $userId);
+            $name = $this->getFacebookName($senderId, $userId);
 
-                $this->normalizer->fromFacebook(
-                    $senderId,
-                    $messageId,
-                    $name,
-                    $text,
-                    array_merge($event, ['user_id' => $userId]),
-                    $userId
-                );
-            }
+            $this->normalizer->fromFacebook(
+                $senderId,
+                $messageId,
+                $name ?? 'Unknown',
+                $text,
+                array_merge($event, ['user_id' => $userId]),
+                $userId
+            );
         }
 
-        // INSTAGRAM MESSAGES
-        if ($object === 'instagram') {
-            foreach ($entry['changes'] ?? [] as $change) {
-                $value = $change['value'] ?? [];
+        foreach ($entry['changes'] ?? [] as $change) {
+            if (($change['field'] ?? '') !== 'messages') continue;
 
-                // Instagram message payloads usually arrive here
-                if (($value['field'] ?? '') !== 'messages') continue;
-                if (isset($value['message']['is_echo'])) continue;
-                if (!isset($value['message']['text']) && !isset($value['message'])) continue;
+            $value = $change['value'] ?? [];
 
-                $pageId = $value['metadata']['page_id'] ?? ($entry['id'] ?? null);
-                $setting = $pageId ? PlatformSetting::findUserByPageId($pageId) : null;
-                $userId  = $setting?->user_id;
+            Log::info('[IG CHANGE]', $change);
 
-                $senderId  = $value['sender']['id'] ?? '';
-                $messageId = $value['message']['mid'] ?? uniqid();
-                $text      = $value['message']['text'] ?? '';
+            foreach ($value['messages'] ?? [] as $msg) {
+                if (!isset($msg['text'])) continue;
+
+                $senderId  = $value['from']['id'] ?? '';
+                $messageId = $msg['id'] ?? uniqid();
+                $text      = $msg['text'] ?? '';
 
                 $this->normalizer->fromInstagram(
                     $senderId,
                     $messageId,
-                    $value['sender']['username'] ?? null,
+                    $value['from']['username'] ?? 'Instagram User',
                     $text,
-                    array_merge($value, ['user_id' => $userId]),
+                    array_merge($msg, ['user_id' => $userId]),
                     $userId
                 );
             }
@@ -102,24 +95,39 @@ class MetaWebhookController
 
     return response('OK', 200);
 }
-    private function getFacebookName(string $senderId, ?int $userId): ?string
-    {
-        $token = $userId
-            ? PlatformSetting::getValue('facebook', 'page_access_token', $userId)
-            : null;
+   private function getFacebookName(string $senderId, ?int $userId): ?string
+{
+    $token = $userId
+        ? PlatformSetting::getValue('facebook', 'page_access_token', $userId)
+        : null;
 
-        if (!$token) return null;
+    if (!$token) {
+        Log::error('[FB NAME] Missing token', ['user_id' => $userId]);
+        return null;
+    }
 
-        try {
-            $res = Http::get("https://graph.facebook.com/{$senderId}", [
-                'fields'       => 'name',
-                'access_token' => $token,
-            ]);
-            return $res->json()['name'] ?? null;
-        } catch (\Throwable) {
+    try {
+        $res = Http::get("https://graph.facebook.com/v19.0/{$senderId}", [
+            'fields'       => 'name',
+            'access_token' => $token,
+        ]);
+
+        $data = $res->json();
+
+        Log::info('[FB NAME RESPONSE]', $data); // 👈 ADD THIS
+
+        if (isset($data['error'])) {
+            Log::error('[FB NAME ERROR]', $data['error']);
             return null;
         }
+
+        return $data['name'] ?? null;
+
+    } catch (\Throwable $e) {
+        Log::error('[FB NAME EXCEPTION]', ['error' => $e->getMessage()]);
+        return null;
     }
+}
 
     private function verifySignature(Request $request): bool
     {

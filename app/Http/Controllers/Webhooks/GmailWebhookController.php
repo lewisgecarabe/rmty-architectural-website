@@ -58,7 +58,7 @@ class GmailWebhookController
             $gmail  = new Gmail($client);
 
             $list = $gmail->users_messages->listUsersMessages('me', [
-                'q'          => 'is:unread in:inbox',
+                'q'          => 'in:inbox',
                 'maxResults' => 10,
             ]);
 
