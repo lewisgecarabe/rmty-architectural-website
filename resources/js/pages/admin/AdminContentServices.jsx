@@ -4,11 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-function getToken() {
-    return localStorage.getItem("admin_token") || localStorage.getItem("token");
-}
-
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 
 /* ---------------- REUSABLE UI COMPONENTS ---------------- */
@@ -55,6 +50,7 @@ function InputField({
 
 function ImagePlaceholder({ label, previewUrl, onChange }) {
     const fileInputRef = useRef(null);
+
     return (
         <div className="space-y-1.5 flex flex-col h-full w-full">
             <div className="flex justify-between items-center mb-1.5">
@@ -105,7 +101,6 @@ export default function AdminContentServices() {
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
 
-    // Default Fixed Slots (Hero, Intro, CTA)
     const defaultPageSlots = [
         {
             id: null,
@@ -115,7 +110,7 @@ export default function AdminContentServices() {
             cover_image: null,
             preview: null,
             is_published: true,
-        }, // Hero
+        },
         {
             id: null,
             sort_order: 1,
@@ -124,7 +119,7 @@ export default function AdminContentServices() {
             cover_image: null,
             preview: null,
             is_published: true,
-        }, // Intro + Left Image
+        },
         {
             id: null,
             sort_order: 2,
@@ -133,15 +128,11 @@ export default function AdminContentServices() {
             cover_image: null,
             preview: null,
             is_published: true,
-        }, // CTA
+        },
     ];
 
     const [pageConfig, setPageConfig] = useState(defaultPageSlots);
-
-    // Dynamic Services Array
     const [services, setServices] = useState([]);
-
-    // For Deletion Modals
     const [deleteId, setDeleteId] = useState(null);
     const [deleteIndex, setDeleteIndex] = useState(null);
 
@@ -159,22 +150,27 @@ export default function AdminContentServices() {
 
             if (res.ok) {
                 const data = await res.json();
+
                 if (Array.isArray(data)) {
-                    // Separate the fixed slots from the dynamic accordion list
                     const mergedConfig = [...defaultPageSlots];
                     const accordionItems = [];
 
                     data.forEach((item) => {
                         const formatted = {
                             ...item,
+                            sort_order: Number(item.sort_order),
                             cover_image: null,
                             preview: item.image
                                 ? `${API_BASE}/storage/${item.image}`
                                 : null,
                         };
 
-                        if (item.sort_order < 3) {
-                            mergedConfig[item.sort_order] = formatted;
+                        if (formatted.sort_order >= 0 && formatted.sort_order < 3) {
+                            mergedConfig[formatted.sort_order] = {
+                                ...formatted,
+                                sort_order: formatted.sort_order,
+                                is_published: true, // force fixed slots visible
+                            };
                         } else {
                             accordionItems.push(formatted);
                         }
@@ -183,8 +179,8 @@ export default function AdminContentServices() {
                     setPageConfig(mergedConfig);
                     setServices(
                         accordionItems.sort(
-                            (a, b) => a.sort_order - b.sort_order,
-                        ),
+                            (a, b) => Number(a.sort_order) - Number(b.sort_order)
+                        )
                     );
                 }
             }
@@ -199,12 +195,21 @@ export default function AdminContentServices() {
         fetchContent();
     }, []);
 
-    // Updaters for Fixed Page Slots
     const handleConfigText = (index, field, value) => {
         setPageConfig((prev) =>
-            prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
+            prev.map((s, i) =>
+                i === index
+                    ? {
+                          ...s,
+                          [field]: value,
+                          sort_order: index,
+                          is_published: true,
+                      }
+                    : s
+            )
         );
     };
+
     const handleConfigImage = (index, file) => {
         setPageConfig((prev) =>
             prev.map((s, i) =>
@@ -213,18 +218,20 @@ export default function AdminContentServices() {
                           ...s,
                           cover_image: file,
                           preview: URL.createObjectURL(file),
+                          sort_order: index,
+                          is_published: true,
                       }
-                    : s,
-            ),
+                    : s
+            )
         );
     };
 
-    // Updaters for Dynamic Services
     const handleText = (index, field, value) => {
         setServices((prev) =>
-            prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
+            prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
         );
     };
+
     const handleImage = (index, file) => {
         setServices((prev) =>
             prev.map((s, i) =>
@@ -234,16 +241,17 @@ export default function AdminContentServices() {
                           cover_image: file,
                           preview: URL.createObjectURL(file),
                       }
-                    : s,
-            ),
+                    : s
+            )
         );
     };
 
     const handleAddService = () => {
         const nextOrder =
             services.length > 0
-                ? Math.max(...services.map((s) => s.sort_order)) + 1
+                ? Math.max(...services.map((s) => Number(s.sort_order))) + 1
                 : 3;
+
         setServices([
             {
                 id: null,
@@ -256,35 +264,35 @@ export default function AdminContentServices() {
             },
             ...services,
         ]);
-        // Scroll to the accordion section smoothly
+
         const element = document.getElementById("accordion-editor-section");
         if (element) {
             element.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     };
 
-    // Safely clear the text and images for BOTH configs but preserve the database IDs
     const clearForm = () => {
-        {
-            setPageConfig((prev) =>
-                prev.map((s) => ({
-                    ...s,
-                    title: "",
-                    content: "",
-                    cover_image: null,
-                    preview: null,
-                })),
-            );
-            setServices((prev) =>
-                prev.map((s) => ({
-                    ...s,
-                    title: "",
-                    content: "",
-                    cover_image: null,
-                    preview: null,
-                })),
-            );
-        }
+        setPageConfig((prev) =>
+            prev.map((s, index) => ({
+                ...s,
+                title: "",
+                content: "",
+                cover_image: null,
+                preview: null,
+                sort_order: index,
+                is_published: true,
+            }))
+        );
+
+        setServices((prev) =>
+            prev.map((s) => ({
+                ...s,
+                title: "",
+                content: "",
+                cover_image: null,
+                preview: null,
+            }))
+        );
     };
 
     const triggerDelete = (index, id) => {
@@ -292,6 +300,7 @@ export default function AdminContentServices() {
             setServices((prev) => prev.filter((_, i) => i !== index));
             return;
         }
+
         setDeleteId(id);
         setDeleteIndex(index);
     };
@@ -304,6 +313,7 @@ export default function AdminContentServices() {
                 credentials: "include",
                 headers: { ...getAuthHeaders(), Accept: "application/json" },
             });
+
             if (res.ok) {
                 setServices((prev) => prev.filter((_, i) => i !== deleteIndex));
                 showToast("Service deleted successfully.");
@@ -323,17 +333,29 @@ export default function AdminContentServices() {
         setSaving(true);
 
         try {
-            const allItems = [...pageConfig, ...services];
+            const fixedSections = pageConfig.map((section, index) => ({
+                ...section,
+                sort_order: index,
+                is_published: true, // always publish hero, intro, CTA
+            }));
+
+            const dynamicServices = services.map((section) => ({
+                ...section,
+                sort_order: Number(section.sort_order),
+            }));
+
+            const allItems = [...fixedSections, ...dynamicServices];
+
             const promises = allItems.map(async (section) => {
-                // Skip if completely blank and unsaved
                 if (
                     !section.id &&
                     !section.title &&
                     !section.content &&
                     !section.cover_image &&
                     !section.preview
-                )
+                ) {
                     return null;
+                }
 
                 const fd = new FormData();
                 fd.append("sort_order", section.sort_order);
@@ -343,13 +365,14 @@ export default function AdminContentServices() {
 
                 if (section.cover_image) {
                     fd.append("cover_image", section.cover_image);
-                } else if (!section.preview) {
+                } else if (!section.preview && section.id) {
                     fd.append("cover_image", "REMOVE");
                 }
 
                 const url = section.id
                     ? `${API_BASE}/api/services/${section.id}`
                     : `${API_BASE}/api/services`;
+
                 if (section.id) fd.append("_method", "PUT");
 
                 const res = await fetch(url, {
@@ -366,11 +389,11 @@ export default function AdminContentServices() {
                     const errorData = await res.json().catch(() => ({}));
                     console.error(
                         `Laravel rejected Section ${section.sort_order}:`,
-                        errorData,
+                        errorData
                     );
                     throw new Error(
                         errorData.message ||
-                            `Failed to save section ${section.sort_order}`,
+                            `Failed to save section ${section.sort_order}`
                     );
                 }
 
@@ -378,7 +401,6 @@ export default function AdminContentServices() {
             });
 
             await Promise.all(promises);
-
             showToast("Services Configuration Saved!");
             await fetchContent();
         } catch (err) {
@@ -389,7 +411,7 @@ export default function AdminContentServices() {
         }
     };
 
-    if (loading)
+    if (loading) {
         return (
             <div className="flex flex-col [font-family:var(--font-neue)] items-center justify-center h-64 gap-4">
                 <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />
@@ -398,15 +420,15 @@ export default function AdminContentServices() {
                 </p>
             </div>
         );
+    }
 
     const cardClass =
-        "bg-white rounded-2xl border border-neutral-200 p-6 md:p-8  ";
+        "bg-white rounded-2xl border border-neutral-200 p-6 md:p-8";
     const sectionHeaderClass =
         "text-xl font-bold tracking-tight text-neutral-900 mb-6 border-b border-neutral-100 pb-4";
 
     return (
         <div className="flex flex-col [font-family:var(--font-neue)] relative pb-10 w-full mx-auto">
-            {/* ACTION BAR */}
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <p className="text-sm text-neutral-500 mt-1">
@@ -452,18 +474,16 @@ export default function AdminContentServices() {
             </div>
 
             <div className="space-y-8">
-                {/* SLOT 0: HERO SECTION */}
                 <div className={cardClass}>
                     <h2 className={sectionHeaderClass}>Hero Section</h2>
                     <div className="flex flex-col gap-6">
-                        {/* CHANGE: Added isTextArea so you can type the "|" separator easily */}
                         <InputField
                             label="Hero Title"
                             value={pageConfig[0].title}
                             onChange={(e) =>
                                 handleConfigText(0, "title", e.target.value)
                             }
-                            isTextArea={false} // Force it back to a single line
+                            isTextArea={false}
                             placeholder="e.g. DESIGNING WITH INTENTIONS"
                         />
                         <InputField
@@ -478,7 +498,6 @@ export default function AdminContentServices() {
                     </div>
                 </div>
 
-                {/* SLOT 1: INTRO & LEFT IMAGE */}
                 <div className={cardClass}>
                     <h2 className={sectionHeaderClass}>Intro & Main Image</h2>
                     <div className="flex flex-col xl:flex-row gap-8 items-stretch">
@@ -490,7 +509,6 @@ export default function AdminContentServices() {
                             />
                         </div>
                         <div className="flex-1 space-y-6 flex flex-col justify-between">
-                            {/* FIX: Changed to isTextArea to match the public site's whitespace-pre-line */}
                             <InputField
                                 label="Intro Title"
                                 value={pageConfig[1].title}
@@ -505,11 +523,7 @@ export default function AdminContentServices() {
                                     label="Intro Paragraph"
                                     value={pageConfig[1].content}
                                     onChange={(e) =>
-                                        handleConfigText(
-                                            1,
-                                            "content",
-                                            e.target.value,
-                                        )
+                                        handleConfigText(1, "content", e.target.value)
                                     }
                                     isTextArea={true}
                                     fullHeight={true}
@@ -520,13 +534,9 @@ export default function AdminContentServices() {
                     </div>
                 </div>
 
-                {/* SLOT 2: CTA SECTION */}
                 <div className={cardClass}>
-                    <h2 className={sectionHeaderClass}>
-                        Call to Action Banner
-                    </h2>
+                    <h2 className={sectionHeaderClass}>Call to Action Banner</h2>
                     <div className="flex flex-col xl:flex-row gap-8 items-stretch">
-                        {/* FIX: Removed `justify-between` and replaced it with a simple `gap-6` so they stay neatly clustered at the top */}
                         <div className="flex-1 flex flex-col gap-6">
                             <InputField
                                 label="CTA Button Text"
@@ -540,11 +550,7 @@ export default function AdminContentServices() {
                                 label="CTA Tag (Top Right)"
                                 value={pageConfig[2].content}
                                 onChange={(e) =>
-                                    handleConfigText(
-                                        2,
-                                        "content",
-                                        e.target.value,
-                                    )
+                                    handleConfigText(2, "content", e.target.value)
                                 }
                                 placeholder="e.g. Architecture"
                             />
@@ -559,7 +565,6 @@ export default function AdminContentServices() {
                     </div>
                 </div>
 
-                {/* ACCORDION SERVICES HEADER */}
                 <div
                     id="accordion-editor-section"
                     className="flex items-center justify-between pt-8 border-t border-neutral-200"
@@ -594,7 +599,6 @@ export default function AdminContentServices() {
                     </div>
                 )}
 
-                {/* DYNAMIC SERVICE CARDS */}
                 {services.map((service, index) => (
                     <div
                         key={service.id || `new-${index}`}
@@ -618,11 +622,7 @@ export default function AdminContentServices() {
                                     label="Service Title"
                                     value={service.title}
                                     onChange={(e) =>
-                                        handleText(
-                                            index,
-                                            "title",
-                                            e.target.value,
-                                        )
+                                        handleText(index, "title", e.target.value)
                                     }
                                     placeholder="e.g. Architectural Design"
                                 />
@@ -631,11 +631,7 @@ export default function AdminContentServices() {
                                         label="Service Details"
                                         value={service.content}
                                         onChange={(e) =>
-                                            handleText(
-                                                index,
-                                                "content",
-                                                e.target.value,
-                                            )
+                                            handleText(index, "content", e.target.value)
                                         }
                                         isTextArea={true}
                                         fullHeight={true}
@@ -652,7 +648,7 @@ export default function AdminContentServices() {
                                                     handleText(
                                                         index,
                                                         "is_published",
-                                                        e.target.checked,
+                                                        e.target.checked
                                                     )
                                                 }
                                                 className="w-5 h-5 rounded-md border-2 border-neutral-300 appearance-none checked:bg-black checked:border-black transition-colors cursor-pointer"
@@ -672,7 +668,6 @@ export default function AdminContentServices() {
                 ))}
             </div>
 
-            {/* DELETE MODAL */}
             <AnimatePresence>
                 {deleteId && (
                     <motion.div
@@ -703,8 +698,7 @@ export default function AdminContentServices() {
                                 Delete Permanently?
                             </h3>
                             <p className="text-sm font-medium text-neutral-500 mb-8">
-                                This action cannot be undone. It will remove
-                                this service.
+                                This action cannot be undone. It will remove this service.
                             </p>
                             <div className="flex flex-col gap-2">
                                 <button
@@ -729,7 +723,6 @@ export default function AdminContentServices() {
                 )}
             </AnimatePresence>
 
-            {/* Notification Toast */}
             <AnimatePresence>
                 {toast && (
                     <motion.div
@@ -772,6 +765,7 @@ function CheckIcon({ className }) {
         </svg>
     );
 }
+
 function UploadIcon({ className }) {
     return (
         <svg
@@ -787,6 +781,7 @@ function UploadIcon({ className }) {
         </svg>
     );
 }
+
 function CloseIcon({ className }) {
     return (
         <svg
@@ -801,6 +796,7 @@ function CloseIcon({ className }) {
         </svg>
     );
 }
+
 function TrashIcon({ className }) {
     return (
         <svg

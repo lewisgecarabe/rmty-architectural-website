@@ -27,10 +27,11 @@ class ServiceController extends Controller
 
     public function store(Request $request)
     {
+        $sortOrder = (int) ($request->input('sort_order') ?? 0);
+
         $maxSort = Service::max('sort_order');
         $defaultSort = is_null($maxSort) ? 0 : $maxSort + 1;
 
-        // THE FIX: ?? '' catches Laravel's nulls and forces them to be blank strings for MySQL!
         $data = [
             'title' => $request->input('title') ?? '',
             'content' => $request->input('content') ?? '',
@@ -38,10 +39,35 @@ class ServiceController extends Controller
             'sort_order' => $request->input('sort_order') ?? $defaultSort,
         ];
 
-        // Handle Optional Image Upload
         if ($request->hasFile('cover_image')) {
             $request->validate(['cover_image' => 'image|mimes:jpg,jpeg,png,webp']);
             $data['image'] = $request->file('cover_image')->store('services', 'public');
+        }
+
+        // Prevent duplicate fixed sections: Hero, Intro, CTA
+        if (in_array($sortOrder, [0, 1, 2], true)) {
+            $existing = Service::where('sort_order', $sortOrder)->orderBy('id')->first();
+
+            if ($existing) {
+                if (array_key_exists('image', $data) && $existing->image) {
+                    Storage::disk('public')->delete($existing->image);
+                }
+
+                $oldTitle = $existing->title;
+                $existing->update($data);
+
+                if ($request->user()) {
+                    AdminActivity::create([
+                        'user_id' => $request->user()->id,
+                        'action' => 'updated',
+                        'subject_type' => 'service',
+                        'subject_id' => $existing->id,
+                        'subject_title' => $existing->title !== '' ? $existing->title : ($oldTitle !== '' ? $oldTitle : 'Service ' . $existing->sort_order),
+                    ]);
+                }
+
+                return response()->json($existing);
+            }
         }
 
         $service = Service::create($data);
@@ -63,7 +89,6 @@ class ServiceController extends Controller
     {
         $service = Service::findOrFail($id);
 
-        // THE FIX: ?? '' catches Laravel's nulls and forces them to be blank strings for MySQL!
         $data = [
             'title' => $request->input('title') ?? '',
             'content' => $request->input('content') ?? '',
@@ -71,22 +96,19 @@ class ServiceController extends Controller
             'sort_order' => $request->input('sort_order') ?? $service->sort_order,
         ];
 
-        // Handle Image Upload / Removal
         if ($request->hasFile('cover_image')) {
             $request->validate(['cover_image' => 'image|mimes:jpg,jpeg,png,webp']);
-            
-            // Delete old image if it exists to save space
+
             if ($service->image) {
                 Storage::disk('public')->delete($service->image);
             }
-            
+
             $data['image'] = $request->file('cover_image')->store('services', 'public');
-            
         } elseif ($request->input('cover_image') === 'REMOVE') {
             if ($service->image) {
                 Storage::disk('public')->delete($service->image);
             }
-            $data['image'] = null; // Set to null in DB
+            $data['image'] = null;
         }
 
         $oldTitle = $service->title;
@@ -109,12 +131,11 @@ class ServiceController extends Controller
     {
         $service = Service::findOrFail($id);
         $title = $service->title;
-        
-        // Delete image file when service is deleted
+
         if ($service->image) {
             Storage::disk('public')->delete($service->image);
         }
-        
+
         $service->delete();
 
         if ($request->user()) {

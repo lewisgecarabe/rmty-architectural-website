@@ -507,6 +507,12 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        console.log("notifOpen changed to:", notifOpen);
+        console.log("notifItems:", notifItems);
+        console.log("notifPos:", notifPos);
+    }, [notifOpen, notifItems, notifPos]);
+
     const markAllSeen = () => {
         const seenMap = JSON.parse(
             localStorage.getItem("seenNotifs") || "{}",
@@ -590,13 +596,19 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
+                                    console.log("Notification bell clicked, notifOpen:", notifOpen);
                                     if (!notifOpen && notifRef.current) {
                                         const rect =
                                             notifRef.current.getBoundingClientRect();
+                                        console.log("Button rect:", rect);
                                         setNotifPos({
                                             top: rect.bottom + 12,
                                             right:
                                                 window.innerWidth - rect.right,
+                                        });
+                                        console.log("Set position to:", {
+                                            top: rect.bottom + 12,
+                                            right: window.innerWidth - rect.right,
                                         });
                                     }
                                     setNotifOpen(!notifOpen);
