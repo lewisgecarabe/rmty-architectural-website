@@ -16,7 +16,6 @@ function ImagePlaceholder({ className = "", label = "Image" }) {
     );
 }
 
-// Reusable Image with Loading Overlay
 function ImageWithLoader({ src, alt, className }) {
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -47,6 +46,11 @@ function ImageWithLoader({ src, alt, className }) {
     );
 }
 
+function getLastBySortOrder(data, sortOrder) {
+    const matches = data.filter((s) => Number(s.sort_order) === Number(sortOrder));
+    return matches.length > 0 ? matches[matches.length - 1] : {};
+}
+
 export default function Services() {
     const [openIndex, setOpenIndex] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -61,28 +65,27 @@ export default function Services() {
             .then((res) => res.json())
             .then((data) => {
                 if (Array.isArray(data)) {
-                    setHero(data.find((s) => s.sort_order === 0) || {});
-                    setSection(data.find((s) => s.sort_order === 1) || {});
-                    setCta(data.find((s) => s.sort_order === 2) || {});
-                    setServices(data.filter((s) => s.sort_order >= 3));
+                    setHero(getLastBySortOrder(data, 0));
+                    setSection(getLastBySortOrder(data, 1));
+                    setCta(getLastBySortOrder(data, 2));
+                    setServices(
+                        data
+                            .filter((s) => Number(s.sort_order) >= 3)
+                            .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+                    );
                 }
             })
             .catch(() => setServices([]))
             .finally(() => setLoading(false));
     }, []);
 
-    const heroTitleParts = hero.title ? hero.title.split("|") : [];
-    const heroTitle1 = heroTitleParts[0]?.trim() || "DESIGNING WITH";
-    const heroTitle2 = heroTitleParts[1]?.trim() || "INTENTIONS";
-
     return (
         <section className="w-full bg-white [font-family:var(--font-neue)]">
-            {/* ================= TOP HERO ================= */}
             <div className="w-full bg-[#f7f7f8]">
                 <div className="mx-auto max-w-screen-2xl px-6 pt-36 pb-20 md:pt-44 md:pb-24 min-h-[400px] md:min-h-[400px]">
                     <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
                         <div className="space-y-1">
-                            <h1 className="text-4xl font-bold tracking-tight text-black md:text-6xl uppercase">
+                            <h1 className="text-4xl font-bold tracking-tight text-black md:text-6xl uppercase whitespace-pre-line">
                                 {hero.title || "DESIGNING WITH INTENTIONS"}
                             </h1>
                         </div>
@@ -94,7 +97,6 @@ export default function Services() {
                 </div>
             </div>
 
-            {/* ================= SERVICES SECTION ================= */}
             <div className="w-full bg-white border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
                     <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
@@ -115,7 +117,6 @@ export default function Services() {
                                         className="h-full w-full object-cover"
                                     />
                                 ) : (
-                                    /* FIX: Added absolute inset-0 to make the placeholder fill the gray box */
                                     <motion.div
                                         key="placeholder"
                                         initial={{ opacity: 0 }}
@@ -127,12 +128,9 @@ export default function Services() {
                                 )}
                             </AnimatePresence>
 
-                            {/* Tags stay on top */}
                             <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 text-[10px] tracking-widest uppercase font-bold text-black bg-white/60 backdrop-blur-sm py-2 mx-4 border border-white/40 z-20">
                                 <span className="opacity-80">📍</span>
-                                <span>
-                                    {section.locationTag || "Tagaytay City"}
-                                </span>
+                                <span>{section.locationTag || "Tagaytay City"}</span>
                             </div>
                         </div>
 
@@ -141,8 +139,7 @@ export default function Services() {
                                 {section.title || "RMTY Design Architects"}
                             </h3>
                             <p className="mt-6 max-w-md text-sm leading-relaxed text-gray-500 whitespace-pre-wrap">
-                                {section.content ||
-                                    "At vero eos et accusamus..."}
+                                {section.content || "At vero eos et accusamus..."}
                             </p>
 
                             <div className="mt-12 border-t border-gray-200">
@@ -165,9 +162,7 @@ export default function Services() {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        setOpenIndex(
-                                                            isOpen ? null : idx,
-                                                        )
+                                                        setOpenIndex(isOpen ? null : idx)
                                                     }
                                                     className="flex w-full items-center justify-between py-5 text-left outline-none group"
                                                 >
@@ -178,9 +173,7 @@ export default function Services() {
                                                         {isOpen ? "–" : "+"}
                                                     </span>
                                                 </button>
-                                                <AnimatePresence
-                                                    initial={false}
-                                                >
+                                                <AnimatePresence initial={false}>
                                                     {isOpen && (
                                                         <motion.div
                                                             initial={{
@@ -203,9 +196,7 @@ export default function Services() {
                                                         >
                                                             <div className="pb-6 pr-8">
                                                                 <p className="text-[13px] leading-relaxed text-gray-500 whitespace-pre-wrap">
-                                                                    {
-                                                                        item.content
-                                                                    }
+                                                                    {item.content}
                                                                 </p>
                                                             </div>
                                                         </motion.div>
@@ -221,10 +212,8 @@ export default function Services() {
                 </div>
             </div>
 
-            {/* ================= SEE OTHER PROJECTS CTA ================= */}
             <div className="w-full bg-white border-t border-gray-200/50">
                 <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
-                    {/* FIX: Changed bg-black to bg-gray-100 to match the other image container */}
                     <div className="relative overflow-hidden rounded-none bg-gray-100 h-[300px] md:h-[400px]">
                         <AnimatePresence mode="wait">
                             {loading ? (
@@ -233,7 +222,6 @@ export default function Services() {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    /* FIX: Changed bg-neutral-900 to bg-neutral-50 and border colors to match */
                                     className="absolute inset-0 flex items-center justify-center bg-neutral-50 z-30"
                                 >
                                     <div className="w-8 h-8 border-4 border-neutral-200 border-t-black rounded-full animate-spin" />

@@ -452,6 +452,12 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        console.log("notifOpen changed to:", notifOpen);
+        console.log("notifItems:", notifItems);
+        console.log("notifPos:", notifPos);
+    }, [notifOpen, notifItems, notifPos]);
+
     const markAllSeen = () => {
         const allIds = notifItems.map((n) => n.id);
         const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
@@ -533,13 +539,19 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
+                                    console.log("Notification bell clicked, notifOpen:", notifOpen);
                                     if (!notifOpen && notifRef.current) {
                                         const rect =
                                             notifRef.current.getBoundingClientRect();
+                                        console.log("Button rect:", rect);
                                         setNotifPos({
                                             top: rect.bottom + 12,
                                             right:
                                                 window.innerWidth - rect.right,
+                                        });
+                                        console.log("Set position to:", {
+                                            top: rect.bottom + 12,
+                                            right: window.innerWidth - rect.right,
                                         });
                                     }
                                     setNotifOpen(!notifOpen);
@@ -577,7 +589,11 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                             duration: 0.2,
                                             ease: [0.22, 1, 0.36, 1],
                                         }}
-                                        className="absolute right-0 top-[calc(100%+12px)] w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
+                                        className="fixed w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
+                                        style={{
+                                            top: `${notifPos.top}px`,
+                                            right: `${notifPos.right}px`,
+                                        }}
                                     >
                                         <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-100">
                                             <span className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
@@ -592,11 +608,88 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                                 <CloseIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <div className="flex flex-col items-center justify-center py-6 text-center z-50">
-                                            <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
-                                            <p className="text-sm font-medium text-neutral-500">
-                                                You're all caught up!
-                                            </p>
+                                        <div className="max-h-96 overflow-y-auto">
+                                            {notifItems.length > 0 ? (
+                                                <div className="space-y-1">
+                                                    {notifItems.map((item) => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="group relative p-3 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 border border-transparent hover:border-blue-100 hover:shadow-sm"
+                                                            onClick={() => {
+                                                                // Mark as seen and navigate to inquiries
+                                                                const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
+                                                                localStorage.setItem(
+                                                                    "seenNotifs",
+                                                                    JSON.stringify([...new Set([...existing, item.id])])
+                                                                );
+                                                                setNotifItems((prev) => prev.filter((n) => n.id !== item.id));
+                                                                setNotifCount((prev) => Math.max(0, prev - 1));
+                                                                setNotifOpen(false);
+                                                                navigate("/admin/inquiries");
+                                                            }}
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div className="flex-1">
+                                                                            <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                                                                                {item.title}
+                                                                            </p>
+                                                                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                                                                {item.subtitle}
+                                                                            </p>
+                                                                            <div className="flex items-center gap-2 mt-1.5">
+                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                    New Inquiry
+                                                                                </span>
+                                                                                <span className="text-xs text-gray-400">
+                                                                                    {new Date(item.time).toLocaleDateString()}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                                                        </div>
+                                                    ))}
+                                                    {notifItems.length > 0 && (
+                                                        <div className="border-t border-gray-100 pt-3 mt-2 px-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    markAllSeen();
+                                                                }}
+                                                                className="w-full text-center text-xs font-semibold text-gray-500 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50"
+                                                            >
+                                                                Mark all as read
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3">
+                                                        <SleekBellIcon className="w-8 h-8 text-gray-400" />
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-gray-600 mb-1">
+                                                        All caught up!
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        No new notifications
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </motion.div>
                                 )}

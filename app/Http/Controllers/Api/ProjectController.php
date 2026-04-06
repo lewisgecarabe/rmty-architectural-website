@@ -97,9 +97,9 @@ class ProjectController extends Controller
             'category_id'  => 'sometimes|required|exists:categories,id',
             'location'     => 'nullable|string',
             'description'  => 'nullable|string',
-            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:20480',
             'gallery'      => 'nullable|array',
-            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:20480',
             'is_published' => 'sometimes|boolean',
         ]);
 
