@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import CommandPalette from "./CommandPalette";
 
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
@@ -323,8 +323,11 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 ───────────────────────────────────────── */
 function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     const location = useLocation();
+    const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
+    const [notifItems, setNotifItems] = useState([]);
+    const [notifCount, setNotifCount] = useState(0);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [fetchedUser, setFetchedUser] = useState(null);
@@ -335,6 +338,8 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 
     const dropdownRef = useRef(null);
     const notifRef = useRef(null);
+    const notifDropdownRef = useRef(null);
+    const [notifPos, setNotifPos] = useState({ top: 0, right: 0 });
 
     const getPageTitle = () => {
         const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -363,7 +368,12 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             ) {
                 setDropdownOpen(false);
             }
-            if (notifRef.current && !notifRef.current.contains(e.target)) {
+            if (
+                notifRef.current &&
+                !notifRef.current.contains(e.target) &&
+                notifDropdownRef.current &&
+                !notifDropdownRef.current.contains(e.target)
+            ) {
                 setNotifOpen(false);
             }
         };
@@ -394,6 +404,64 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             cancelled = true;
         };
     }, [imageHash]);
+
+    useEffect(() => {
+        const authHeaders = () => {
+            const token =
+                localStorage.getItem("admin_token") ||
+                localStorage.getItem("token");
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        };
+
+        const fetchNotifications = async () => {
+            try {
+                const seenIds = JSON.parse(
+                    localStorage.getItem("seenNotifs") || "[]",
+                );
+                const res = await fetch(
+                    "/api/inquiries?status=new&per_page=20",
+                    {
+                        credentials: "include",
+                        headers: authHeaders(),
+                    },
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = data.data || [];
+                const items = list
+                    .filter((inq) => inq.name !== "You")
+                    .map((inq) => ({
+                        id: `inq-${inq.id}`,
+                        title: inq.name || "Unknown",
+                        subtitle: inq.email || inq.platform || "",
+                        platform: inq.platform,
+                        time: inq.created_at,
+                    }));
+                const unseen = items.filter(
+                    (item) => !seenIds.includes(item.id),
+                );
+                setNotifItems(unseen);
+                setNotifCount(unseen.length);
+            } catch {
+                // silent
+            }
+        };
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const markAllSeen = () => {
+        const allIds = notifItems.map((n) => n.id);
+        const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
+        localStorage.setItem(
+            "seenNotifs",
+            JSON.stringify([...new Set([...existing, ...allIds])]),
+        );
+        setNotifItems([]);
+        setNotifCount(0);
+    };
 
     const confirmLogout = () => {
         localStorage.removeItem("admin_token");
@@ -465,17 +533,35 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
+                                    if (!notifOpen && notifRef.current) {
+                                        const rect =
+                                            notifRef.current.getBoundingClientRect();
+                                        setNotifPos({
+                                            top: rect.bottom + 12,
+                                            right:
+                                                window.innerWidth - rect.right,
+                                        });
+                                    }
                                     setNotifOpen(!notifOpen);
                                     setDropdownOpen(false);
                                 }}
                                 className="relative text-neutral-400 hover:text-black transition-colors duration-200 outline-none cursor-pointer"
                             >
                                 <SleekBellIcon />
-                                <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                {notifCount > 0 ? (
+                                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-[#f7f7f8] text-[9px] font-black text-white leading-none">
+                                        {notifCount > 9 ? "9+" : notifCount}
+                                    </span>
+                                ) : (
+                                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                )}
                             </button>
+                        </div>
+                        {createPortal(
                             <AnimatePresence>
                                 {notifOpen && (
                                     <motion.div
+                                        ref={notifDropdownRef}
                                         initial={{
                                             opacity: 0,
                                             y: 10,
@@ -514,8 +600,9 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                         </div>
                                     </motion.div>
                                 )}
-                            </AnimatePresence>
-                        </div>
+                            </AnimatePresence>,
+                            document.body,
+                        )}
 
                         {/* Profile Block */}
                         <div className="relative" ref={dropdownRef}>
