@@ -8,13 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('contact_contents', function (Blueprint $table) {
-            // Add new office hours columns
-            $table->string('office_day_from')->nullable()->after('address_line_2');
-            $table->string('office_day_to')->nullable()->after('office_day_from');
-            $table->string('office_time_from')->nullable()->after('office_day_to');
-            $table->string('office_time_to')->nullable()->after('office_time_from');
-        });
+        Schema::create('contact_contents', function (Blueprint $table) {
+    $table->id();
+    $table->string('address_line_1')->nullable();
+    $table->string('address_line_2')->nullable();
+    $table->string('office_day_from')->nullable();
+    $table->string('office_day_to')->nullable();
+    $table->string('office_hours')->nullable();
+    $table->timestamps();
+});
     }
 
     public function down(): void
