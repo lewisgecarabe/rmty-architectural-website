@@ -415,31 +415,84 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 
         const fetchNotifications = async () => {
             try {
-                const seenIds = JSON.parse(
-                    localStorage.getItem("seenNotifs") || "[]",
-                );
                 const res = await fetch(
-                    "/api/inquiries?status=new&per_page=20",
-                    {
-                        credentials: "include",
-                        headers: authHeaders(),
-                    },
+                    "/api/inquiries?status=new&per_page=50",
+                    { credentials: "include", headers: authHeaders() },
                 );
                 if (!res.ok) return;
                 const data = await res.json();
-                const list = data.data || [];
-                const items = list
-                    .filter((inq) => inq.name !== "You")
-                    .map((inq) => ({
-                        id: `inq-${inq.id}`,
-                        title: inq.name || "Unknown",
-                        subtitle: inq.email || inq.platform || "",
-                        platform: inq.platform,
-                        time: inq.created_at,
-                    }));
-                const unseen = items.filter(
-                    (item) => !seenIds.includes(item.id),
+                const list = (data.data || []).filter(
+                    (inq) => inq.name !== "You",
                 );
+
+                // Group into threads using the same key logic as AdminInquiries
+                const threadMap = {};
+                list.forEach((inq) => {
+                    const key = inq.email || inq.phone || `id_${inq.id}`;
+                    if (!threadMap[key]) {
+                        threadMap[key] = {
+                            key,
+                            name: inq.name || "Unknown",
+                            subtitle:
+                                inq.email ||
+                                inq.phone ||
+                                inq.platform ||
+                                "",
+                            platform: inq.platform,
+                            inquiries: [],
+                        };
+                    }
+                    threadMap[key].inquiries.push(inq);
+                });
+
+                // seenNotifs is { [threadKey]: dismissedAt ISO string }
+                // Migrate from old array format if needed
+                let seenMap = {};
+                try {
+                    const raw = JSON.parse(
+                        localStorage.getItem("seenNotifs") || "{}",
+                    );
+                    if (raw && !Array.isArray(raw) && typeof raw === "object") {
+                        seenMap = raw;
+                    } else {
+                        localStorage.setItem("seenNotifs", "{}");
+                    }
+                } catch {
+                    localStorage.setItem("seenNotifs", "{}");
+                }
+
+                const unseen = Object.values(threadMap)
+                    .filter((thread) => {
+                        const latestTime = Math.max(
+                            ...thread.inquiries.map((inq) =>
+                                new Date(inq.created_at).getTime(),
+                            ),
+                        );
+                        const seenAt = seenMap[thread.key]
+                            ? new Date(seenMap[thread.key]).getTime()
+                            : 0;
+                        return latestTime > seenAt;
+                    })
+                    .map((thread) => {
+                        const latest = thread.inquiries.reduce((a, b) =>
+                            new Date(a.created_at) > new Date(b.created_at)
+                                ? a
+                                : b,
+                        );
+                        return {
+                            id: thread.key,
+                            title: thread.name,
+                            subtitle: thread.subtitle,
+                            threadKey: thread.key,
+                            time: latest.created_at,
+                        };
+                    })
+                    .sort(
+                        (a, b) =>
+                            new Date(b.time).getTime() -
+                            new Date(a.time).getTime(),
+                    );
+
                 setNotifItems(unseen);
                 setNotifCount(unseen.length);
             } catch {
@@ -459,12 +512,14 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     }, [notifOpen, notifItems, notifPos]);
 
     const markAllSeen = () => {
-        const allIds = notifItems.map((n) => n.id);
-        const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
-        localStorage.setItem(
-            "seenNotifs",
-            JSON.stringify([...new Set([...existing, ...allIds])]),
+        const seenMap = JSON.parse(
+            localStorage.getItem("seenNotifs") || "{}",
         );
+        const now = new Date().toISOString();
+        notifItems.forEach((item) => {
+            seenMap[item.threadKey] = now;
+        });
+        localStorage.setItem("seenNotifs", JSON.stringify(seenMap));
         setNotifItems([]);
         setNotifCount(0);
     };
@@ -574,123 +629,69 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                 {notifOpen && (
                                     <motion.div
                                         ref={notifDropdownRef}
-                                        initial={{
-                                            opacity: 0,
-                                            y: 10,
-                                            scale: 0.95,
-                                        }}
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{
-                                            opacity: 0,
-                                            y: 10,
-                                            scale: 0.95,
-                                        }}
-                                        transition={{
-                                            duration: 0.2,
-                                            ease: [0.22, 1, 0.36, 1],
-                                        }}
-                                        className="fixed w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
-                                        style={{
-                                            top: `${notifPos.top}px`,
-                                            right: `${notifPos.right}px`,
-                                        }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        transition={{ duration: 0.2, ease: smoothEase }}
+                                        style={{ position: "fixed", top: notifPos.top, right: notifPos.right, width: 280 }}
+                                        className="bg-white border border-neutral-200 rounded-2xl p-4 z-[9999] shadow-xl origin-top-right"
+                                        onMouseDown={(e) => e.stopPropagation()}
                                     >
                                         <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-100">
                                             <span className="text-[11px] font-bold tracking-[0.05em] text-neutral-400 uppercase">
                                                 Notifications
                                             </span>
                                             <button
-                                                onClick={() =>
-                                                    setNotifOpen(false)
-                                                }
+                                                onClick={() => setNotifOpen(false)}
                                                 className="text-neutral-400 hover:text-neutral-900 cursor-pointer outline-none"
                                             >
                                                 <CloseIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <div className="max-h-96 overflow-y-auto">
-                                            {notifItems.length > 0 ? (
-                                                <div className="space-y-1">
+                                        {notifItems.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                                                <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
+                                                <p className="text-sm font-medium text-neutral-500">
+                                                    You're all caught up!
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto -mx-1">
                                                     {notifItems.map((item) => (
-                                                        <div
+                                                        <button
                                                             key={item.id}
-                                                            className="group relative p-3 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 border border-transparent hover:border-blue-100 hover:shadow-sm"
                                                             onClick={() => {
-                                                                // Mark as seen and navigate to inquiries
-                                                                const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
-                                                                localStorage.setItem(
-                                                                    "seenNotifs",
-                                                                    JSON.stringify([...new Set([...existing, item.id])])
-                                                                );
+                                                                const seenMap = JSON.parse(localStorage.getItem("seenNotifs") || "{}");
+                                                                seenMap[item.threadKey] = new Date().toISOString();
+                                                                localStorage.setItem("seenNotifs", JSON.stringify(seenMap));
                                                                 setNotifItems((prev) => prev.filter((n) => n.id !== item.id));
                                                                 setNotifCount((prev) => Math.max(0, prev - 1));
+                                                                navigate("/admin/inquiries", { state: { openThreadKey: item.threadKey } });
                                                                 setNotifOpen(false);
-                                                                navigate("/admin/inquiries");
                                                             }}
+                                                            className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 text-left transition-colors cursor-pointer w-full"
                                                         >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div className="flex-1">
-                                                                            <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-                                                                                {item.title}
-                                                                            </p>
-                                                                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                                                                {item.subtitle}
-                                                                            </p>
-                                                                            <div className="flex items-center gap-2 mt-1.5">
-                                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                                    New Inquiry
-                                                                                </span>
-                                                                                <span className="text-xs text-gray-400">
-                                                                                    {new Date(item.time).toLocaleDateString()}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                                                                            </svg>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                            <div className="mt-1 h-2 w-2 rounded-full shrink-0 bg-blue-500" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[12px] font-bold text-neutral-900 leading-tight truncate">
+                                                                    New inquiry from {item.title}
+                                                                </p>
+                                                                <p className="text-[11px] text-neutral-400 truncate">
+                                                                    {item.subtitle}
+                                                                </p>
                                                             </div>
-                                                            <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                                                        </div>
+                                                        </button>
                                                     ))}
-                                                    {notifItems.length > 0 && (
-                                                        <div className="border-t border-gray-100 pt-3 mt-2 px-2">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    markAllSeen();
-                                                                }}
-                                                                className="w-full text-center text-xs font-semibold text-gray-500 hover:text-blue-600 transition-colors py-2 px-3 rounded-lg hover:bg-blue-50"
-                                                            >
-                                                                Mark all as read
-                                                            </button>
-                                                        </div>
-                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center py-8 text-center">
-                                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3">
-                                                        <SleekBellIcon className="w-8 h-8 text-gray-400" />
-                                                    </div>
-                                                    <p className="text-sm font-semibold text-gray-600 mb-1">
-                                                        All caught up!
-                                                    </p>
-                                                    <p className="text-xs text-gray-400">
-                                                        No new notifications
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
+                                                <button
+                                                    onClick={markAllSeen}
+                                                    className="mt-3 pt-2.5 border-t border-neutral-100 w-full text-center text-[11px] font-bold text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer"
+                                                >
+                                                    Mark all as read
+                                                </button>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>,

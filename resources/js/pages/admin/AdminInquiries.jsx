@@ -5,7 +5,7 @@ import React, {
     useCallback,
     useMemo,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
 
@@ -176,6 +176,7 @@ export default function AdminInquiries() {
     const [page, setPage] = useState(1);
     const [meta, setMeta] = useState({});
 
+    const location = useLocation();
     const [selectedThreadKey, setSelectedThreadKey] = useState(null);
     const [updating, setUpdating] = useState(false);
 
@@ -220,6 +221,7 @@ export default function AdminInquiries() {
 
     const searchTimer = useRef(null);
     const pollTimer = useRef(null);
+    const pendingMarkReadKey = useRef(null);
 
     function showToast(msg, type = "success") {
         setToast({ msg, type });
@@ -367,6 +369,24 @@ export default function AdminInquiries() {
         pollTimer.current = setInterval(() => load(page, filters, true), 30000);
         return () => clearInterval(pollTimer.current);
     }, []); // eslint-disable-line
+
+    useEffect(() => {
+        const key = location.state?.openThreadKey;
+        if (key) {
+            setSelectedThreadKey(key);
+            pendingMarkReadKey.current = key;
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
+
+    useEffect(() => {
+        if (!pendingMarkReadKey.current) return;
+        const thread = allThreads.find((t) => t.key === pendingMarkReadKey.current);
+        if (thread) {
+            thread.messages.forEach((m) => markAsRead(m.id));
+            pendingMarkReadKey.current = null;
+        }
+    }, [allThreads]);
 
     useEffect(() => {
         setSelectedIds([]);
