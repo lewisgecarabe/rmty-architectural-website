@@ -3,15 +3,9 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectCard from "../components/ProjectCard";
 
-const CATEGORIES = [
-    "Residential",
-    "Commercial",
-    "Interior Architecture",
-    "Master Planning",
-];
-
 export default function Projects() {
     const [projects, setProjects] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [ctaSettings, setCtaSettings] = useState({ image: null, text: "" });
@@ -23,12 +17,19 @@ export default function Projects() {
                   selectedCategories.includes(p.category?.name),
               );
 
-    const toggleCategory = (category) => {
+    const countForCategory = (categoryName) =>
+        projects.filter((p) => p.category?.name === categoryName).length;
+
+    const handleToggleCategory = (categoryName) => {
         setSelectedCategories((prev) =>
-            prev.includes(category)
-                ? prev.filter((c) => c !== category)
-                : [...prev, category],
+            prev.includes(categoryName)
+                ? prev.filter((name) => name !== categoryName)
+                : [...prev, categoryName],
         );
+    };
+
+    const clearFilters = () => {
+        setSelectedCategories([]);
     };
 
     useEffect(() => {
@@ -39,6 +40,16 @@ export default function Projects() {
                 setProjects(data);
             } catch (error) {
                 console.error("Failed to fetch projects:", error);
+            }
+        };
+
+        const fetchCategories = async () => {
+            try {
+                const res = await fetch("/api/categories");
+                const data = await res.json();
+                setCategories(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error("Failed to fetch categories:", error);
             }
         };
 
@@ -53,6 +64,7 @@ export default function Projects() {
         };
 
         fetchProjects();
+        fetchCategories();
         fetchCta();
         window.scrollTo(0, 0);
     }, []);
@@ -71,22 +83,27 @@ export default function Projects() {
                     </div>
                 </div>
 
-                {/* --- SECTION 2: FILTER --- */}
-                <div className="relative mb-12 flex items-center gap-4">
+                {/* --- SECTION 2: HEADER + FILTER --- */}
+                <div className="relative mb-12 flex flex-wrap items-center gap-4">
                     <h2 className="text-4xl md:text-5xl font-bold uppercase tracking-tight">
                         Projects
                     </h2>
+
                     <div className="relative">
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
                             className="text-xs md:text-sm font-medium uppercase tracking-wide flex items-center cursor-pointer gap-1 mt-2 hover:opacity-70 transition-opacity"
                         >
-                            Filter
+                            {selectedCategories.length > 0
+                                ? "Filter Selected"
+                                : "Filter"}
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
-                                className={`w-4 h-4 transition-transform ${isFilterOpen ? "rotate-180" : ""}`}
+                                className={`w-4 h-4 transition-transform ${
+                                    isFilterOpen ? "rotate-180" : ""
+                                }`}
                             >
                                 <path
                                     fillRule="evenodd"
@@ -95,81 +112,203 @@ export default function Projects() {
                                 />
                             </svg>
                         </button>
+
                         <AnimatePresence>
                             {isFilterOpen && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
-                                    className="absolute top-full left-0 mt-2 w-64 bg-[#d9d9d9] p-6 shadow-xl z-30"
+                                    className="absolute top-full left-0 mt-2 w-72 bg-[#d9d9d9] p-6 shadow-xl z-30"
                                 >
-                                    <div className="flex flex-col gap-3">
-                                        {CATEGORIES.map((cat) => {
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            onClick={() => {
+                                                clearFilters();
+                                                setIsFilterOpen(false);
+                                            }}
+                                            className="flex items-center justify-between cursor-pointer group select-none h-8 text-left px-1"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className={`h-[1px] bg-black transition-all duration-300 ease-out ${
+                                                        selectedCategories.length === 0
+                                                            ? "w-6 opacity-100"
+                                                            : "w-0 opacity-0 group-hover:w-2 group-hover:opacity-50"
+                                                    }`}
+                                                />
+                                                <span
+                                                    className={`text-xs uppercase tracking-wide transition-all duration-300 ${
+                                                        selectedCategories.length === 0
+                                                            ? "text-black font-semibold"
+                                                            : "text-black/60 group-hover:text-black"
+                                                    }`}
+                                                >
+                                                    All Projects
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-black/40 tabular-nums">
+                                                {projects.length}
+                                            </span>
+                                        </button>
+
+                                        <div className="my-2 h-px bg-black/10" />
+
+                                        {categories.map((cat) => {
                                             const isSelected =
-                                                selectedCategories.includes(cat);
+                                                selectedCategories.includes(
+                                                    cat.name,
+                                                );
+                                            const count = countForCategory(
+                                                cat.name,
+                                            );
 
                                             return (
                                                 <button
-                                                    key={cat}
+                                                    key={cat.id}
                                                     onClick={() =>
-                                                        toggleCategory(cat)
+                                                        handleToggleCategory(
+                                                            cat.name,
+                                                        )
                                                     }
-                                                    className="flex items-center gap-3 cursor-pointer group select-none h-6 text-left"
+                                                    className="flex items-center justify-between cursor-pointer group select-none h-8 text-left px-1"
                                                 >
-                                                    <div
-                                                        className={`h-[1px] bg-black transition-all duration-300 ease-out ${
-                                                            isSelected
-                                                                ? "w-6 opacity-100"
-                                                                : "w-0 opacity-0 group-hover:w-2 group-hover:opacity-50"
-                                                        }`}
-                                                    />
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className={`h-[1px] bg-black transition-all duration-300 ease-out ${
+                                                                isSelected
+                                                                    ? "w-6 opacity-100"
+                                                                    : "w-0 opacity-0 group-hover:w-2 group-hover:opacity-50"
+                                                            }`}
+                                                        />
+                                                        <span
+                                                            className={`text-xs uppercase tracking-wide transition-all duration-300 ${
+                                                                isSelected
+                                                                    ? "text-black font-semibold translate-x-0"
+                                                                    : "text-black/60 group-hover:text-black -translate-x-2 group-hover:translate-x-0"
+                                                            }`}
+                                                        >
+                                                            {cat.name}
+                                                        </span>
+                                                    </div>
+
                                                     <span
-                                                        className={`text-xs uppercase tracking-wide transition-all duration-300 ${
+                                                        className={`text-[10px] font-bold tabular-nums transition-colors ${
                                                             isSelected
-                                                                ? "text-black translate-x-0"
-                                                                : "text-black group-hover:text-black -translate-x-2 group-hover:translate-x-0"
+                                                                ? "text-black"
+                                                                : "text-black/40"
                                                         }`}
                                                     >
-                                                        {cat}
+                                                        {count}
                                                     </span>
                                                 </button>
                                             );
                                         })}
+
+                                        {categories.length === 0 && (
+                                            <p className="text-xs text-black/40 px-1">
+                                                No categories found.
+                                            </p>
+                                        )}
                                     </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
+
+                    {/* Active filter chips */}
+                    <AnimatePresence>
+                        {selectedCategories.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="mt-2 flex flex-wrap gap-2"
+                            >
+                                {selectedCategories.map((category) => (
+                                    <motion.button
+                                        key={category}
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        onClick={() =>
+                                            handleToggleCategory(category)
+                                        }
+                                        className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide bg-black text-white px-3 py-1.5 hover:bg-black/80 transition-colors"
+                                    >
+                                        {category}
+                                        <svg
+                                            className="w-3 h-3"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2.5}
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M6 18L18 6M6 6l12 12"
+                                            />
+                                        </svg>
+                                    </motion.button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* --- SECTION 3: PROJECTS GRID --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24 items-start">
                     <AnimatePresence mode="popLayout">
-                        {filteredProjects.map((project) => (
+                        {filteredProjects.length > 0 ? (
+                            filteredProjects.map((project) => (
+                                <motion.div
+                                    layout
+                                    key={project.id}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className={`group ${
+                                        project.colSpan || "col-span-1"
+                                    }`}
+                                >
+                                    <ProjectCard
+                                        title={project.title}
+                                        category={project.category?.name}
+                                        slug={project.slug || project.id}
+                                        image={project.image}
+                                        aspectRatio={
+                                            project.aspect || "aspect-[4/3]"
+                                        }
+                                    />
+                                </motion.div>
+                            ))
+                        ) : (
                             <motion.div
-                                layout
-                                key={project.id}
+                                key="empty"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className={`group ${project.colSpan || "col-span-1"}`}
+                                className="col-span-full py-24 flex flex-col items-center justify-center text-center gap-4"
                             >
-                                <ProjectCard
-                                    title={project.title}
-                                    category={project.category?.name}
-                                    slug={project.slug || project.id}
-                                    image={project.image}
-                                    aspectRatio={
-                                        project.aspect || "aspect-[4/3]"
-                                    }
-                                />
+                                <p className="text-2xl font-bold uppercase tracking-tight text-black/30">
+                                    No projects yet
+                                </p>
+                                {selectedCategories.length > 0 && (
+                                    <button
+                                        onClick={clearFilters}
+                                        className="text-sm font-medium underline underline-offset-4 text-black/50 hover:text-black transition-colors"
+                                    >
+                                        Clear filter
+                                    </button>
+                                )}
                             </motion.div>
-                        ))}
+                        )}
                     </AnimatePresence>
                 </div>
             </div>
 
-            {/* --- SECTION 5: "LET'S TALK" --- */}
+            {/* --- SECTION 4: "LET'S TALK" --- */}
             <section className="w-full border-t border-black/5 bg-[#f0f0f0]">
                 <div className="w-full grid grid-cols-1 lg:grid-cols-12 min-h-[600px] lg:min-h-[700px]">
                     <div className="lg:col-span-5 flex flex-col items-start justify-center py-32 px-6 lg:pl-[max(1.5rem,calc((100vw-1536px)/2+1.5rem))] lg:pr-12">
