@@ -246,6 +246,46 @@ export default function AdminManagement() {
         }
     };
 
+    const promoteAdmin = async (id) => {
+    try {
+        const response = await axios.post(
+            `/api/admins/${id}/promote`,
+            {},
+            { headers: getAuthHeader() }
+        );
+
+        if (response.data.success) {
+            showToast("Admin promoted to super_admin");
+            fetchAdmins();
+        }
+    } catch (err) {
+        showToast(
+            err.response?.data?.message || "Failed to promote admin",
+            "error"
+        );
+    }
+};
+
+const demoteAdmin = async (id) => {
+    try {
+        const response = await axios.post(
+            `/api/admins/${id}/demote`,
+            {},
+            { headers: getAuthHeader() }
+        );
+
+        if (response.data.success) {
+            showToast("Admin demoted to admin");
+            fetchAdmins();
+        }
+    } catch (err) {
+        showToast(
+            err.response?.data?.message || "Failed to demote admin",
+            "error"
+        );
+    }
+};
+
     /* ---------------- COMPUTED DATA ---------------- */
     let displayedAdmins = admins;
     if (searchTerm.trim() !== "") {
@@ -471,13 +511,20 @@ export default function AdminManagement() {
                                                         />
                                                         <div>
                                                             <p className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-                                                                {fName} {lName}
-                                                                {isCurrentUser && (
-                                                                    <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-100 text-blue-600 rounded text-[9px] uppercase tracking-wider font-black">
-                                                                        You
-                                                                    </span>
-                                                                )}
-                                                            </p>
+    {fName} {lName}
+
+    {admin.role === "super_admin" && (
+        <span className="px-1.5 py-0.5 bg-purple-50 border border-purple-100 text-purple-600 rounded text-[9px] uppercase tracking-wider font-black">
+            Super
+        </span>
+    )}
+
+    {isCurrentUser && (
+        <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-100 text-blue-600 rounded text-[9px] uppercase tracking-wider font-black">
+            You
+        </span>
+    )}
+</p>
                                                             <p className="text-[11px] font-medium text-neutral-400 mt-0.5 tracking-wide">
                                                                 {admin.email}
                                                             </p>
@@ -523,6 +570,29 @@ export default function AdminManagement() {
                                                 </td>
                                                 <td className="py-4 px-5 align-middle text-right">
                                                     <div className="flex justify-end gap-2 mt-1">
+                                                        {/* PROMOTE (only if admin) */}
+{admin.role !== "super_admin" && (
+    <button
+        onClick={() => promoteAdmin(admin.id)}
+        disabled={isCurrentUser}
+        className="rounded-lg border border-indigo-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-indigo-600 transition-all hover:border-indigo-400 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+        title={isCurrentUser ? "You cannot modify your own role" : "Promote to Super Admin"}
+    >
+        Promote
+    </button>
+)}
+
+{/* DEMOTE (only if super_admin) */}
+{admin.role === "super_admin" && (
+    <button
+        onClick={() => demoteAdmin(admin.id)}
+        disabled={isCurrentUser}
+        className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-600 transition-all hover:border-gray-400 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+        title={isCurrentUser ? "You cannot modify your own role" : "Demote to Admin"}
+    >
+        Demote
+    </button>
+)}
                                                         {showArchived ? (
                                                             <>
                                                                 <button

@@ -21,8 +21,9 @@ class AdminManagementController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = User::where('is_admin', true)
-                ->select('id', 'name', 'first_name', 'last_name', 'email', 'archived_at', 'created_at', 'updated_at');
+            $query = User::whereIn('role', ['admin', 'super_admin'])
+
+                ->select('id', 'name', 'first_name', 'last_name', 'email', 'role', 'archived_at', 'created_at', 'updated_at');
 
             if ($request->boolean('archived')) {
                 $query->whereNotNull('archived_at');
@@ -56,8 +57,9 @@ class AdminManagementController extends Controller
     public function show($id)
     {
         try {
-            $admin = User::where('is_admin', true)
-                ->select('id', 'name', 'first_name', 'last_name', 'email', 'archived_at', 'created_at', 'updated_at')
+            $admin = User::whereIn('role', ['admin', 'super_admin'])
+
+                ->select('id', 'name', 'first_name', 'last_name', 'email', 'role','archived_at', 'created_at', 'updated_at')
                 ->findOrFail($id);
 
             return response()->json([
@@ -111,6 +113,7 @@ class AdminManagementController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'is_admin' => true,
+                'role'       => 'admin',
             ]);
 
             return response()->json([
@@ -248,7 +251,7 @@ class AdminManagementController extends Controller
             ], 403);
         }
 
-        $admin = User::where('is_admin', true)->findOrFail($id);
+        $admin = User::whereIn('role', ['admin', 'super_admin'])->findOrFail($id);
 
         // Only delete tokens if method exists (Sanctum safety)
         if (method_exists($admin, 'tokens')) {
@@ -364,7 +367,8 @@ class AdminManagementController extends Controller
                 ], 403);
             }
 
-            $admin = User::where('is_admin', true)->findOrFail($id);
+            $admin = User::whereIn('role', ['admin', 'super_admin'])
+->findOrFail($id);
             $admin->archived_at = now();
             $admin->save();
 
@@ -399,7 +403,7 @@ class AdminManagementController extends Controller
     public function restore($id)
     {
         try {
-            $admin = User::where('is_admin', true)->findOrFail($id);
+            $admin = User::whereIn('role', ['admin', 'super_admin'])->findOrFail($id);
             $admin->archived_at = null;
             $admin->save();
 
@@ -421,6 +425,8 @@ class AdminManagementController extends Controller
         }
     }
 
+    
+
     /**
      * Check if the authenticated admin can delete a specific account
      * Useful for frontend to disable delete button for own account
@@ -429,6 +435,92 @@ class AdminManagementController extends Controller
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
+/**
+ * Promote an admin to super_admin.
+ * Only super_admin may call this. Self-promotion blocked.
+ */
+public function promote(Request $request, $id)
+{
+    $current = $request->user();
+
+    if (!$current) {
+        return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+    }
+
+    if ($current->role !== 'super_admin') {
+        return response()->json(['success' => false, 'message' => 'Only super admins can promote'], 403);
+    }
+
+    if ($current->id == (int) $id) {
+        return response()->json(['success' => false, 'message' => 'You cannot promote yourself'], 403);
+    }
+
+    try {
+        $user = User::whereIn('role', ['admin', 'super_admin'])->findOrFail($id);
+
+        if ($user->role === 'super_admin') {
+            return response()->json(['success' => false, 'message' => 'User is already a super_admin'], 422);
+        }
+
+        $user->role = 'super_admin';
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Admin promoted to super_admin',
+            'data'    => ['id' => $user->id, 'role' => $user->role],
+        ]);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json(['success' => false, 'message' => 'Admin not found'], 404);
+    } catch (\Exception $e) {
+        \Log::error('Promote error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to promote admin'], 500);
+    }
+}
+
+/**
+ * Demote a super_admin back to admin.
+ * Only super_admin may call this. Self-demotion blocked.
+ */
+public function demote(Request $request, $id)
+{
+    $current = $request->user();
+
+    if (!$current) {
+        return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+    }
+
+    if ($current->role !== 'super_admin') {
+        return response()->json(['success' => false, 'message' => 'Only super admins can demote'], 403);
+    }
+
+    if ($current->id == (int) $id) {
+        return response()->json(['success' => false, 'message' => 'You cannot demote yourself'], 403);
+    }
+
+    try {
+        $user = User::whereIn('role', ['admin', 'super_admin'])->findOrFail($id);
+
+        if ($user->role !== 'super_admin') {
+            return response()->json(['success' => false, 'message' => 'User is not a super_admin'], 422);
+        }
+
+        $user->role = 'admin';
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'super_admin demoted to admin',
+            'data'    => ['id' => $user->id, 'role' => $user->role],
+        ]);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json(['success' => false, 'message' => 'Admin not found'], 404);
+    } catch (\Exception $e) {
+        \Log::error('Demote error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to demote admin'], 500);
+    }
+}
+
     public function canDelete(Request $request, $id)
     {
         $authenticatedUserId = $request->user()->id;

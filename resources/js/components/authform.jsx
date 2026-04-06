@@ -19,39 +19,41 @@ export default function AuthForm({ type = "signin" }) {
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError("");
-        setFieldErrors({ email: "", password: "" });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setFieldErrors({ email: "", password: "" });
 
-        const emailErr = validateEmail(email);
-        const passwordErr = validateStrongPassword(password);
-        if (emailErr || passwordErr) {
-            setFieldErrors({
-                email: emailErr || "",
-                password: passwordErr || "",
-            });
-            return;
-        }
+    const emailErr = validateEmail(email);
+    const passwordErr = validateStrongPassword(password);
+    if (emailErr || passwordErr) {
+        setFieldErrors({ email: emailErr || "", password: passwordErr || "" });
+        return;
+    }
 
-        try {
-            const res = await api.post("/admin/login", {
-                email: email.trim(),
-                password,
-            });
+    try {
+        const res = await api.post("/admin/login", {
+            email: email.trim(),
+            password,
+        });
 
-            localStorage.setItem("admin_token", res.data.token);
-            navigate("/admin/dashboard");
-        } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                    err.response?.data?.errors?.email?.[0] ||
-                    err.response?.data?.errors?.password?.[0] ||
-                    "Login failed",
-            );
-        }
-    };
+        // ── Save BOTH token and role before navigating ──────────────────
+        localStorage.setItem("admin_token", res.data.token);   // ← was missing
+        localStorage.setItem("user_role", res.data.user.role);
+        localStorage.setItem("userId", res.data.user.id);      // needed by AdminManagement
+        // ───────────────────────────────────────────────────────────────
 
+        navigate("/admin/dashboard");
+
+    } catch (err) {
+        setError(
+            err.response?.data?.message ||
+            err.response?.data?.errors?.email?.[0] ||
+            err.response?.data?.errors?.password?.[0] ||
+            "Login failed"
+        );
+    }
+};
     return (
         <form
             className="[font-family:var(--font-neue)] w-full max-w-2xl flex flex-col gap-7 mx-auto"

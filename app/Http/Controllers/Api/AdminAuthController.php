@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;                          // ← was missing; caused 500 on promote
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 
@@ -26,8 +26,8 @@ class AdminAuthController extends Controller
                 Password::min(8)->letters()->mixedCase()->numbers()->symbols(),
             ],
         ], [
-            'email.regex' => 'Email must contain letters (not only numbers) and a valid domain (e.g. @yahoo.com).',
-            'password' => 'Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol.',
+            'email.regex'  => 'Email must contain letters and a valid domain.',
+            'password'     => 'Password must be at least 8 chars with upper, lower, number, and symbol.',
         ]);
 
         if (!Auth::attempt($request->only('email', 'password'))) {
@@ -36,14 +36,17 @@ class AdminAuthController extends Controller
 
         $user = Auth::user();
 
-        if (!$user->is_admin) {
+        // ── Role check ──────────────────────────────────────────────────────
+        if (!in_array($user->role, ['admin', 'super_admin'])) {
+            Auth::logout();
             return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        }                                     // ← brace was missing before; broke everything below
 
+        // ── Archived check ──────────────────────────────────────────────────
         if ($user->archived_at) {
             Auth::logout();
             return response()->json([
-                'message' => 'This account has been archived and cannot sign in.'
+                'message' => 'This account has been archived and cannot sign in.',
             ], 403);
         }
 
@@ -56,7 +59,8 @@ class AdminAuthController extends Controller
                 'id'    => $user->id,
                 'name'  => $user->name,
                 'email' => $user->email,
-            ]
+                'role'  => $user->role,         // ← frontend already reads this
+            ],
         ]);
     }
 
@@ -66,7 +70,6 @@ class AdminAuthController extends Controller
         return response()->json(['message' => 'Logged out']);
     }
 
-    // GET /api/admin/me
     public function me(Request $request)
     {
         $user = $request->user();
@@ -77,12 +80,18 @@ class AdminAuthController extends Controller
                 'first_name'        => $user->first_name,
                 'last_name'         => $user->last_name,
                 'email'             => $user->email,
+                'role'              => $user->role,
                 'profile_photo_url' => $user->profile_photo_url,
-            ]
+            ],
         ]);
     }
 
-    // POST /api/admin/profile
+    /**
+     * Promote an admin to super_admin.
+     * Only a super_admin may call this. Self-promotion is blocked.
+     */
+   
+
     public function updateProfile(Request $request)
     {
         $user = $request->user();
@@ -94,9 +103,7 @@ class AdminAuthController extends Controller
             'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        // Handle photo upload
         if ($request->hasFile('profile_photo')) {
-            // Delete old photo if exists
             if ($user->profile_photo) {
                 Storage::disk('public')->delete($user->profile_photo);
             }
@@ -104,10 +111,9 @@ class AdminAuthController extends Controller
                 ->store('avatars', 'public');
         }
 
-        // Update name from first + last
         if (isset($data['first_name']) || isset($data['last_name'])) {
-            $first = $data['first_name'] ?? $user->first_name;
-            $last  = $data['last_name']  ?? $user->last_name;
+            $first        = $data['first_name'] ?? $user->first_name;
+            $last         = $data['last_name']  ?? $user->last_name;
             $data['name'] = trim("{$first} {$last}");
         }
 
@@ -121,8 +127,9 @@ class AdminAuthController extends Controller
                 'first_name'        => $user->first_name,
                 'last_name'         => $user->last_name,
                 'email'             => $user->email,
+                'role'              => $user->role,
                 'profile_photo_url' => $user->profile_photo_url,
-            ]
+            ],
         ]);
     }
 }

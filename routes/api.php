@@ -83,6 +83,8 @@ Route::post('password/reset', [PasswordResetController::class, 'resetPassword'])
 
 // Admin CRUD operations (require login)
 Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/admins/{id}/promote', [AdminManagementController::class, 'promote']);
+    Route::post('/admins/{id}/demote', [AdminManagementController::class, 'demote']);
     Route::get('/admins', [AdminManagementController::class, 'index']);
     Route::get('/admins/{id}', [AdminManagementController::class, 'show']);
     Route::post('/admins', [AdminManagementController::class, 'store']);

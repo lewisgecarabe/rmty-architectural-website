@@ -46,6 +46,7 @@ function AdminSidebar({ isOpen, setIsOpen }) {
     const location = useLocation();
     const [contentOpen, setContentOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const role = localStorage.getItem("user_role");
 
     const isActive = (to) => location.pathname === to;
 
@@ -114,15 +115,16 @@ function AdminSidebar({ isOpen, setIsOpen }) {
         },
     ];
 
-    const systemNav = [
-        {
-            label: "Platform Settings",
-            to: "/admin/settings",
-            icon: <SettingsIcon />,
-        },
-        { label: "User Management", to: "/admin/users", icon: <UsersIcon /> },
-        { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
-    ];
+   const systemNav = [
+    { label: "Platform Settings", to: "/admin/settings", icon: <SettingsIcon /> },
+
+    // ✅ ONLY SUPER ADMIN CAN SEE THIS
+    ...(role === "super_admin"
+        ? [{ label: "User Management", to: "/admin/users", icon: <UsersIcon /> }]
+        : []),
+
+    { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
+];
 
     useEffect(() => {
         if (location.pathname.startsWith("/admin/content")) {
