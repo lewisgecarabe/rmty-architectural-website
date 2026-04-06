@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\HomePageContentController;
 use App\Http\Controllers\Api\ContactPageContentController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
+use App\Http\Controllers\Api\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Inquiry;
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/me', [AdminManagementController::class, 'getCurrentAdmin']);
     Route::post('/admin/profile', [AdminAuthController::class, 'updateProfile']);
     Route::get('/admin/profile/activities', [AdminManagementController::class, 'getProfileActivities']);
+    
+    // ── Global Search Route (Protected) ──
+    Route::get('/admin/search', [SearchController::class, 'globalSearch']);
 });
 
 Route::get('/projects', [ProjectController::class, 'index']);

@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import CommandPalette from "./CommandPalette";
 
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 const smoothEase = [0.22, 1, 0.36, 1];
@@ -322,18 +323,23 @@ function AdminSidebar({ isOpen, setIsOpen }) {
 ───────────────────────────────────────── */
 function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     const location = useLocation();
+    const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
+    const [notifItems, setNotifItems] = useState([]);
+    const [notifCount, setNotifCount] = useState(0);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
     const [fetchedUser, setFetchedUser] = useState(null);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchToast, setSearchToast] = useState(false);
     const [imageHash, setImageHash] = useState(Date.now());
+
+    // 1. New State for Command Palette
+    const [paletteOpen, setPaletteOpen] = useState(false);
 
     const dropdownRef = useRef(null);
     const notifRef = useRef(null);
+    const notifDropdownRef = useRef(null);
+    const [notifPos, setNotifPos] = useState({ top: 0, right: 0 });
 
     const getPageTitle = () => {
         const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -341,6 +347,18 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             pathSegments[pathSegments.length - 1] || "Dashboard";
         return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
     };
+
+    // 2. Keyboard Shortcut Listener (Cmd+K / Ctrl+K)
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+                e.preventDefault();
+                setPaletteOpen(true);
+            }
+        };
+        window.addEventListener("keydown", handleGlobalKeyDown);
+        return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    }, []);
 
     useEffect(() => {
         const handler = (e) => {
@@ -350,7 +368,12 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             ) {
                 setDropdownOpen(false);
             }
-            if (notifRef.current && !notifRef.current.contains(e.target)) {
+            if (
+                notifRef.current &&
+                !notifRef.current.contains(e.target) &&
+                notifDropdownRef.current &&
+                !notifDropdownRef.current.contains(e.target)
+            ) {
                 setNotifOpen(false);
             }
         };
@@ -382,6 +405,64 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
         };
     }, [imageHash]);
 
+    useEffect(() => {
+        const authHeaders = () => {
+            const token =
+                localStorage.getItem("admin_token") ||
+                localStorage.getItem("token");
+            return token ? { Authorization: `Bearer ${token}` } : {};
+        };
+
+        const fetchNotifications = async () => {
+            try {
+                const seenIds = JSON.parse(
+                    localStorage.getItem("seenNotifs") || "[]",
+                );
+                const res = await fetch(
+                    "/api/inquiries?status=new&per_page=20",
+                    {
+                        credentials: "include",
+                        headers: authHeaders(),
+                    },
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                const list = data.data || [];
+                const items = list
+                    .filter((inq) => inq.name !== "You")
+                    .map((inq) => ({
+                        id: `inq-${inq.id}`,
+                        title: inq.name || "Unknown",
+                        subtitle: inq.email || inq.platform || "",
+                        platform: inq.platform,
+                        time: inq.created_at,
+                    }));
+                const unseen = items.filter(
+                    (item) => !seenIds.includes(item.id),
+                );
+                setNotifItems(unseen);
+                setNotifCount(unseen.length);
+            } catch {
+                // silent
+            }
+        };
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const markAllSeen = () => {
+        const allIds = notifItems.map((n) => n.id);
+        const existing = JSON.parse(localStorage.getItem("seenNotifs") || "[]");
+        localStorage.setItem(
+            "seenNotifs",
+            JSON.stringify([...new Set([...existing, ...allIds])]),
+        );
+        setNotifItems([]);
+        setNotifCount(0);
+    };
+
     const confirmLogout = () => {
         localStorage.removeItem("admin_token");
         localStorage.removeItem("token");
@@ -391,15 +472,6 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
             credentials: "include",
         }).catch(() => {});
         window.location.href = "/admin/login";
-    };
-
-    const handleSearchSubmit = (e) => {
-        if (e.key === "Enter" && searchQuery.trim()) {
-            setSearchToast(true);
-            setSearchQuery("");
-            e.target.blur();
-            setTimeout(() => setSearchToast(false), 3000);
-        }
     };
 
     const activeUser = profile || fetchedUser;
@@ -434,34 +506,62 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
 
                     {/* Right: Actions & Profile */}
                     <div className="flex items-center gap-4 md:gap-8 mb-1 md:mb-2">
-                        {/* Functional Sleek Search Bar */}
+                        {/* 3. NEW SEARCH TRIGGER BUTTON */}
                         <div className="hidden md:flex relative group items-center">
-                            <SleekSearchIcon className="absolute left-3 w-4 h-4 text-neutral-400 group-focus-within:text-neutral-900 transition-colors cursor-pointer" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={handleSearchSubmit}
-                                placeholder="Search..."
-                                className="w-48 pl-9 pr-4 py-2 bg-transparent border border-neutral-300 rounded-full text-sm font-medium outline-none focus:border-neutral-900 transition-all placeholder-neutral-400"
-                            />
+                            <button
+                                onClick={() => setPaletteOpen(true)}
+                                className="flex items-center justify-between w-56 pl-3 pr-2 py-2 bg-white border border-neutral-200 hover:border-neutral-400 rounded-full text-sm font-medium transition-all cursor-pointer"
+                            >
+                                <div className="flex items-center gap-2 text-neutral-400">
+                                    <SleekSearchIcon className="w-4 h-4" />
+                                    <span>Search...</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-[10px] font-bold text-neutral-400">
+                                        {navigator.platform.includes("Mac")
+                                            ? "⌘"
+                                            : "Ctrl"}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-[10px] font-bold text-neutral-400">
+                                        K
+                                    </span>
+                                </div>
+                            </button>
                         </div>
 
                         {/* Notifications */}
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
+                                    if (!notifOpen && notifRef.current) {
+                                        const rect =
+                                            notifRef.current.getBoundingClientRect();
+                                        setNotifPos({
+                                            top: rect.bottom + 12,
+                                            right:
+                                                window.innerWidth - rect.right,
+                                        });
+                                    }
                                     setNotifOpen(!notifOpen);
                                     setDropdownOpen(false);
                                 }}
                                 className="relative text-neutral-400 hover:text-black transition-colors duration-200 outline-none cursor-pointer"
                             >
                                 <SleekBellIcon />
-                                <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                {notifCount > 0 ? (
+                                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-[#f7f7f8] text-[9px] font-black text-white leading-none">
+                                        {notifCount > 9 ? "9+" : notifCount}
+                                    </span>
+                                ) : (
+                                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                )}
                             </button>
+                        </div>
+                        {createPortal(
                             <AnimatePresence>
                                 {notifOpen && (
                                     <motion.div
+                                        ref={notifDropdownRef}
                                         initial={{
                                             opacity: 0,
                                             y: 10,
@@ -475,7 +575,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                         }}
                                         transition={{
                                             duration: 0.2,
-                                            ease: smoothEase,
+                                            ease: [0.22, 1, 0.36, 1],
                                         }}
                                         className="absolute right-0 top-[calc(100%+12px)] w-[280px] bg-white border border-neutral-200 rounded-2xl p-4 z-50 origin-top-right"
                                     >
@@ -492,7 +592,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                                 <CloseIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                                        <div className="flex flex-col items-center justify-center py-6 text-center z-50">
                                             <SleekBellIcon className="w-8 h-8 text-neutral-200 mb-2" />
                                             <p className="text-sm font-medium text-neutral-500">
                                                 You're all caught up!
@@ -500,8 +600,9 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                         </div>
                                     </motion.div>
                                 )}
-                            </AnimatePresence>
-                        </div>
+                            </AnimatePresence>,
+                            document.body,
+                        )}
 
                         {/* Profile Block */}
                         <div className="relative" ref={dropdownRef}>
@@ -514,7 +615,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                             >
                                 {displayImage ? (
                                     <img
-                                        src={`${displayImage}?h=${imageHash}`} // Cache buster ensures it updates instantly
+                                        src={`${displayImage}?h=${imageHash}`}
                                         alt="User"
                                         className="h-8 w-8 md:h-9 md:w-9 rounded-full object-cover border border-neutral-200 transition-transform group-hover:scale-105"
                                     />
@@ -535,7 +636,6 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                 </div>
                             </button>
 
-                            {/* Dropdown Menu */}
                             <AnimatePresence>
                                 {dropdownOpen && (
                                     <motion.div
@@ -552,7 +652,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                         }}
                                         transition={{
                                             duration: 0.2,
-                                            ease: smoothEase,
+                                            ease: [0.22, 1, 0.36, 1],
                                         }}
                                         className="absolute right-0 top-[calc(100%+12px)] z-50 w-[200px] md:w-[220px] origin-top-right rounded-2xl border border-neutral-200 bg-white p-1.5 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]"
                                     >
@@ -582,30 +682,6 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                 </div>
             </header>
 
-            {/* Global Search Feedback Toast */}
-            {createPortal(
-                <AnimatePresence>
-                    {searchToast && (
-                        <motion.div
-                            key="toast-alert"
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                            transition={springTransition}
-                            className="fixed bottom-10 right-10 z-[110] pointer-events-none [font-family:var(--font-neue)]"
-                        >
-                            <div className="flex items-center gap-3 px-6 py-4 rounded-2xl border border-neutral-200 bg-white text-neutral-900">
-                                <SleekSearchIcon className="w-4 h-4 text-neutral-400" />
-                                <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5">
-                                    Global search coming soon
-                                </p>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>,
-                document.body,
-            )}
-
             {/* Edit Profile Modal Wrapped in Portal */}
             {createPortal(
                 <AnimatePresence>
@@ -616,7 +692,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                             onClose={() => setEditModalOpen(false)}
                             onSaved={(updated) => {
                                 setFetchedUser(updated);
-                                setImageHash(Date.now()); // Bust cache instantly
+                                setImageHash(Date.now());
                                 if (onProfileUpdate) onProfileUpdate(updated);
                                 setEditModalOpen(false);
                             }}
@@ -645,7 +721,11 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                transition={springTransition}
+                                transition={{
+                                    type: "spring",
+                                    damping: 25,
+                                    stiffness: 300,
+                                }}
                                 className="relative w-full max-w-sm rounded-[2rem] bg-white p-8 border border-neutral-200 text-center pointer-events-auto"
                             >
                                 <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
@@ -682,6 +762,12 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                 </AnimatePresence>,
                 document.body,
             )}
+
+            {/* 4. THE NEW COMMAND PALETTE MOUNTED HERE */}
+            <CommandPalette
+                isOpen={paletteOpen}
+                onClose={() => setPaletteOpen(false)}
+            />
         </>
     );
 }

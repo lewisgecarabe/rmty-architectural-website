@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, {
+    useEffect,
+    useState,
+    useRef,
+    useCallback,
+    useMemo,
+} from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
@@ -165,8 +171,11 @@ export default function AdminInquiries() {
         platform: "",
         status: "new",
     });
+
+    // Pagination State
     const [page, setPage] = useState(1);
     const [meta, setMeta] = useState({});
+
     const [selectedThreadKey, setSelectedThreadKey] = useState(null);
     const [updating, setUpdating] = useState(false);
 
@@ -186,7 +195,9 @@ export default function AdminInquiries() {
 
     const [readIds, setReadIds] = useState(() => {
         try {
-            return new Set(JSON.parse(localStorage.getItem("inquiry_read_ids") || "[]"));
+            return new Set(
+                JSON.parse(localStorage.getItem("inquiry_read_ids") || "[]"),
+            );
         } catch {
             return new Set();
         }
@@ -197,7 +208,12 @@ export default function AdminInquiries() {
             if (prev.has(id)) return prev;
             const next = new Set(prev);
             next.add(id);
-            try { localStorage.setItem("inquiry_read_ids", JSON.stringify([...next])); } catch {}
+            try {
+                localStorage.setItem(
+                    "inquiry_read_ids",
+                    JSON.stringify([...next]),
+                );
+            } catch {}
             return next;
         });
     }, []);
@@ -252,10 +268,8 @@ export default function AdminInquiries() {
             return `viber://chat?number=${phone}`;
         }
         if (platform === "gmail") {
-            // Forces Gmail web client composed window
             return `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}`;
         }
-        // Default fallback
         return `mailto:${email}?subject=${subject}`;
     }
 
@@ -274,7 +288,8 @@ export default function AdminInquiries() {
         async (p = 1, f = filters, silent = false) => {
             try {
                 if (!silent) setLoading(true);
-                const params = new URLSearchParams({ page: p, per_page: 200 });
+                // Lowered per_page to 50 so pagination works cleanly without breaking threads
+                const params = new URLSearchParams({ page: p, per_page: 50 });
                 if (f.platform) params.set("platform", f.platform);
                 if (f.search) params.set("search", f.search);
                 const [data, statsData] = await Promise.all([
@@ -296,22 +311,41 @@ export default function AdminInquiries() {
 
     const allThreads = useMemo(() => {
         const map = {};
-        const sorted = [...inquiries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const sorted = [...inquiries].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at),
+        );
         sorted.forEach((inq) => {
             const key = inq.email || inq.phone || `id_${inq.id}`;
             if (!map[key]) {
-                map[key] = { key, name: inq.name || inq.first_name || "Unknown", email: inq.email, phone: inq.phone, platform: inq.platform, messages: [] };
+                map[key] = {
+                    key,
+                    name: inq.name || inq.first_name || "Unknown",
+                    email: inq.email,
+                    phone: inq.phone,
+                    platform: inq.platform,
+                    messages: [],
+                };
             }
             map[key].messages.push(inq);
         });
-        return Object.values(map).map((t) => ({
-            ...t,
-            latestMsg: t.messages[t.messages.length - 1],
-            hasNew: t.messages.some((m) => m.status === "new"),
-            hasReplied: t.messages.every((m) => m.status === "replied" || m.status === "archived") && t.messages.some((m) => m.status === "replied"),
-            isArchived: t.messages.every((m) => m.status === "archived"),
-            allIds: t.messages.map((m) => m.id),
-        })).sort((a, b) => new Date(b.latestMsg.created_at) - new Date(a.latestMsg.created_at));
+        return Object.values(map)
+            .map((t) => ({
+                ...t,
+                latestMsg: t.messages[t.messages.length - 1],
+                hasNew: t.messages.some((m) => m.status === "new"),
+                hasReplied:
+                    t.messages.every(
+                        (m) =>
+                            m.status === "replied" || m.status === "archived",
+                    ) && t.messages.some((m) => m.status === "replied"),
+                isArchived: t.messages.every((m) => m.status === "archived"),
+                allIds: t.messages.map((m) => m.id),
+            }))
+            .sort(
+                (a, b) =>
+                    new Date(b.latestMsg.created_at) -
+                    new Date(a.latestMsg.created_at),
+            );
     }, [inquiries]);
 
     const threads = useMemo(() => {
@@ -349,6 +383,24 @@ export default function AdminInquiries() {
             load(1, f);
         }
     }
+
+    /* ---------------- PAGINATION HANDLERS ---------------- */
+    const handlePrevPage = () => {
+        if (page > 1) {
+            const newPage = page - 1;
+            setPage(newPage);
+            load(newPage, filters);
+        }
+    };
+
+    const handleNextPage = () => {
+        const lastPage = meta?.last_page || meta?.meta?.last_page || 1;
+        if (page < lastPage) {
+            const newPage = page + 1;
+            setPage(newPage);
+            load(newPage, filters);
+        }
+    };
 
     /* ---------------- BULK SELECTION ---------------- */
     const handleSelectAll = (e) => {
@@ -398,7 +450,10 @@ export default function AdminInquiries() {
             setInquiries((prev) =>
                 prev.filter((i) => !selectedIds.includes(i.id)),
             );
-            if (selectedThread && selectedThread.allIds.some((id) => selectedIds.includes(id)))
+            if (
+                selectedThread &&
+                selectedThread.allIds.some((id) => selectedIds.includes(id))
+            )
                 setSelectedThreadKey(null);
 
             await load(page, filters, true);
@@ -425,7 +480,8 @@ export default function AdminInquiries() {
                 prev.map((i) => (i.id === id ? { ...i, status } : i)),
             );
 
-            const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+            const formattedStatus =
+                status.charAt(0).toUpperCase() + status.slice(1);
             showToast(`Marked as ${formattedStatus}`);
             await load(page, filters, true);
         } catch {
@@ -444,10 +500,15 @@ export default function AdminInquiries() {
     async function handleDelete(deleteTargetId) {
         setUpdating(true);
         try {
-            await apiFetch(`/inquiries/${deleteTargetId}`, { method: "DELETE" });
+            await apiFetch(`/inquiries/${deleteTargetId}`, {
+                method: "DELETE",
+            });
 
             setInquiries((prev) => prev.filter((i) => i.id !== deleteTargetId));
-            if (selectedThread?.allIds.length === 1 && selectedThread.allIds[0] === deleteTargetId) {
+            if (
+                selectedThread?.allIds.length === 1 &&
+                selectedThread.allIds[0] === deleteTargetId
+            ) {
                 setSelectedThreadKey(null);
             }
             setDeleteId(null);
@@ -468,10 +529,23 @@ export default function AdminInquiries() {
                 body: JSON.stringify({ message: replyMsg }),
             });
 
+            // Mark ALL new messages in the same thread as replied (not just the one being replied to)
+            const thread = allThreads.find((t) => t.allIds.includes(id));
+            const threadNewIds = thread
+                ? thread.messages
+                      .filter((m) => m.status === "new")
+                      .map((m) => m.id)
+                : [id];
+
             setInquiries((prev) =>
                 prev.map((i) =>
                     i.id === id
-                        ? { ...i, status: "replied", admin_reply: replyMsg, replied_at: new Date().toISOString() }
+                        ? {
+                              ...i,
+                              status: "replied",
+                              admin_reply: replyMsg,
+                              replied_at: new Date().toISOString(),
+                          }
                         : i,
                 ),
             );
@@ -796,7 +870,11 @@ export default function AdminInquiries() {
                                                 checked={
                                                     threads.length > 0 &&
                                                     threads.every((t) =>
-                                                        t.allIds.every((id) => selectedIds.includes(id))
+                                                        t.allIds.every((id) =>
+                                                            selectedIds.includes(
+                                                                id,
+                                                            ),
+                                                        ),
                                                     )
                                                 }
                                                 onChange={handleSelectAll}
@@ -825,57 +903,106 @@ export default function AdminInquiries() {
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
                                     {threads.map((thread) => {
-                                        const isUnread = thread.hasNew && !thread.messages.every((m) => readIds.has(m.id));
-                                        const isActive = selectedThread?.key === thread.key;
-                                        const threadSelected = thread.allIds.every((id) => selectedIds.includes(id));
+                                        const isUnread =
+                                            thread.hasNew &&
+                                            !thread.messages.every((m) =>
+                                                readIds.has(m.id),
+                                            );
+                                        const isActive =
+                                            selectedThread?.key === thread.key;
+                                        const threadSelected =
+                                            thread.allIds.every((id) =>
+                                                selectedIds.includes(id),
+                                            );
                                         return (
                                             <tr
                                                 key={thread.key}
                                                 onClick={() => {
-                                                    setSelectedThreadKey(isActive ? null : thread.key);
-                                                    if (!isActive) thread.messages.forEach((m) => markAsRead(m.id));
+                                                    setSelectedThreadKey(
+                                                        isActive
+                                                            ? null
+                                                            : thread.key,
+                                                    );
+                                                    if (!isActive)
+                                                        thread.messages.forEach(
+                                                            (m) =>
+                                                                markAsRead(
+                                                                    m.id,
+                                                                ),
+                                                        );
                                                 }}
                                                 className={`group cursor-pointer transition-colors hover:bg-neutral-50 h-[73px] ${
-                                                    isActive ? "bg-neutral-50" : isUnread ? "bg-blue-50/20" : ""
+                                                    isActive
+                                                        ? "bg-neutral-50"
+                                                        : isUnread
+                                                          ? "bg-blue-50/20"
+                                                          : ""
                                                 }`}
                                             >
-                                                <td className="px-5 py-4 align-middle" onClick={(e) => e.stopPropagation()}>
+                                                <td
+                                                    className="px-5 py-4 align-middle"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
                                                     <input
                                                         type="checkbox"
                                                         checked={threadSelected}
-                                                        onChange={() => handleSelectThread(thread)}
+                                                        onChange={() =>
+                                                            handleSelectThread(
+                                                                thread,
+                                                            )
+                                                        }
                                                         className="w-4 h-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
                                                     />
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
                                                     <div>
-                                                        <p className={`text-sm truncate max-w-[200px] ${isUnread ? "font-black text-black" : "font-normal text-neutral-500"}`}>
+                                                        <p
+                                                            className={`text-sm truncate max-w-[200px] ${isUnread ? "font-black text-black" : "font-normal text-neutral-500"}`}
+                                                        >
                                                             {thread.name}
                                                         </p>
                                                         {thread.phone && (
-                                                            <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">{thread.phone}</p>
+                                                            <p className="text-[11px] font-bold text-neutral-600 truncate max-w-[200px] mt-0.5 tracking-wide">
+                                                                {thread.phone}
+                                                            </p>
                                                         )}
                                                         {thread.email && (
-                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">{thread.email}</p>
+                                                            <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5 tracking-wide">
+                                                                {thread.email}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[thread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}` }>
-                                                        {PLATFORM_LABELS[thread.platform] ?? thread.platform}
+                                                    <span
+                                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[thread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}`}
+                                                    >
+                                                        {PLATFORM_LABELS[
+                                                            thread.platform
+                                                        ] ?? thread.platform}
                                                     </span>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle hidden md:table-cell">
-                                                    <p className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}>
-                                                        {thread.latestMsg.admin_reply
+                                                    <p
+                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}
+                                                    >
+                                                        {thread.latestMsg
+                                                            .admin_reply
                                                             ? `You: ${thread.latestMsg.admin_reply}`
-                                                            : thread.latestMsg.message || "—"}
+                                                            : thread.latestMsg
+                                                                  .message ||
+                                                              "—"}
                                                     </p>
                                                 </td>
                                                 <td className="px-5 py-4 align-middle">
                                                     <div className="flex items-center gap-2">
                                                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600">
-                                                            {thread.messages.length}
+                                                            {
+                                                                thread.messages
+                                                                    .length
+                                                            }
                                                         </span>
                                                         {thread.hasNew && (
                                                             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-100">
@@ -886,25 +1013,56 @@ export default function AdminInquiries() {
                                                 </td>
                                                 <td className="px-5 py-4 align-middle text-right">
                                                     <p className="text-xs font-medium text-neutral-500">
-                                                        {thread.latestMsg.created_at
-                                                            ? new Date(thread.latestMsg.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                                                        {thread.latestMsg
+                                                            .created_at
+                                                            ? new Date(
+                                                                  thread
+                                                                      .latestMsg
+                                                                      .created_at,
+                                                              ).toLocaleDateString(
+                                                                  undefined,
+                                                                  {
+                                                                      month: "short",
+                                                                      day: "numeric",
+                                                                      year: "numeric",
+                                                                  },
+                                                              )
                                                             : "—"}
                                                     </p>
                                                 </td>
-                                                <td className="px-5 py-4 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                                                <td
+                                                    className="px-5 py-4 align-middle text-right"
+                                                    onClick={(e) =>
+                                                        e.stopPropagation()
+                                                    }
+                                                >
                                                     <div className="flex justify-end gap-2">
                                                         <button
                                                             onClick={() => {
-                                                                setSelectedThreadKey(thread.key);
-                                                                thread.messages.forEach((m) => markAsRead(m.id));
+                                                                setSelectedThreadKey(
+                                                                    thread.key,
+                                                                );
+                                                                thread.messages.forEach(
+                                                                    (m) =>
+                                                                        markAsRead(
+                                                                            m.id,
+                                                                        ),
+                                                                );
                                                             }}
                                                             className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-neutral-700 transition-all hover:border-black hover:text-black cursor-pointer"
                                                         >
                                                             Open
                                                         </button>
-                                                        {filters.status !== "archived" ? (
+                                                        {filters.status !==
+                                                        "archived" ? (
                                                             <button
-                                                                onClick={() => setArchiveId(thread.latestMsg.id)}
+                                                                onClick={() =>
+                                                                    setArchiveId(
+                                                                        thread
+                                                                            .latestMsg
+                                                                            .id,
+                                                                    )
+                                                                }
                                                                 className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-amber-600 transition-all hover:border-amber-400 hover:text-amber-700 cursor-pointer"
                                                             >
                                                                 Archive
@@ -912,13 +1070,26 @@ export default function AdminInquiries() {
                                                         ) : (
                                                             <>
                                                                 <button
-                                                                    onClick={() => handleStatus(thread.latestMsg.id, "new")}
+                                                                    onClick={() =>
+                                                                        handleStatus(
+                                                                            thread
+                                                                                .latestMsg
+                                                                                .id,
+                                                                            "new",
+                                                                        )
+                                                                    }
                                                                     className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 transition-all hover:border-blue-400 hover:text-blue-700 cursor-pointer"
                                                                 >
                                                                     Restore
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => setDeleteId(thread.latestMsg.id)}
+                                                                    onClick={() =>
+                                                                        setDeleteId(
+                                                                            thread
+                                                                                .latestMsg
+                                                                                .id,
+                                                                        )
+                                                                    }
                                                                     className="rounded-lg border border-red-200 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-600 transition-all hover:border-red-400 hover:text-red-700 cursor-pointer"
                                                                 >
                                                                     Delete
@@ -935,20 +1106,47 @@ export default function AdminInquiries() {
                         )}
                     </div>
 
-                    {/* TABLE SUMMARY FOOTER */}
+                    {/* TABLE SUMMARY & PAGINATION FOOTER */}
                     {threads.length > 0 && (
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl gap-4 sm:gap-0">
                             <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase text-center sm:text-left">
-                                {threads.length} Conversation{threads.length !== 1 ? "s" : ""}
-                                {" · "}{inquiries.length} Message{inquiries.length !== 1 ? "s" : ""}
+                                {threads.length} Conversation
+                                {threads.length !== 1 ? "s" : ""}
+                                {" · "}
+                                {inquiries.length} Message
+                                {inquiries.length !== 1 ? "s" : ""}
                             </p>
 
-                            <button
-                                onClick={() => load(1, filters)}
-                                className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase hover:text-black transition-colors cursor-pointer"
-                            >
-                                Refresh
-                            </button>
+                            {/* PAGINATION CONTROLS */}
+                            <div className="flex items-center justify-center gap-4">
+                                <button
+                                    onClick={handlePrevPage}
+                                    disabled={page <= 1}
+                                    className="flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100 hover:text-black cursor-pointer"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+
+                                <span className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
+                                    Page {page} of{" "}
+                                    {meta?.last_page ||
+                                        meta?.meta?.last_page ||
+                                        1}
+                                </span>
+
+                                <button
+                                    onClick={handleNextPage}
+                                    disabled={
+                                        page >=
+                                        (meta?.last_page ||
+                                            meta?.meta?.last_page ||
+                                            1)
+                                    }
+                                    className="flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100 hover:text-black cursor-pointer"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -964,7 +1162,11 @@ export default function AdminInquiries() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
-                            onClick={() => { setSelectedThreadKey(null); setReplyId(null); setReplyMsg(""); }}
+                            onClick={() => {
+                                setSelectedThreadKey(null);
+                                setReplyId(null);
+                                setReplyMsg("");
+                            }}
                         />
                         <motion.div
                             key="thread-drawer"
@@ -977,15 +1179,36 @@ export default function AdminInquiries() {
                             {/* Drawer Header */}
                             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-black text-neutral-900 truncate">{selectedThread.name}</p>
-                                    {selectedThread.email && <p className="text-[11px] font-medium text-neutral-400 truncate">{selectedThread.email}</p>}
-                                    {selectedThread.phone && <p className="text-[11px] font-medium text-neutral-400 truncate">{selectedThread.phone}</p>}
+                                    <p className="text-sm font-black text-neutral-900 truncate">
+                                        {selectedThread.name}
+                                    </p>
+                                    {selectedThread.email && (
+                                        <p className="text-[11px] font-medium text-neutral-400 truncate">
+                                            {selectedThread.email}
+                                        </p>
+                                    )}
+                                    {selectedThread.phone && (
+                                        <p className="text-[11px] font-medium text-neutral-400 truncate">
+                                            {selectedThread.phone}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0 ml-3">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[selectedThread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}`}>
-                                        {PLATFORM_LABELS[selectedThread.platform] ?? selectedThread.platform}
+                                    <span
+                                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${PLATFORM_COLORS[selectedThread.platform] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}`}
+                                    >
+                                        {PLATFORM_LABELS[
+                                            selectedThread.platform
+                                        ] ?? selectedThread.platform}
                                     </span>
-                                    <button onClick={() => { setSelectedThreadKey(null); setReplyId(null); setReplyMsg(""); }} className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedThreadKey(null);
+                                            setReplyId(null);
+                                            setReplyMsg("");
+                                        }}
+                                        className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer"
+                                    >
                                         <CloseIcon className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -993,99 +1216,179 @@ export default function AdminInquiries() {
 
                             {/* Chat Timeline */}
                             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 no-scrollbar">
-                                {selectedThread.messages.map((msg, idx) => (
-                                    <div key={msg.id} className="space-y-2">
-                                        {/* Date separator */}
-                                        {(idx === 0 || new Date(msg.created_at).toDateString() !== new Date(selectedThread.messages[idx - 1].created_at).toDateString()) && (
-                                            <div className="flex items-center gap-3 my-3">
-                                                <div className="flex-1 h-px bg-neutral-100" />
-                                                <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase whitespace-nowrap">
-                                                    {new Date(msg.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                                                </span>
-                                                <div className="flex-1 h-px bg-neutral-100" />
-                                            </div>
-                                        )}
-
-                                        {/* User message bubble (left) */}
-                                        <div className="flex items-end gap-2">
-                                            <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-[10px] font-black text-neutral-600 uppercase">
-                                                {(selectedThread.name || "?")[0]}
-                                            </div>
-                                            <div className="max-w-[78%]">
-                                                {msg.subject && (
-                                                    <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 ml-1">{msg.subject}</p>
-                                                )}
-                                                <div className="bg-neutral-100 rounded-2xl rounded-bl-sm px-4 py-3">
-                                                    <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">{msg.message || "—"}</p>
+                                {selectedThread.messages.map((msg, idx) => {
+                                    return (
+                                        <div key={msg.id} className="space-y-2">
+                                            {/* Date separator */}
+                                            {(idx === 0 ||
+                                                new Date(
+                                                    msg.created_at,
+                                                ).toDateString() !==
+                                                    new Date(
+                                                        selectedThread.messages[
+                                                            idx - 1
+                                                        ].created_at,
+                                                    ).toDateString()) && (
+                                                <div className="flex items-center gap-3 my-3">
+                                                    <div className="flex-1 h-px bg-neutral-100" />
+                                                    <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase whitespace-nowrap">
+                                                        {new Date(
+                                                            msg.created_at,
+                                                        ).toLocaleDateString(
+                                                            undefined,
+                                                            {
+                                                                month: "short",
+                                                                day: "numeric",
+                                                                year: "numeric",
+                                                            },
+                                                        )}
+                                                    </span>
+                                                    <div className="flex-1 h-px bg-neutral-100" />
                                                 </div>
-                                                <p className="text-[10px] font-medium text-neutral-400 mt-1 ml-1">
-                                                    {new Date(msg.created_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                                                    {msg.status === "archived" && <span className="ml-2 text-amber-500">archived</span>}
-                                                </p>
-                                            </div>
-                                        </div>
+                                            )}
 
-                                        {/* Admin reply bubble (right) */}
-                                        {msg.admin_reply && (
-                                            <div className="flex items-end gap-2 justify-end">
+                                            {/* User message bubble (left) */}
+                                            <div className="flex items-end gap-2">
+                                                <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 text-[10px] font-black text-neutral-600 uppercase">
+                                                    {
+                                                        (selectedThread.name ||
+                                                            "?")[0]
+                                                    }
+                                                </div>
                                                 <div className="max-w-[78%]">
-                                                    <div className="bg-black rounded-2xl rounded-br-sm px-4 py-3">
-                                                        <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">{msg.admin_reply}</p>
+                                                    {msg.subject && (
+                                                        <p className="text-[10px] font-bold tracking-wider text-neutral-400 uppercase mb-1 ml-1">
+                                                            {msg.subject}
+                                                        </p>
+                                                    )}
+                                                    <div className="bg-neutral-100 rounded-2xl rounded-bl-sm px-4 py-3">
+                                                        <p className="text-sm font-medium text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                                                            {msg.message || "—"}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-[10px] font-medium text-neutral-400 mt-1 mr-1 text-right">
-                                                        {msg.replied_at
-                                                            ? new Date(msg.replied_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-                                                            : "Sent"} · You
+                                                    <p className="text-[10px] font-medium text-neutral-400 mt-1 ml-1">
+                                                        {new Date(
+                                                            msg.created_at,
+                                                        ).toLocaleTimeString(
+                                                            undefined,
+                                                            {
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            },
+                                                        )}
+                                                        {msg.status ===
+                                                            "archived" && (
+                                                            <span className="ml-2 text-amber-500">
+                                                                archived
+                                                            </span>
+                                                        )}
                                                     </p>
                                                 </div>
-                                                <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center shrink-0 text-[10px] font-black text-white uppercase">A</div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+
+                                            {/* Admin reply bubble (right) */}
+                                            {msg.admin_reply && (
+                                                <div className="flex items-end gap-2 justify-end">
+                                                    <div className="max-w-[78%]">
+                                                        <div className="bg-black rounded-2xl rounded-br-sm px-4 py-3">
+                                                            <p className="text-sm font-medium text-white leading-relaxed whitespace-pre-wrap">
+                                                                {
+                                                                    msg.admin_reply
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <p className="text-[10px] font-medium text-neutral-400 mt-1 mr-1 text-right">
+                                                            {msg.replied_at
+                                                                ? new Date(
+                                                                      msg.replied_at,
+                                                                  ).toLocaleTimeString(
+                                                                      undefined,
+                                                                      {
+                                                                          hour: "2-digit",
+                                                                          minute: "2-digit",
+                                                                      },
+                                                                  )
+                                                                : "Sent"}{" "}
+                                                            · You
+                                                        </p>
+                                                    </div>
+                                                    <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center shrink-0 text-[10px] font-black text-white uppercase">
+                                                        A
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
 
                             {/* Reply Box */}
                             {(() => {
-                                const latestNew = [...selectedThread.messages].reverse().find((m) => m.status === "new");
-                                if (!latestNew || !canReply(latestNew)) return (
-                                    <div className="px-4 py-3 border-t border-neutral-100 bg-neutral-50/50 shrink-0">
-                                        <a
-                                            href={getExternalReplyLink(selectedThread.latestMsg)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer"
-                                        >
-                                            <ExternalLinkIcon className="w-4 h-4" />
-                                            {getExternalReplyLabel(selectedThread.latestMsg.platform)}
-                                        </a>
-                                    </div>
-                                );
+                                const latestNew = [...selectedThread.messages]
+                                    .reverse()
+                                    .find((m) => m.status === "new");
+                                if (!latestNew || !canReply(latestNew))
+                                    return (
+                                        <div className="px-4 py-3 border-t border-neutral-100 bg-neutral-50/50 shrink-0">
+                                            <a
+                                                href={getExternalReplyLink(
+                                                    selectedThread.latestMsg,
+                                                )}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-xs font-bold text-neutral-700 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer"
+                                            >
+                                                <ExternalLinkIcon className="w-4 h-4" />
+                                                {getExternalReplyLabel(
+                                                    selectedThread.latestMsg
+                                                        .platform,
+                                                )}
+                                            </a>
+                                        </div>
+                                    );
                                 return (
                                     <div className="border-t border-neutral-100 bg-white shrink-0 p-4 space-y-3">
                                         <textarea
                                             rows={3}
                                             placeholder={`Reply to ${selectedThread.name}...`}
                                             value={replyMsg}
-                                            onChange={(e) => { setReplyMsg(e.target.value); setReplyId(latestNew.id); }}
+                                            onChange={(e) => {
+                                                setReplyMsg(e.target.value);
+                                                setReplyId(latestNew.id);
+                                            }}
                                             className="w-full rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 text-sm font-medium outline-none transition-all focus:border-neutral-900 focus:bg-white focus:ring-1 focus:ring-neutral-900 resize-none [font-family:inherit]"
                                         />
                                         <div className="flex gap-2">
                                             <a
-                                                href={getExternalReplyLink(latestNew)}
+                                                href={getExternalReplyLink(
+                                                    latestNew,
+                                                )}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center justify-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-[10px] font-bold text-neutral-600 uppercase tracking-wider transition-all hover:bg-neutral-50 cursor-pointer shrink-0"
-                                                title={getExternalReplyLabel(latestNew.platform)}
+                                                title={getExternalReplyLabel(
+                                                    latestNew.platform,
+                                                )}
                                             >
                                                 <ExternalLinkIcon className="w-3.5 h-3.5" />
                                             </a>
                                             <button
-                                                onClick={() => handleReply(latestNew.id)}
-                                                disabled={replying || !replyMsg.trim()}
+                                                onClick={() =>
+                                                    handleReply(latestNew.id)
+                                                }
+                                                disabled={
+                                                    replying || !replyMsg.trim()
+                                                }
                                                 className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-black px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-neutral-800 disabled:opacity-40 cursor-pointer"
                                             >
-                                                {replying ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><ReplyIcon className="w-4 h-4" /> Send Reply</>}
+                                                {replying ? (
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <ReplyIcon className="w-4 h-4" />{" "}
+                                                        Send Reply
+                                                    </>
+                                                )}
                                             </button>
                                         </div>
                                     </div>
@@ -1097,34 +1400,71 @@ export default function AdminInquiries() {
                                 {selectedThread.hasNew && (
                                     <button
                                         onClick={() => {
-                                            const newIds = selectedThread.messages.filter((m) => m.status === "new").map((m) => m.id);
-                                            Promise.all(newIds.map((id) => apiFetch(`/inquiries/${id}`, { method: "PUT", body: JSON.stringify({ status: "replied" }) }))).then(() => { showToast("Marked as Replied"); load(page, filters, true); });
+                                            const newIds =
+                                                selectedThread.messages
+                                                    .filter(
+                                                        (m) =>
+                                                            m.status === "new",
+                                                    )
+                                                    .map((m) => m.id);
+                                            Promise.all(
+                                                newIds.map((id) =>
+                                                    apiFetch(
+                                                        `/inquiries/${id}`,
+                                                        {
+                                                            method: "PUT",
+                                                            body: JSON.stringify(
+                                                                {
+                                                                    status: "replied",
+                                                                },
+                                                            ),
+                                                        },
+                                                    ),
+                                                ),
+                                            ).then(() => {
+                                                showToast("Marked as Replied");
+                                                load(page, filters, true);
+                                            });
                                         }}
                                         disabled={updating}
                                         className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider transition-all hover:border-blue-400 disabled:opacity-50 cursor-pointer"
                                     >
-                                        <CheckIcon className="w-3.5 h-3.5" /> Mark Replied
+                                        <CheckIcon className="w-3.5 h-3.5" />{" "}
+                                        Mark Replied
                                     </button>
                                 )}
                                 {filters.status !== "archived" ? (
                                     <button
-                                        onClick={() => setArchiveId(selectedThread.latestMsg.id)}
+                                        onClick={() =>
+                                            setArchiveId(
+                                                selectedThread.latestMsg.id,
+                                            )
+                                        }
                                         disabled={updating}
                                         className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-[10px] font-bold text-amber-600 uppercase tracking-wider transition-all hover:border-amber-400 disabled:opacity-50 cursor-pointer"
                                     >
-                                        <ArchiveIcon className="w-3.5 h-3.5" /> Archive
+                                        <ArchiveIcon className="w-3.5 h-3.5" />{" "}
+                                        Archive
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={() => handleStatus(selectedThread.latestMsg.id, "new")}
+                                        onClick={() =>
+                                            handleStatus(
+                                                selectedThread.latestMsg.id,
+                                                "new",
+                                            )
+                                        }
                                         disabled={updating}
                                         className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-[10px] font-bold text-blue-600 uppercase tracking-wider transition-all hover:border-blue-400 disabled:opacity-50 cursor-pointer"
                                     >
-                                        <RestoreIcon className="w-3.5 h-3.5" /> Restore
+                                        <RestoreIcon className="w-3.5 h-3.5" />{" "}
+                                        Restore
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => setDeleteId(selectedThread.latestMsg.id)}
+                                    onClick={() =>
+                                        setDeleteId(selectedThread.latestMsg.id)
+                                    }
                                     className="flex items-center justify-center rounded-xl border border-red-200 text-red-600 transition-all hover:border-red-400 px-3 py-2.5 cursor-pointer"
                                     title="Delete"
                                 >
@@ -1330,7 +1670,6 @@ export default function AdminInquiries() {
                 )}
             </AnimatePresence>
 
-
             {/* Toast Notification */}
             <AnimatePresence>
                 {toast && (
@@ -1350,8 +1689,6 @@ export default function AdminInquiries() {
                             ) : (
                                 <CloseIcon className="w-4 h-4 text-white" />
                             )}
-
-                            {/* 👇 THE TEXT "Reply sent!" APPEARS HERE */}
                             <p className="text-[11px] font-bold tracking-widest uppercase mt-0.5">
                                 {toast.msg || toast.message}
                             </p>
