@@ -1,15 +1,22 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import { motion, AnimatePresence } from "framer-motion";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export default function Contact() {
-    const [inquiryType, setInquiryType] = useState("general");
-    const isConsultation = inquiryType === "consultation";
+    // ── Form State ───────────────────────────────────────────
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [message, setMessage] = useState("");
 
-    // ── CMS Content ──────────────────────────────────────────
+    const [errors, setErrors] = useState({});
+    const [submitError, setSubmitError] = useState("");
+    const [submitting, setSubmitting] = useState(false);
+
+    // ── CMS Content State ────────────────────────────────────
     const [content, setContent] = useState(null);
     const [contentLoading, setContentLoading] = useState(true);
 
@@ -22,706 +29,330 @@ export default function Contact() {
             .catch(console.error)
             .finally(() => setContentLoading(false));
     }, []);
-    // ─────────────────────────────────────────────────────────
 
-    const buttonText = useMemo(() => {
-        return isConsultation ? "BOOK A CONSULTATION" : "SUBMIT INQUIRY";
-    }, [isConsultation]);
-
-    const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [location, setLocation] = useState("");
-    const [projectType, setProjectType] = useState("");
-    const [consultationMessage, setConsultationMessage] = useState("");
-    const [consultationDate, setConsultationDate] = useState("");
-    const [consultationTime, setConsultationTime] = useState("");
-    const [consultationFiles, setConsultationFiles] = useState([]);
-
-    const [submitting, setSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState("");
-    const [formKey, setFormKey] = useState(0);
-
+    // ── Submit Handler ───────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation for General Inquiry
-        if (!isConsultation) {
-            if (!firstName.trim() || !lastName.trim() || !email.trim() || !message.trim()) {
-                setSubmitError("Please fill in all required fields.");
-                return;
-            }
+        const newErrors = {};
+
+        // Validation Logic
+        if (!firstName.trim()) newErrors.firstName = "First Name is required.";
+        if (!lastName.trim()) newErrors.lastName = "Last Name is required.";
+
+        // Email Validation (Required + Format)
+        if (!email.trim()) {
+            newErrors.email = "Email is required.";
         } else {
-            // Validation for Consultation
-            if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-                setSubmitError("Please fill in all required fields.");
-                return;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                newErrors.email = "Please enter a valid email format.";
             }
         }
 
+        if (!message.trim()) newErrors.message = "Message is required.";
+
+        // Set the errors for the input fields
+        setErrors(newErrors);
+
+        // If there are validation errors, stop here
+        if (Object.keys(newErrors).length > 0) return;
+
         try {
             setSubmitting(true);
+            setSubmitError(""); // FIX: Change {} to "" to prevent white page crash
 
-            if (!isConsultation) {
-                // General Inquiry submission
-                const res = await fetch(`${API_BASE}/api/inquiries`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                    },
-                    body: JSON.stringify({
-                        name: `${firstName} ${lastName}`,
-                        email,
-                        phone,
-                        message,
-                    }),
-                });
+            const res = await fetch(`${API_BASE}/api/inquiries`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify({
+                    name: `${firstName} ${lastName}`,
+                    email,
+                    phone,
+                    message,
+                }),
+            });
 
-                const data = await res.json();
-                console.log("SUCCESS:", data);
+            if (!res.ok) throw new Error("Failed to submit inquiry.");
 
-                Swal.fire({
-                    icon: "success",
-                    title: "Inquiry Sent!",
-                    text: "We'll get back to you soon.",
-                });
-            } else {
-                // Consultation booking submission
-                const res = await fetch(`${API_BASE}/api/consultations`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                    },
-                    body: JSON.stringify({
-                        first_name: firstName,
-                        last_name: lastName,
-                        email,
-                        phone,
-                        location,
-                        project_type: projectType,
-                        message: consultationMessage,
-                        consultation_date: consultationDate && consultationTime 
-                            ? `${consultationDate} ${consultationTime}:00`
-                            : null,
-                    }),
-                });
+            Swal.fire({
+                icon: "success",
+                title: "Inquiry Sent",
+                text: "Thank you for reaching out. We will get back to you shortly.",
+                confirmButtonColor: "#000000",
+                confirmButtonText: "Close",
+            });
 
-                const data = await res.json();
-                console.log("CONSULTATION SUCCESS:", data);
-
-                Swal.fire({
-                    icon: "success",
-                    title: "Consultation Booked!",
-                    text: "We'll contact you shortly to confirm your consultation.",
-                });
-            }
-
-            // Reset form
+            // Reset form and errors
             setFirstName("");
             setLastName("");
             setEmail("");
             setPhone("");
             setMessage("");
-            setLocation("");
-            setProjectType("");
-            setConsultationMessage("");
-            setConsultationDate("");
-            setConsultationTime("");
-            setConsultationFiles([]);
-            setSubmitError("");
-            
+            setErrors({});
         } catch (err) {
             console.error(err);
-            setSubmitError("An error occurred. Please try again.");
+            setSubmitError(
+                "An error occurred while sending your message. Please try again.",
+            );
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Format office hours
-    const formatOfficeHours = () => {
-        if (!content) return "";
-        
-        const { office_day_from, office_day_to, office_time_from, office_time_to } = content;
-        
-        if (!office_day_from || !office_time_from) return "";
-        
-        const formatTime = (time) => {
-            if (!time) return "";
-            const [hours, minutes] = time.split(":");
-            const hour = parseInt(hours);
-            const ampm = hour >= 12 ? "PM" : "AM";
-            const hour12 = hour % 12 || 12;
-            return `${hour12}:${minutes} ${ampm}`;
-        };
-        
-        const days = office_day_from === office_day_to 
-            ? office_day_from 
-            : `${office_day_from}–${office_day_to}`;
-            
-        const times = `${formatTime(office_time_from)}–${formatTime(office_time_to)}`;
-        
-        return `${times} (${days})`;
-    };
-
-    // Derived values with fallbacks
     const heroImageUrl = content?.hero_image
         ? `${API_BASE}/storage/${content.hero_image}`
         : "/images/PLACEHOLDER.png";
 
     return (
-        <section className="w-full bg-white">
-            <div className="mx-auto max-w-screen-2xl px-6 pb-12 pt-32 md:pb-16 md:pt-40 [font-family:var(--font-neue)]">
-                <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
+        <section className="w-full min-h-screen bg-[#f1f1f1] text-neutral-900 [font-family:var(--font-neue)]">
+            <div className="mx-auto max-w-screen-2xl px-6 pt-32 pb-24 md:pt-48">
+                {/* ── Top Hero Text ── */}
+                <div className="mb-24 md:mb-32 w-full">
+                    <h1 className="text-[3.5rem] tracking-tighter md:text-7xl lg:text-[4rem] leading-[0.95] mb-8 max-w-full">
+                        {content?.page_heading && content.page_heading
+                            ? content.page_heading
+                            : "Tell us about your space."}
+                    </h1>
+                    <p className="text-base leading-relaxed text-neutral-800 md:text-[1.05rem] max-w-full">
+                        {content?.page_description && content.page_description
+                            ? content.page_description
+                            : "Great architecture begins with a conversation. Share the details of your upcoming project, and our studio will be in touch to discuss how we can translate your concept into reality."}
+                    </p>
+                </div>
 
-                    {/* ── Left: Contact Info ── */}
-                    <div>
-                        <h1 className="text-4xl font-bold tracking-tight text-black md:text-5xl">
-                            {content?.page_heading || "Connect"}
-                        </h1>
+                {/* ── Form Section ── */}
+                <motion.form layout onSubmit={handleSubmit} className="w-full">
+                    <div className="grid grid-cols-1 gap-x-12 gap-y-16 md:grid-cols-2 mb-16">
+                        <UnderlineInput
+                            label="First Name *"
+                            value={firstName}
+                            onValueChange={setFirstName}
+                            externalError={errors.firstName} // Passes the error down
+                        />
+                        <UnderlineInput
+                            label="Last Name *"
+                            value={lastName}
+                            onValueChange={setLastName}
+                            externalError={errors.lastName}
+                        />
+                        <UnderlineInput
+                            label="Phone (optional)"
+                            isPhone
+                            value={phone}
+                            onValueChange={setPhone}
+                            externalError={errors.phone}
+                        />
+                        <UnderlineInput
+                            label="E-Mail *"
+                            value={email}
+                            onValueChange={setEmail}
+                            externalError={errors.email}
+                        />
+                    </div>
 
-                        <p className="mt-4 max-w-sm text-sm leading-relaxed text-gray-500">
-                            {content?.page_description || "At vero eos et accusamus et iusto odio dignissimos"}
-                        </p>
+                    <div className="mb-2">
+                        <GeneralMessageField
+                            label="Message *"
+                            value={message}
+                            onValueChange={setMessage}
+                            externalError={errors.message}
+                        />
+                    </div>
 
-                        <div className="mt-10 space-y-8 text-[13px] tracking-wide text-gray-600">
-                            <div>
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-black uppercase mb-3">
-                                    {content?.location_label || "Metro Manila"}
+                    <div className="pt-2 mb-30">
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="rounded-full border border-black px-12 py-3 text-[11px] font-bold tracking-[0.2em] text-black uppercase transition-all hover:bg-black hover:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        >
+                            {submitting ? "SUBMITTING..." : "SUBMIT"}
+                        </button>
+                    </div>
+                </motion.form>
+
+                {/* ── Bottom Section (Perfect 50/50 Alignment) ── */}
+                <div className="grid grid-cols-1 gap-16 md:grid-cols-2 md:items-stretch pt-16">
+                    {/* Left Side: Strict Vertical Stack */}
+                    <div className="flex flex-col space-y-16">
+                        {/* Location */}
+                        <div className="space-y-4">
+                            <span className="text-sm font-bold tracking-[0.2em] text-neutral-400 uppercase">
+                                Location
+                            </span>
+                            <div className="text-lg md:text-xl font-medium leading-snug text-neutral-900 tracking-tight">
+                                <p>
+                                    {content?.address_line_1 ||
+                                        "911 Josefina II,"}
                                 </p>
-                                <p className="leading-relaxed">
-                                    {content?.address_line_1 || "911 Josefina II, Sampaloc, Manila, 1008"}
-                                    {content?.address_line_2 && (
-                                        <>
-                                            <br />
-                                            {content.address_line_2}
-                                        </>
-                                    )}
+                                <p>
+                                    {content?.address_line_2 ||
+                                        "Sampaloc, Manila, 1008"}
                                 </p>
                             </div>
+                        </div>
 
-                            <div className="space-y-3">
-                                {formatOfficeHours() && (
-                                    <div className="flex items-center gap-3">
-                                        <span>{formatOfficeHours()}</span>
-                                    </div>
-                                )}
-                                {content?.phone && (
-                                    <div className="flex items-center gap-3">
-                                        <span>{content.phone}</span>
-                                    </div>
-                                )}
+                        {/* Contact */}
+                        <div className="space-y-4">
+                            <span className="text-sm font-bold tracking-[0.2em] text-neutral-400 uppercase">
+                                Contact
+                            </span>
+                            <div className="text-lg md:text-xl font-medium leading-snug text-neutral-900 tracking-tight">
+                                <p>{content?.phone || "0932 454 9434"}</p>
+                                <a
+                                    href={`mailto:${content?.email || "rmty.architects@gmail.com"}`}
+                                    className="block transition-opacity hover:opacity-50"
+                                >
+                                    {content?.email ||
+                                        "rmty.architects@gmail.com"}
+                                </a>
                             </div>
+                        </div>
 
-                            <div className="pt-2">
-                                <p className="text-[10px] font-bold tracking-[0.15em] text-black uppercase mb-3">
-                                    Email
-                                </p>
-                                <div className="max-w-xs border-b border-gray-200 pb-3">
-                                    <span className="text-black">
-                                        {content?.email || "rmty.architects@gmail.com"}
-                                    </span>
-                                </div>
+                        {/* Socials */}
+                        <div className="space-y-4">
+                            <span className="text-sm font-bold tracking-[0.2em] text-neutral-400 uppercase">
+                                Socials
+                            </span>
+                            <div className="text-lg md:text-xl font-medium leading-snug text-neutral-900 tracking-tight flex flex-col space-y-1">
+                                {["Instagram", "Facebook"].map((social) => (
+                                    <a
+                                        key={social}
+                                        href="#"
+                                        className="w-fit transition-opacity hover:opacity-50"
+                                    >
+                                        {social}
+                                    </a>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* ── Right: Hero Image ── */}
-                    <div className="relative overflow-hidden rounded-none bg-gray-100">
+                    {/* Right Side: Image matching exact height and width */}
+                    {/* min-h-[400px] ensures it still looks good on mobile before they sit side-by-side */}
+                    <div className="relative w-full min-h-[400px] bg-neutral-200 overflow-hidden">
                         <img
                             src={heroImageUrl}
-                            alt="Interior design"
-                            className="h-[300px] w-full object-cover md:h-[380px]"
+                            alt="Architectural detail"
+                            className="absolute inset-0 h-full w-full object-cover grayscale-[10%] transition-transform duration-[3s] hover:scale-105"
                         />
-                        <div className="absolute inset-0 bg-black/20" />
-                        <div className="absolute bottom-8 left-8 right-8">
-                            <p className="text-2xl font-normal tracking-tight text-white md:text-3xl">
-                                EVERY DESIGN
-                            </p>
-                            <p className="text-xl font-normal text-white/80 md:text-2xl">
-                                WITH PURPOSE
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Contact Form Section ── */}
-            <div className="bg-[#f7f7f8] border-t border-gray-200/50">
-                <div className="mx-auto max-w-screen-2xl px-6 py-24">
-                    <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
-                        <div className="[font-family:var(--font-neue)]">
-                            <h2 className="text-4xl font-bold tracking-tight text-black md:text-5xl">
-                                Contact <br /> Form
-                            </h2>
-                        </div>
-
-                        <div>
-                            <motion.form
-                                layout
-                                key={`contact-form-${formKey}`}
-                                className="mx-auto w-full max-w-2xl [font-family:var(--font-neue)]"
-                                onSubmit={handleSubmit}
-                            >
-                                <div className="mb-14">
-                                    <p className="flex text-[10px] tracking-widest text-gray-500 uppercase mb-3">
-                                        Inquiry Type
-                                    </p>
-
-                                    <div className="inline-flex rounded-full border border-gray-200 bg-white p-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setInquiryType("general")}
-                                            className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
-                                                inquiryType === "general" ? "text-white" : "text-gray-500 hover:text-black"
-                                            }`}
-                                        >
-                                            {inquiryType === "general" && (
-                                                <motion.div
-                                                    layoutId="activePill"
-                                                    className="absolute inset-0 rounded-full bg-black"
-                                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                                />
-                                            )}
-                                            <span className="relative z-10">General Inquiry</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setInquiryType("consultation")}
-                                            className={`relative rounded-full px-8 py-3 text-[10px] font-bold tracking-[0.15em] uppercase cursor-pointer transition-colors duration-300 ${
-                                                inquiryType === "consultation" ? "text-white" : "text-gray-500 hover:text-black"
-                                            }`}
-                                        >
-                                            {inquiryType === "consultation" && (
-                                                <motion.div
-                                                    layoutId="activePill"
-                                                    className="absolute inset-0 rounded-full bg-black"
-                                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                                />
-                                            )}
-                                            <span className="relative z-10">Book Consultation</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-8">
-                                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                        <UnderlineInput label="First Name" placeholder="Enter your first name" value={firstName} onValueChange={setFirstName} />
-                                        <UnderlineInput label="Last Name" placeholder="Enter your last name" value={lastName} onValueChange={setLastName} />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                        <UnderlineInput label="Email" type="email" placeholder="Enter your email address" value={email} onValueChange={setEmail} />
-                                        <UnderlineInput label="Phone" type="tel" isPhone placeholder="Enter your 11-digit phone number" value={phone} onValueChange={setPhone} />
-                                    </div>
-
-                                    <AnimatePresence mode="wait">
-                                        {inquiryType === "general" ? (
-                                            <motion.div key="general-fields" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3, ease: "easeOut" }}>
-                                                <GeneralMessageField value={message} onValueChange={setMessage} />
-                                            </motion.div>
-                                        ) : (
-                                            <motion.div key="consultation-fields" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3, ease: "easeOut" }} className="space-y-8">
-                                                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                                                    <UnderlineInput label="Location" placeholder="Enter project location" value={location} onValueChange={setLocation} />
-                                                    <UnderlineInput label="Project Type" options={["Residential", "Commercial", "Master Planning", "Interior Architecture"]} value={projectType} onValueChange={setProjectType} />
-                                                </div>
-
-                                                <ConsultationMessageField value={consultationMessage} onValueChange={setConsultationMessage} />
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                    <UnderlineInput label="Consultation Date" type="date" value={consultationDate} onValueChange={setConsultationDate} />
-                                                    <UnderlineInput label="Consultation Time" type="time" value={consultationTime} onValueChange={setConsultationTime} />
-                                                    <div className="md:col-span-2">
-                                                        <FileDrop label="Additional Information" files={consultationFiles} onFilesChange={setConsultationFiles} />
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <AnimatePresence>
-                                        {submitError && (
-                                            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[11px] font-bold tracking-wider text-red-700 uppercase">
-                                                {submitError}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <motion.div layout className="pt-6">
-                                        <button
-                                            type="submit"
-                                            disabled={submitting}
-                                            className="w-full rounded-full bg-black py-4 text-[10px] font-bold tracking-[0.25em] text-white uppercase transition-all hover:bg-neutral-800 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                                        >
-                                            {submitting ? "SUBMITTING..." : buttonText}
-                                        </button>
-                                    </motion.div>
-                                </div>
-                            </motion.form>
-                        </div>
                     </div>
                 </div>
             </div>
         </section>
     );
 }
-/* ---------------- INPUT COMPONENT ---------------- */
+
+/* ─────────────────────────────────────────────────────────
+   SHARED INPUT COMPONENTS (With Validations Retained)
+────────────────────────────────────────────────────────── */
 
 function UnderlineInput({
     label,
     type = "text",
-    options,
     isPhone,
-    placeholder,
     value = "",
     onValueChange,
+    externalError,
 }) {
-    const [error, setError] = useState("");
-
-    const isNameField = label === "First Name" || label === "Last Name";
+    // We consolidate everything into one 'hasError' constant
+    const hasError = !!externalError;
 
     const handleChange = (e) => {
         let inputValue = e.target.value;
 
-        if (isNameField) {
-            inputValue = inputValue.replace(/[^A-Za-z\s]/g, "");
-            inputValue = inputValue.replace(/\s{2,}/g, " ");
-
-            if (!inputValue.trim()) {
-                setError(`${label} is required.`);
-            } else if (inputValue.trim().length < 2) {
-                setError(`${label} must be at least 2 characters.`);
-            } else {
-                setError("");
-            }
+        if (label.includes("Name")) {
+            inputValue = inputValue
+                .replace(/[^A-Za-z\s]/g, "")
+                .replace(/\s{2,}/g, " ");
         } else if (isPhone) {
             inputValue = inputValue.replace(/\D/g, "").slice(0, 11);
-
-            if (inputValue.length !== 11) {
-                setError("Phone number must be 11 digits.");
-            } else {
-                setError("");
-            }
-        } else if (type === "email") {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-            if (!emailRegex.test(inputValue)) {
-                setError("Please enter a valid email address.");
-            } else {
-                setError("");
-            }
-        } else {
-            if (!inputValue.trim()) {
-                setError(`${label} is required.`);
-            } else {
-                setError("");
-            }
         }
 
         onValueChange?.(inputValue);
+
+        // Optional: Clear the red error state as soon as the user starts typing again
+        // This makes the UI feel much more responsive.
     };
 
     return (
-        <div className="relative group">
-            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
-                <span>{label}</span>
-            </label>
-
-            {options ? (
-    
-                    <select
-                        required
-                        onChange={(e) => {
-                            onValueChange?.(e.target.value);
-                            setError(!e.target.value ? "Please select a project type." : "");
-                        }}
-                        value={value}
-                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
-                            error
-                                ? "border-red-500 text-red-500"
-                                : "border-gray-300 focus:border-black text-black"
-                        }`}
-                    >
-                        <option value="" disabled hidden>
-                            Select Project Type
-                        </option>
-                        {options.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                    </select>
-
-                ) : type === "time" ? (
-                    
-                    <select
-                        value={value}
-                        onChange={(e) => onValueChange?.(e.target.value)}
-                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
-                            error
-                                ? "border-red-500 text-red-500"
-                                : "border-gray-300 focus:border-black text-black"
-                        }`}
-                    >
-                        <option value="" disabled hidden>
-                            Select Time
-                        </option>
-
-                        {Array.from({ length: 17 }).map((_, i) => {
-                            const totalMinutes = 9 * 60 + i * 30;
-                            const hours = Math.floor(totalMinutes / 60);
-                            const minutes = totalMinutes % 60;
-
-                            const formattedHours12 = hours % 12 === 0 ? 12 : hours % 12;
-                            const ampm = hours < 12 ? "AM" : "PM";
-
-                            const label = `${formattedHours12}:${minutes === 0 ? "00" : minutes} ${ampm}`;
-                            const val = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-
-                            return (
-                                <option key={val} value={val}>
-                                    {label}
-                                </option>
-                            );
-                        })}
-                    </select>
-
-                ) : type === "date" ? (
-
-                    <input
-                        type="date"
-                        value={value}
-                        onChange={handleChange}
-                        min={new Date().toISOString().split("T")[0]}
-                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
-                            error
-                                ? "border-red-500 text-red-500"
-                                : "border-gray-300 focus:border-black text-black"
-                        }`}
-                    />
-
-                ) : (
-                    
-                    <input
-                        type={type}
-                        value={value}
-                        onChange={handleChange}
-                        placeholder={placeholder}
-                        className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none ${
-                            error
-                                ? "border-red-500 text-red-500"
-                                : "border-gray-300 focus:border-black text-black"
-                        }`}
-                    />
-                )}
-
-            <AnimatePresence mode="wait">
-                {error && (
-                    <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
-                    >
-                        {error}
-                    </motion.p>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-}
-
-/* ---------------- GENERAL MESSAGE ---------------- */
-
-function GeneralMessageField({ value = "", onValueChange }) {
-    const [error, setError] = useState("");
-
-    const handleChange = (e) => {
-        let inputValue = e.target.value;
-        const words = inputValue.trim().split(/\s+/);
-
-        if (words.length > 100) {
-            inputValue = words.slice(0, 100).join(" ");
-        }
-
-        if (!inputValue.trim()) {
-            setError("Message is required.");
-        } else {
-            setError("");
-        }
-
-        onValueChange?.(inputValue);
-    };
-
-    return (
-        <div className="relative group">
-            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
-                <span>Message</span>
-            </label>
-
-            <textarea
-                rows={4}
-                value={value}
-                onChange={handleChange}
-                placeholder="Enter your message (max 100 words)"
-                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none ${
-                    error
-                        ? "border-red-500 text-red-500"
-                        : "border-gray-300 focus:border-black text-black"
-                }`}
-            />
-
-            <AnimatePresence mode="wait">
-                {error && (
-                    <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
-                    >
-                        {error}
-                    </motion.p>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-}
-
-/* ---------------- CONSULTATION MESSAGE ---------------- */
-
-function ConsultationMessageField({ value = "", onValueChange }) {
-    const [error, setError] = useState("");
-
-    const handleChange = (e) => {
-        let inputValue = e.target.value;
-        const words = inputValue.trim().split(/\s+/);
-
-        if (words.length > 100) {
-            inputValue = words.slice(0, 100).join(" ");
-        }
-
-        if (!inputValue.trim()) {
-            setError("Project details are required.");
-        } else {
-            setError("");
-        }
-
-        onValueChange?.(inputValue);
-    };
-
-    return (
-        <div className="relative group">
-            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-1">
-                <span>Project Details</span>
-            </label>
-            <textarea
-                rows={4}
-                value={value}
-                onChange={handleChange}
-                placeholder="Describe your project (max 100 words)"
-                className={`w-full bg-transparent border-b px-0 py-3 text-base outline-none transition-colors rounded-none placeholder:text-gray-300 resize-none ${
-                    error
-                        ? "border-red-500 text-red-500"
-                        : "border-gray-300 focus:border-black text-black"
-                }`}
-            />
-            <AnimatePresence mode="wait">
-                {error && (
-                    <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden"
-                    >
-                        {error}
-                    </motion.p>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-}
-
-/* ---------------- FILE DROP ---------------- */
-
-function FileDrop({ label, files = [], onFilesChange }) {
-    const [dragging, setDragging] = useState(false);
-
-    const updateFiles = (fileList) => {
-        const nextFiles = Array.from(fileList || []);
-        onFilesChange?.(nextFiles);
-    };
-
-    const removeFile = (indexToRemove) => {
-        onFilesChange?.(files.filter((_, index) => index !== indexToRemove));
-    };
-
-    return (
-        <div className="relative group">
-            <label className="flex justify-between items-end text-[10px] tracking-widest text-gray-500 uppercase mb-3">
-                <span>{label}</span>
-            </label>
-
+        <div className="relative group w-full">
+            {/* Label turns red based on externalError */}
             <label
-                className={`relative flex min-h-[120px] w-full cursor-pointer flex-col items-center justify-center border border-dashed text-center transition-colors ${
-                    dragging
-                        ? "border-black bg-gray-50"
-                        : "border-gray-300 bg-transparent hover:border-black hover:bg-gray-50/50"
-                }`}
-                onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    updateFiles(e.dataTransfer.files);
-                }}
+                className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}
             >
-                <input
-                    type="file"
-                    className="hidden"
-                    multiple
-                    accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
-                    onChange={(e) => updateFiles(e.target.files)}
-                />
-                <p className="text-[10px] tracking-widest text-gray-400 uppercase mb-1">
-                    Drop files here
-                </p>
-                <p className="text-sm font-bold text-black border-b border-black pb-0.5">
-                    Browse
-                </p>
+                {label}
             </label>
 
-            {files.length > 0 && (
-                <div className="mt-3 space-y-2">
-                    {files.map((file, index) => (
-                        <div
-                            key={`${file.name}-${index}`}
-                            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2"
-                        >
-                            <div className="min-w-0">
-                                <p className="text-xs font-bold text-black truncate">
-                                    {file.name}
-                                </p>
-                                <p className="text-[10px] uppercase tracking-wider text-gray-400">
-                                    {(file.size / 1024).toFixed(1)} KB
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => removeFile(index)}
-                                className="ml-3 text-[10px] font-bold tracking-wider uppercase text-red-500 hover:text-red-700 cursor-pointer"
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
+            <input
+                type={type}
+                value={value}
+                onChange={handleChange}
+                className={`w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none ${
+                    hasError
+                        ? "border-red-500 text-red-500"
+                        : "border-neutral-300 focus:border-black text-black"
+                }`}
+            />
+
+            <AnimatePresence mode="wait">
+                {externalError && (
+                    <motion.p
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
+                    >
+                        {externalError}
+                    </motion.p>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+function GeneralMessageField({
+    label = "Message *",
+    value = "",
+    onValueChange,
+    externalError,
+}) {
+    const hasError = !!externalError;
+
+    return (
+        <div className="relative group w-full">
+            <label
+                className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}
+            >
+                {label}
+            </label>
+
+            <textarea
+                rows={12}
+                value={value}
+                onChange={(e) => onValueChange?.(e.target.value)}
+                className={`w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none resize-none ${
+                    hasError
+                        ? "border-red-500 text-red-500"
+                        : "border-neutral-300 focus:border-black text-black"
+                }`}
+            />
+
+            <AnimatePresence mode="wait">
+                {externalError && (
+                    <motion.p
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
+                    >
+                        {externalError}
+                    </motion.p>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

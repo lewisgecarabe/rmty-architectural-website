@@ -22,6 +22,8 @@ import Services from "./pages/Services";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About";
+import Appointments from "./pages/Appointments";
+import ClientAuthPage from "./pages/ClientAuthPage";
 
 // Admin Imports
 import ForgotPassword from "./pages/admin/ForgotPassword";
@@ -114,9 +116,11 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="/services" element={<Services />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
+                <Route path="/appointment" element={<Appointments />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Route>
 
+            <Route path="/auth" element={<ClientAuthPage />} />
             <Route path="/admin/login" element={<AuthPage />} />
             <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 

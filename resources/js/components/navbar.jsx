@@ -1,17 +1,13 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom"; // 1. Import useLocation
+import { Link, useLocation } from "react-router-dom";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 
 export default function Navbar({ onOpenMenu }) {
   const { scrollY } = useScroll();
-  const location = useLocation(); // 2. Get current location
+  const location = useLocation();
   
   const [hidden, setHidden] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-
-  // 3. Define which pages need Black Text (Light Backgrounds)
-  // .includes("/projects") covers both the list and the details page
-  const isLightPage = location.pathname.includes("/projects") || location.pathname === "/about" || location.pathname === "/services" || location.pathname === "/contact" ;
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = scrollY.getPrevious();
@@ -19,11 +15,10 @@ export default function Navbar({ onOpenMenu }) {
     setHidden(latest > previous && latest > 150);
   });
 
+  // Forced black text for clarity as requested
   const navStyle = isScrolled 
     ? "bg-[#e6e6e6] text-black" 
-    : isLightPage 
-      ? "bg-transparent text-black"  
-      : "bg-transparent text-white";    
+    : "bg-transparent text-black";    
 
   return (
     <motion.header
@@ -33,8 +28,6 @@ export default function Navbar({ onOpenMenu }) {
       }}
       animate={hidden ? "hidden" : "visible"}
       transition={{ duration: 0.60, ease: "easeInOut" }}
-      
-      // 5. Apply the calculated style variable here
       className={`fixed top-0 left-0 w-full z-40 transition-colors duration-300 py-6 ${navStyle}`}
     >
       <nav className="max-w-screen-2xl mx-auto px-6 grid grid-cols-3 items-center [font-family:var(--font-neue)]">
@@ -45,7 +38,6 @@ export default function Navbar({ onOpenMenu }) {
             aria-label="Open menu"
             className="block"
           >
-            {/* fill="currentColor" inherits text-black or text-white automatically */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-10 cursor-pointer">
               <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" />
             </svg>
