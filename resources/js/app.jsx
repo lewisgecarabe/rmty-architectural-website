@@ -14,7 +14,7 @@ import {
 
 import RootLayout from "./layouts/RootLayout";
 
-// Page Imports
+// Public Page Imports
 import Home from "./pages/home";
 import Contact from "./pages/contact";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -24,6 +24,9 @@ import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About";
 import Appointments from "./pages/Appointments";
 import ClientAuthPage from "./pages/ClientAuthPage";
+
+// User Imports
+import UserDashboard from "./pages/user/UserDashboard";
 
 // Admin Imports
 import ForgotPassword from "./pages/admin/ForgotPassword";
@@ -43,15 +46,20 @@ import AdminPlatformSettings from "./pages/admin/AdminPlatformSettings";
 
 const TIMEOUT_MS = 30 * 60 * 1000;
 
-function clearSession() {
+// Admin session cleanup
+function clearAdminSession() {
     localStorage.removeItem("admin_token");
-    localStorage.removeItem("token");
     localStorage.removeItem("admin_last_activity");
 }
 
+// User session cleanup
+function clearUserSession() {
+    localStorage.removeItem("token");
+}
+
+// Admin-only protected route
 function ProtectedRoute() {
-    const token =
-        localStorage.getItem("admin_token") || localStorage.getItem("token");
+    const token = localStorage.getItem("admin_token");
 
     const lastActivity = parseInt(
         localStorage.getItem("admin_last_activity") || "0",
@@ -77,6 +85,7 @@ function ProtectedRoute() {
             "touchstart",
             "scroll",
         ];
+
         events.forEach((e) =>
             window.addEventListener(e, stamp, { passive: true }),
         );
@@ -86,8 +95,9 @@ function ProtectedRoute() {
                 localStorage.getItem("admin_last_activity") || "0",
                 10,
             );
+
             if (last > 0 && Date.now() - last > TIMEOUT_MS) {
-                clearSession();
+                clearAdminSession();
                 window.location.replace("/admin/login");
             }
         }, 60_000);
@@ -99,8 +109,20 @@ function ProtectedRoute() {
     }, [token]);
 
     if (!token || isExpired) {
-        clearSession();
+        clearAdminSession();
         return <Navigate to="/admin/login" replace />;
+    }
+
+    return <Outlet />;
+}
+
+// User-only protected route
+function UserProtectedRoute() {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+        clearUserSession();
+        return <Navigate to="/auth" replace />;
     }
 
     return <Outlet />;
@@ -109,6 +131,7 @@ function ProtectedRoute() {
 ReactDOM.createRoot(document.getElementById("app")).render(
     <BrowserRouter>
         <Routes>
+            {/* Public Routes */}
             <Route element={<RootLayout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/projects" element={<Projects />} />
@@ -120,10 +143,17 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Route>
 
+            {/* Client Auth */}
             <Route path="/auth" element={<ClientAuthPage />} />
+
+           {/* Temporary User Route for UI Testing */}
+                <Route path="/user/dashboard" element={<UserDashboard />} />
+
+            {/* Admin Auth */}
             <Route path="/admin/login" element={<AuthPage />} />
             <Route path="/admin/forgot-password" element={<ForgotPassword />} />
 
+            {/* Admin Protected Routes */}
             <Route element={<ProtectedRoute />}>
                 <Route path="/admin" element={<AdminLayout />}>
                     <Route
