@@ -11,12 +11,13 @@ const RECAPTCHA_SITE_KEY =
     "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
 export default function Appointments() {
+    const [captchaToken, setCaptchaToken] = useState(null);
+
     const navigate = useNavigate();
     const [isLoggedIn, setIsLoggedIn] = useState(
         !!localStorage.getItem("token"),
     );
     const [showAuthModal, setShowAuthModal] = useState(false);
-    const [captchaVerified, setCaptchaVerified] = useState(false);
 
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -33,11 +34,16 @@ export default function Appointments() {
     const [submitting, setSubmitting] = useState(false);
 
     // Sync auth state if token changes elsewhere
-    useEffect(() => {
-        const checkAuth = () => setIsLoggedIn(!!localStorage.getItem("token"));
-        window.addEventListener("storage", checkAuth);
-        return () => window.removeEventListener("storage", checkAuth);
-    }, []);
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (user) {
+        setEmail(user.email);
+        const [first, last] = user.name.split(" ");
+        setFirstName(first);
+        setLastName(last || "");
+    }
+}, []);
 
     const handleAppointmentSubmit = async (e) => {
         e.preventDefault();
@@ -64,7 +70,7 @@ export default function Appointments() {
         if (!appointmentTime) newErrors.appointmentTime = "Time is required.";
 
         // 2. Captcha Check
-        if (!captchaVerified) {
+      if (!captchaToken) {
             newErrors.captcha = "Please complete the Captcha verification.";
         }
 
@@ -90,6 +96,7 @@ export default function Appointments() {
                     phone,
                     location,
                     project_type: projectType,
+                        captcha_token: captchaToken,
                     message: appointmentMessage,
                     consultation_date: `${appointmentDate} ${appointmentTime}:00`,
                 }),
@@ -275,13 +282,11 @@ export default function Appointments() {
 
                             {/* Captcha Section */}
                             <div className="mb-10">
-                                <ReCAPTCHA
-                                    sitekey={RECAPTCHA_SITE_KEY}
-                                    onChange={(val) =>
-                                        setCaptchaVerified(!!val)
-                                    }
-                                    className="mb-4 grayscale"
-                                />
+
+<ReCAPTCHA
+    sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+    onChange={(token) => setCaptchaToken(token)}
+/>
                                 <AnimatePresence mode="wait">
                                     {errors.captcha && (
                                         <motion.p

@@ -21,7 +21,9 @@ class User extends Authenticatable
         'is_admin',
         'archived_at',
         'profile_photo',
-    ];
+        'otp_code',          // ✅ ADD
+    'otp_expires_at',    // ✅ ADD
+];
 
     protected $casts = [
         'archived_at' => 'datetime',

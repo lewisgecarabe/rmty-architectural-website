@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Inquiry;
+use App\Http\Controllers\Api\AuthController;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 
@@ -72,6 +73,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/contact-content', [ContactPageContentController::class, 'index']);
     Route::post('/admin/contact-content', [ContactPageContentController::class, 'store']);
 });
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout']);
 
 // Consultation booking — public (contact form)
 Route::post('/inquiries', [InquiryController::class, 'store']);
@@ -135,6 +141,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/facebook/status', [FacebookOAuthController::class, 'status']);
     Route::delete('/admin/facebook/disconnect', [FacebookOAuthController::class, 'disconnect']);
 });
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 
 // ── Webhook Routes (public — verified by platform signatures) ──
 Route::prefix('webhooks')->middleware('throttle:120,1')->group(function () {
