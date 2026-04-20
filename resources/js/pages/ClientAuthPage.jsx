@@ -47,7 +47,7 @@ export default function ClientAuthPage() {
                     </header>
 
                     {/* Form Component */}
-<ClientAuthForm onSuccess={() => window.location.href = "/appointments"} />                </div>
+<ClientAuthForm onSuccess={() => window.location.href = "/user/dashboard"} />                </div>
 
                 {/* Optional: Footer or Links */}
                 <div className="absolute bottom-12 left-1/2 -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-12">
