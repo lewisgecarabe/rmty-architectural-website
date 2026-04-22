@@ -51,6 +51,14 @@ function getLastBySortOrder(data, sortOrder) {
     return matches.length > 0 ? matches[matches.length - 1] : {};
 }
 
+function parseBulletContent(content = "") {
+    return content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/^[-•*]\s*/, ""));
+}
+
 export default function Services() {
     const [openIndex, setOpenIndex] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -70,7 +78,11 @@ export default function Services() {
                     setCta(getLastBySortOrder(data, 2));
                     setServices(
                         data
-                            .filter((s) => Number(s.sort_order) >= 3)
+                            .filter(
+                                (s) =>
+                                    Number(s.sort_order) >= 3 &&
+                                    Number(s.is_published) === 1
+                            )
                             .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
                     );
                 }
@@ -89,9 +101,9 @@ export default function Services() {
                                 {hero.title || "DESIGNING WITH INTENTIONS"}
                             </h1>
                         </div>
-                        <p className="max-w-md text-sm leading-relaxed text-gray-500 md:justify-self-end mt-2 md:mt-4 whitespace-pre-wrap">
-                            {hero.content ||
-                                "At vero eos et accusamus et iusto odio..."}
+
+                        <p className="max-w-2xl text-sm leading-relaxed text-gray-500 md:justify-self-end mt-2 md:mt-4 whitespace-pre-wrap text-justify">
+                            {hero.content}
                         </p>
                     </div>
                 </div>
@@ -136,10 +148,11 @@ export default function Services() {
 
                         <div>
                             <h3 className="text-3xl font-normal tracking-tight text-black md:text-4xl whitespace-pre-line">
-                                {section.title || "RMTY Design Architects"}
+                                {section.title || "RMTY | ARCHITECTS"}
                             </h3>
-                            <p className="mt-6 max-w-md text-sm leading-relaxed text-gray-500 whitespace-pre-wrap">
-                                {section.content || "At vero eos et accusamus..."}
+
+                            <p className="mt-6 max-w-2xl text-sm leading-relaxed text-gray-500 whitespace-pre-wrap text-justify">
+                                {section.content}
                             </p>
 
                             <div className="mt-12 border-t border-gray-200">
@@ -154,6 +167,8 @@ export default function Services() {
                                 ) : (
                                     services.map((item, idx) => {
                                         const isOpen = openIndex === idx;
+                                        const bulletItems = parseBulletContent(item.content);
+
                                         return (
                                             <div
                                                 key={item.id ?? idx}
@@ -173,6 +188,7 @@ export default function Services() {
                                                         {isOpen ? "–" : "+"}
                                                     </span>
                                                 </button>
+
                                                 <AnimatePresence initial={false}>
                                                     {isOpen && (
                                                         <motion.div
@@ -195,9 +211,24 @@ export default function Services() {
                                                             className="overflow-hidden"
                                                         >
                                                             <div className="pb-6 pr-8">
-                                                                <p className="text-[13px] leading-relaxed text-gray-500 whitespace-pre-wrap">
-                                                                    {item.content}
-                                                                </p>
+                                                                {bulletItems.length > 0 ? (
+                                                                    <ul className="list-disc pl-5 space-y-2 text-[13px] leading-relaxed text-gray-500">
+                                                                        {bulletItems.map(
+                                                                            (point, pointIndex) => (
+                                                                                <li
+                                                                                    key={pointIndex}
+                                                                                    className="text-justify"
+                                                                                >
+                                                                                    {point}
+                                                                                </li>
+                                                                            )
+                                                                        )}
+                                                                    </ul>
+                                                                ) : (
+                                                                    <p className="text-[13px] leading-relaxed text-gray-500 text-justify">
+                                                                        No details available.
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                         </motion.div>
                                                     )}
@@ -248,6 +279,7 @@ export default function Services() {
                                 {cta.title || "SEE OTHER PROJECTS"}
                             </Link>
                         </div>
+
                         <div className="absolute right-6 top-6 text-[10px] font-bold tracking-[0.15em] uppercase text-white/80 z-20">
                             {cta.content || "Architecture"}
                         </div>

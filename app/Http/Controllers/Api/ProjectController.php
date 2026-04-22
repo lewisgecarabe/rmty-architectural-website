@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ProjectController extends Controller
 {
@@ -20,7 +21,8 @@ class ProjectController extends Controller
         return Project::with(['category', 'images'])
             ->where('is_published', true)
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn($p) => $this->appendImageUrls($p));
     }
 
     // Admin — all projects including archived
@@ -28,33 +30,42 @@ class ProjectController extends Controller
     {
         return Project::with(['category', 'images'])
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn($p) => $this->appendImageUrls($p));
     }
 
     // Single project by slug
     public function show($slug)
     {
-        return Project::with(['category', 'images'])
+        $project = Project::with(['category', 'images'])
             ->where('slug', $slug)
             ->firstOrFail();
+
+        return $this->appendImageUrls($project);
     }
 
     // CREATE
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'title'        => 'required|string',
-            'category_id'  => 'required|exists:categories,id',
-            'location'     => 'nullable|string',
-            'description'  => 'nullable|string',
-            // ✅ Increased to 20 MB for cover, 20 MB per gallery image
-            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:20480',
-            'gallery'      => 'nullable|array',
-            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:20480',
-            'is_published' => 'sometimes|boolean',
-        ]);
+        try {
+            $data = $request->validate([
+                'title'        => 'required|string|max:255',
+                'category_id'  => 'required|exists:categories,id',
+                'location'     => 'nullable|string|max:255',
+                'description'  => 'nullable|string',
+                'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:102400', // 100MB per image
+                'gallery'      => 'nullable|array|max:30',
+                'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:102400',           // 100MB per image
+                'is_published' => 'sometimes|boolean',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        }
 
-        $data['slug'] = Str::slug($data['title']);
+        $data['slug']         = $this->uniqueSlug($data['title']);
         $data['is_published'] = $data['is_published'] ?? true;
 
         // Cover image
@@ -63,7 +74,6 @@ class ProjectController extends Controller
                 ->store('projects/covers', 'public');
         }
 
-        // Remove non-column keys before creating
         unset($data['cover_image'], $data['gallery']);
 
         $project = Project::create($data);
@@ -83,7 +93,7 @@ class ProjectController extends Controller
         $this->logActivity($request, 'created', $project);
 
         return response()->json(
-            $project->load(['category', 'images']),
+            $this->appendImageUrls($project->load(['category', 'images'])),
             201
         );
     }
@@ -93,20 +103,26 @@ class ProjectController extends Controller
     {
         $project = Project::findOrFail($id);
 
-        $data = $request->validate([
-            'title'        => 'sometimes|required|string',
-            'category_id'  => 'sometimes|required|exists:categories,id',
-            'location'     => 'nullable|string',
-            'description'  => 'nullable|string',
-            // ✅ Increased to 20 MB for cover, 20 MB per gallery image
-            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:20480',
-            'gallery'      => 'nullable|array',
-            'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:20480',
-            'is_published' => 'sometimes|boolean',
-        ]);
+        try {
+            $data = $request->validate([
+                'title'        => 'sometimes|required|string|max:255',
+                'category_id'  => 'sometimes|required|exists:categories,id',
+                'location'     => 'nullable|string|max:255',
+                'description'  => 'nullable|string',
+                'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:102400',
+                'gallery'      => 'nullable|array|max:30',
+                'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:102400',
+                'is_published' => 'sometimes|boolean',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        }
 
         if (isset($data['title'])) {
-            $data['slug'] = Str::slug($data['title']);
+            $data['slug'] = $this->uniqueSlug($data['title'], $project->id);
         }
 
         // Cover image — delete old one first
@@ -118,7 +134,6 @@ class ProjectController extends Controller
                 ->store('projects/covers', 'public');
         }
 
-        // Remove non-column keys before updating
         unset($data['cover_image'], $data['gallery']);
 
         $project->update($data);
@@ -139,16 +154,17 @@ class ProjectController extends Controller
 
         $this->logActivity($request, 'updated', $project);
 
-        return response()->json($project->load(['category', 'images']));
+        return response()->json(
+            $this->appendImageUrls($project->load(['category', 'images']))
+        );
     }
 
     // DELETE
     public function destroy(Request $request, $id)
     {
         $project = Project::findOrFail($id);
-        $title = $project->title;
+        $title   = $project->title;
 
-        // Clean up stored files
         if ($project->image) {
             Storage::disk('public')->delete($project->image);
         }
@@ -156,7 +172,7 @@ class ProjectController extends Controller
             Storage::disk('public')->delete($img->image_path);
         }
 
-        $project->delete(); // cascade deletes project_images rows
+        $project->delete();
 
         $this->logActivity($request, 'deleted', $project, $id, $title);
 
@@ -195,7 +211,7 @@ class ProjectController extends Controller
     public function updateProjectsCta(Request $request)
     {
         $request->validate([
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:20480',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:102400',
             'text'  => 'nullable|string',
         ]);
 
@@ -220,7 +236,46 @@ class ProjectController extends Controller
         return response()->json(['message' => 'Saved']);
     }
 
-    // Helper to reduce repetition
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Append full storage URLs to cover_image and gallery_images.
+     */
+    private function appendImageUrls($project)
+    {
+        $project->cover_image = $project->image
+            ? Storage::url($project->image)
+            : null;
+
+        $project->gallery_images = $project->images->map(
+            fn($img) => Storage::url($img->image_path)
+        );
+
+        return $project;
+    }
+
+    /**
+     * Generate a unique slug, optionally excluding the current project's own slug.
+     */
+    private function uniqueSlug(string $title, ?int $excludeId = null): string
+    {
+        $base  = Str::slug($title);
+        $slug  = $base;
+        $count = 1;
+
+        $query = Project::where('slug', $slug);
+        if ($excludeId) $query->where('id', '!=', $excludeId);
+
+        while ($query->exists()) {
+            $slug  = "{$base}-{$count}";
+            $count++;
+            $query = Project::where('slug', $slug);
+            if ($excludeId) $query->where('id', '!=', $excludeId);
+        }
+
+        return $slug;
+    }
+
     private function logActivity(Request $request, string $action, $project, $id = null, $title = null): void
     {
         if ($request->user()) {

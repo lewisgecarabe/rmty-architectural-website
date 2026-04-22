@@ -6,6 +6,17 @@ import { getAuthHeaders } from "../../lib/authHeaders";
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const springTransition = { type: "spring", damping: 25, stiffness: 300 };
 
+function normalizeBulletInput(value = "") {
+    return value
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/^[-•*]\s*/, ""))
+        .join("\n");
+}
+
 /* ---------------- REUSABLE UI COMPONENTS ---------------- */
 function InputField({
     label,
@@ -14,6 +25,8 @@ function InputField({
     placeholder,
     isTextArea = false,
     fullHeight = false,
+    rows = 5,
+    helperText = "",
 }) {
     const inputClasses =
         "w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium bg-white outline-none transition-all hover:bg-neutral-50/50 focus:border-neutral-900";
@@ -27,12 +40,13 @@ function InputField({
                     {label}
                 </label>
             </div>
+
             {isTextArea ? (
                 <textarea
                     value={value}
                     onChange={onChange}
                     placeholder={placeholder}
-                    rows={5}
+                    rows={rows}
                     className={`${inputClasses} resize-none ${fullHeight ? "flex-1" : ""}`}
                 />
             ) : (
@@ -44,6 +58,12 @@ function InputField({
                     className={inputClasses}
                 />
             )}
+
+            {helperText ? (
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                    {helperText}
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -169,7 +189,7 @@ export default function AdminContentServices() {
                             mergedConfig[formatted.sort_order] = {
                                 ...formatted,
                                 sort_order: formatted.sort_order,
-                                is_published: true, // force fixed slots visible
+                                is_published: true,
                             };
                         } else {
                             accordionItems.push(formatted);
@@ -229,20 +249,6 @@ export default function AdminContentServices() {
     const handleText = (index, field, value) => {
         setServices((prev) =>
             prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
-        );
-    };
-
-    const handleImage = (index, file) => {
-        setServices((prev) =>
-            prev.map((s, i) =>
-                i === index
-                    ? {
-                          ...s,
-                          cover_image: file,
-                          preview: URL.createObjectURL(file),
-                      }
-                    : s
-            )
         );
     };
 
@@ -335,13 +341,18 @@ export default function AdminContentServices() {
         try {
             const fixedSections = pageConfig.map((section, index) => ({
                 ...section,
+                title: (section.title || "").trim(),
+                content: (section.content || "").trim(),
                 sort_order: index,
-                is_published: true, // always publish hero, intro, CTA
+                is_published: true,
             }));
 
             const dynamicServices = services.map((section) => ({
                 ...section,
+                title: (section.title || "").trim(),
+                content: normalizeBulletInput(section.content || ""),
                 sort_order: Number(section.sort_order),
+                is_published: Boolean(section.is_published),
             }));
 
             const allItems = [...fixedSections, ...dynamicServices];
@@ -401,7 +412,7 @@ export default function AdminContentServices() {
             });
 
             await Promise.all(promises);
-            showToast("Services Configuration Saved!");
+            showToast("Services configuration saved.");
             await fetchContent();
         } catch (err) {
             console.error(err);
@@ -483,7 +494,6 @@ export default function AdminContentServices() {
                             onChange={(e) =>
                                 handleConfigText(0, "title", e.target.value)
                             }
-                            isTextArea={false}
                             placeholder="e.g. DESIGNING WITH INTENTIONS"
                         />
                         <InputField
@@ -493,7 +503,7 @@ export default function AdminContentServices() {
                                 handleConfigText(0, "content", e.target.value)
                             }
                             isTextArea={true}
-                            placeholder="Write the hero introduction..."
+                            placeholder="Write the hero content..."
                         />
                     </div>
                 </div>
@@ -516,7 +526,7 @@ export default function AdminContentServices() {
                                 onChange={(e) =>
                                     handleConfigText(1, "title", e.target.value)
                                 }
-                                placeholder="e.g. RMTY Design | Architects"
+                                placeholder="e.g. RMTY | ARCHITECTS"
                             />
                             <div className="flex-1 flex flex-col">
                                 <InputField
@@ -527,7 +537,7 @@ export default function AdminContentServices() {
                                     }
                                     isTextArea={true}
                                     fullHeight={true}
-                                    placeholder="Short paragraph..."
+                                    placeholder="Write the intro paragraph..."
                                 />
                             </div>
                         </div>
@@ -635,7 +645,9 @@ export default function AdminContentServices() {
                                         }
                                         isTextArea={true}
                                         fullHeight={true}
-                                        placeholder="Describe the details of this service..."
+                                        rows={6}
+                                        helperText="Enter one detail per line. Each line will appear as a bullet on the main Services page."
+                                        placeholder={`Residential Design\nCondominium Planning\nTownhouse Development\nCommercial Buildings`}
                                     />
                                 </div>
                                 <div className="pt-2 border-t border-neutral-100">
