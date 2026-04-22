@@ -103,7 +103,8 @@ export default function Services() {
                         </div>
 
                         <p className="max-w-2xl text-sm leading-relaxed text-gray-500 md:justify-self-end mt-2 md:mt-4 whitespace-pre-wrap text-justify">
-                            {hero.content}
+                            {hero.content ||
+                                "RMTY delivers architecture and design services grounded in strategy, technical precision, and contextual thinking. We shape each solution around project goals, constraints, and long-term value."}
                         </p>
                     </div>
                 </div>
@@ -152,7 +153,8 @@ export default function Services() {
                             </h3>
 
                             <p className="mt-6 max-w-2xl text-sm leading-relaxed text-gray-500 whitespace-pre-wrap text-justify">
-                                {section.content}
+                                {section.content ||
+                                    "Our studio supports clients from concept design to construction documentation, ensuring that every decision is aligned with function, aesthetics, and buildability."}
                             </p>
 
                             <div className="mt-12 border-t border-gray-200">

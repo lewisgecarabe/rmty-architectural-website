@@ -5,12 +5,12 @@ const DEFAULT_CONTENT = {
         titleLine1: "DESIGNING WITH",
         titleLine2: "INTENTIONS",
         paragraph:
-            "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia desunt mollitia animi, id est laborum et dolorum fuga.",
+            "RMTY delivers architecture and design services grounded in strategy, technical precision, and contextual thinking. We shape each solution around project goals, constraints, and long-term value.",
     },
     section: {
         heading: "RMTY Design\nArchitects",
         paragraph:
-            "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque",
+            "Our studio supports clients from concept design to construction documentation, ensuring that every decision is aligned with function, aesthetics, and buildability.",
         locationTag: "Tagaytay City",
     },
     services: [

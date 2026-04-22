@@ -60,15 +60,15 @@ export default function About() {
     const artist = bySort(6);
 
     const defaultHeroText =
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias";
+        "RMTY is a Manila-based architectural studio focused on designing spaces that respond to people, place, and purpose. Our process balances clear planning, strong design intent, and practical execution.";
     const defaultPurposeShort =
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui";
+        "We create architecture that is contextual, buildable, and human-centered.";
     const defaultPurposeLong =
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui At vero eos et accusamus et iusto odio dignissimos ducimus qui At vero eos et accusamus et iusto odio dignissimos ducimus qui";
+        "From early concept to final detailing, RMTY translates client vision into spaces that are refined, functional, and lasting. We approach each project with discipline, collaboration, and sensitivity to site conditions.";
     const defaultBlockText =
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias";
+        "Our team is committed to delivering thoughtful design solutions through research-driven planning, technical precision, and transparent communication throughout the project lifecycle.";
     const defaultArtistParagraph =
-        "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias";
+        "RMTY was built on the belief that architecture should be both meaningful and measurable—shaping daily life while meeting real project constraints with clarity and care.";
 
     // NOTICE: The full-page "if (loading)" block has been removed so the layout loads instantly!
 

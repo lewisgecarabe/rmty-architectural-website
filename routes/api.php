@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\HomePageContentController;
 use App\Http\Controllers\Api\ContactPageContentController;
+use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Api\SearchController;
@@ -44,6 +45,7 @@ Route::get('/categories', [CategoryController::class, 'index']);
 
 Route::get('/services', [ServiceController::class, 'index']);
 Route::get('/about', [AboutSectionController::class, 'index']);
+Route::get('/faqs', [FaqController::class, 'index']);
 Route::get('/home-content', [HomePageContentController::class, 'index']);
 Route::get('/contact-content', [ContactPageContentController::class, 'index']);
 
@@ -66,6 +68,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/about/{id}', [AboutSectionController::class, 'update']);
     Route::post('/about/{id}', [AboutSectionController::class, 'update']);
     Route::delete('/about/{id}', [AboutSectionController::class, 'destroy']);
+
+    Route::get('/admin/faqs', [FaqController::class, 'adminIndex']);
+    Route::post('/faqs', [FaqController::class, 'store']);
+    Route::put('/faqs/{id}', [FaqController::class, 'update']);
+    Route::post('/faqs/{id}', [FaqController::class, 'update']);
+    Route::delete('/faqs/{id}', [FaqController::class, 'destroy']);
 
     Route::get('/admin/home-content', [HomePageContentController::class, 'index']);
     Route::post('/admin/home-content', [HomePageContentController::class, 'store']);

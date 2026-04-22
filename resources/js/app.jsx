@@ -23,6 +23,7 @@ import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import About from "./pages/About";
 import Appointments from "./pages/Appointments";
+import FAQ from "./pages/faq";
 import ClientAuthPage from "./pages/ClientAuthPage";
 
 // User Imports
@@ -38,6 +39,7 @@ import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";
 import AdminContentAbout from "./pages/admin/AdminContentAbout";
 import AdminContentContact from "./pages/admin/AdminContentContact";
+import AdminContentFaq from "./pages/admin/AdminContentFaq";
 import AdminContentHome from "./pages/admin/AdminContentHome";
 import AdminManagement from "./pages/admin/AdminManagement";
 import AdminProfile from "./pages/admin/AdminProfile";
@@ -138,6 +140,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                 <Route path="/projects/:id" element={<ProjectDetails />} />
                 <Route path="/services" element={<Services />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/faq" element={<FAQ />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/appointment" element={<Appointments />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -181,6 +184,10 @@ ReactDOM.createRoot(document.getElementById("app")).render(
                     <Route
                         path="content/contact"
                         element={<AdminContentContact />}
+                    />
+                    <Route
+                        path="content/faq"
+                        element={<AdminContentFaq />}
                     />
                     <Route path="users" element={<AdminManagement />} />
                     <Route path="profile" element={<AdminProfile />} />

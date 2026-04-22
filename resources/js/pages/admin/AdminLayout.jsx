@@ -109,6 +109,11 @@ function AdminSidebar({ isOpen, setIsOpen }) {
             icon: <LayersIcon />,
         },
         {
+            label: "FAQ",
+            to: "/admin/content/faq",
+            icon: <DocumentIcon />,
+        },
+        {
             label: "Contact",
             to: "/admin/content/contact",
             icon: <ContactIcon />,
