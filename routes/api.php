@@ -108,11 +108,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
     Route::post('/inquiries/{inquiry}/reply', [InquiryController::class, 'reply']);
 
+
+
     // Consultations (admin management)
     Route::get('/admin/consultations', [ConsultationController::class, 'index']);
     Route::put('/consultations/{id}', [ConsultationController::class, 'update']);
     Route::post('/consultations/{id}', [ConsultationController::class, 'update']);
     Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
+
+    Route::get('/consultations/my',     [ConsultationController::class, 'my']);
+    Route::get('/consultations/my-all', [ConsultationController::class, 'myAll']); // ← new
 });
 
 // Public

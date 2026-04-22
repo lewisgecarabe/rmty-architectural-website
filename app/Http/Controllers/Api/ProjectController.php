@@ -48,7 +48,7 @@ class ProjectController extends Controller
             'location'     => 'nullable|string',
             'description'  => 'nullable|string',
             // ✅ Increased to 20 MB for cover, 20 MB per gallery image
-            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:20480',
+            'cover_image'  => 'nullable|image|mimes:jpg,jpeg,png,webp',
             'gallery'      => 'nullable|array',
             'gallery.*'    => 'image|mimes:jpg,jpeg,png,webp|max:20480',
             'is_published' => 'sometimes|boolean',

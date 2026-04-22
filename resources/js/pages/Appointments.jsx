@@ -1,82 +1,119 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Swal from "sweetalert2";
 import { motion, AnimatePresence } from "framer-motion";
 import CalendarScheduler from "../components/CalendarScheduler";
 import ReCAPTCHA from "react-google-recaptcha";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-const RECAPTCHA_SITE_KEY =
-    import.meta.env.VITE_RECAPTCHA_SITE_KEY ??
-    "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+const API_BASE  = import.meta.env.VITE_API_URL ?? "";
+const DRAFT_KEY = "appointment_draft";
 
 export default function Appointments() {
-    const [captchaToken, setCaptchaToken] = useState(null);
+    const navigate   = useNavigate();
+    const captchaRef = useRef(null);
 
-    const navigate = useNavigate();
-    const [isLoggedIn, setIsLoggedIn] = useState(
-        !!localStorage.getItem("token"),
-    );
-    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [captchaToken,   setCaptchaToken]   = useState(null);
+    const [isLoggedIn,     setIsLoggedIn]     = useState(!!localStorage.getItem("token"));
+    const [showAuthModal,  setShowAuthModal]  = useState(false);
 
-    const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [location, setLocation] = useState("");
-    const [projectType, setProjectType] = useState("");
+    // Ongoing consultation state
+    const [checkingActive,  setCheckingActive]  = useState(false);
+    const [activeConsult,   setActiveConsult]   = useState(null); // null = none, obj = has one
+
+    const [firstName,          setFirstName]          = useState("");
+    const [lastName,           setLastName]           = useState("");
+    const [email,              setEmail]              = useState("");
+    const [phone,              setPhone]              = useState("");
+    const [location,           setLocation]           = useState("");
+    const [projectType,        setProjectType]        = useState("");
     const [appointmentMessage, setAppointmentMessage] = useState("");
-    const [appointmentDate, setAppointmentDate] = useState("");
-    const [appointmentTime, setAppointmentTime] = useState("");
+    const [appointmentDate,    setAppointmentDate]    = useState("");
+    const [appointmentTime,    setAppointmentTime]    = useState("");
 
-    const [errors, setErrors] = useState({});
+    const [errors,      setErrors]      = useState({});
     const [submitError, setSubmitError] = useState("");
-    const [submitting, setSubmitting] = useState(false);
+    const [submitting,  setSubmitting]  = useState(false);
 
-    // Sync auth state if token changes elsewhere
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
+    // ── On mount: prefill from user + check for active consultation ───────
+    useEffect(() => {
+        const user  = JSON.parse(localStorage.getItem("user")  ?? "null");
+        const token = localStorage.getItem("token");
 
-    if (user) {
-        setEmail(user.email);
-        const [first, last] = user.name.split(" ");
-        setFirstName(first);
-        setLastName(last || "");
-    }
-}, []);
-
-    const handleAppointmentSubmit = async (e) => {
-        e.preventDefault();
-
-        // 1. Auth Check
-        if (!isLoggedIn) {
-            setShowAuthModal(true);
-            return;
+        if (user) {
+            setEmail(user.email ?? "");
+            const parts = (user.name ?? "").split(" ");
+            setFirstName(parts[0] ?? "");
+            setLastName(parts.slice(1).join(" ") ?? "");
         }
 
-        const newErrors = {};
-
-        // Validation Logic
-        if (!firstName.trim()) newErrors.firstName = "First Name is required.";
-        if (!lastName.trim()) newErrors.lastName = "Last Name is required.";
-        if (!email.trim()) {
-            newErrors.email = "Email is required.";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            newErrors.email = "Invalid email format.";
+        // If logged in, check for active consultation
+        if (token && user) {
+            checkActiveConsultation(token);
         }
-        if (!location.trim()) newErrors.location = "Location is required.";
-        if (!projectType) newErrors.projectType = "Project Type is required.";
-        if (!appointmentDate) newErrors.appointmentDate = "Date is required.";
-        if (!appointmentTime) newErrors.appointmentTime = "Time is required.";
+    }, []);
 
-        // 2. Captcha Check
-      if (!captchaToken) {
-            newErrors.captcha = "Please complete the Captcha verification.";
+    // ── On mount: if returning from /auth with a draft, auto-submit ───────
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null");
+
+        if (token && draft) {
+            setFirstName(draft.firstName ?? "");
+            setLastName(draft.lastName ?? "");
+            setEmail(draft.email ?? "");
+            setPhone(draft.phone ?? "");
+            setLocation(draft.location ?? "");
+            setProjectType(draft.projectType ?? "");
+            setAppointmentMessage(draft.appointmentMessage ?? "");
+            setAppointmentDate(draft.appointmentDate ?? "");
+            setAppointmentTime(draft.appointmentTime ?? "");
+            setIsLoggedIn(true);
+
+            sessionStorage.removeItem(DRAFT_KEY);
+
+            // Check active consultation before auto-submitting
+            setTimeout(async () => {
+                const hasActive = await checkActiveConsultation(token);
+                if (!hasActive) {
+                    submitForm(draft, token);
+                }
+            }, 400);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-        setErrors(newErrors);
+    // ── Check if user already has an active consultation ─────────────────
+    const checkActiveConsultation = async (token) => {
+        try {
+            setCheckingActive(true);
+            const res = await fetch(`${API_BASE}/api/consultations/my`, {
+                headers: {
+                    Accept: "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await res.json();
+            if (data.has_active) {
+                setActiveConsult(data.consultation);
+                return true;
+            }
+            setActiveConsult(null);
+            return false;
+        } catch {
+            return false;
+        } finally {
+            setCheckingActive(false);
+        }
+    };
 
-        if (Object.keys(newErrors).length > 0) return;
+    // ── Core submit ────────────────────────────────────────────────────────
+    const submitForm = async (values, authToken) => {
+        const {
+            firstName: fn, lastName: ln, email: em, phone: ph,
+            location: loc, projectType: pt, appointmentMessage: msg,
+            appointmentDate: date, appointmentTime: time,
+            captchaToken: ct,
+        } = values;
 
         try {
             setSubmitting(true);
@@ -87,63 +124,130 @@ export default function Appointments() {
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    Authorization: `Bearer ${authToken}`,
                 },
                 body: JSON.stringify({
-                    first_name: firstName,
-                    last_name: lastName,
-                    email,
-                    phone,
-                    location,
-                    project_type: projectType,
-                        captcha_token: captchaToken,
-                    message: appointmentMessage,
-                    consultation_date: `${appointmentDate} ${appointmentTime}:00`,
+                    first_name:        fn,
+                    last_name:         ln,
+                    email:             em,
+                    phone:             ph,
+                    location:          loc,
+                    project_type:      pt,
+                    captcha_token:     ct ?? null,
+                    message:           msg ?? "",
+                    consultation_date: `${date} ${time}:00`,
                 }),
             });
 
-            if (!res.ok) throw new Error("Submission failed");
+            const data = await res.json().catch(() => ({}));
 
-            Swal.fire({
+            // 409 = already has an ongoing consultation
+            if (res.status === 409) {
+                setActiveConsult(data.consultation ?? {});
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error(data.message || "Submission failed.");
+            }
+
+            await Swal.fire({
                 icon: "success",
                 title: "Session Requested",
                 text: "We will contact you shortly to confirm your consultation schedule.",
                 confirmButtonColor: "#000000",
-                confirmButtonText: "Close",
+                confirmButtonText: "Go to Dashboard",
             });
 
-            // Reset form
-            setFirstName("");
-            setLastName("");
-            setEmail("");
-            setPhone("");
-            setLocation("");
-            setProjectType("");
-            setAppointmentMessage("");
-            setAppointmentDate("");
-            setAppointmentTime("");
-            setErrors({});
-            setCaptchaVerified(false);
+            navigate("/user/dashboard");
+
         } catch (err) {
-            setSubmitError("An error occurred. Please try again.");
+            setSubmitError(err.message || "An error occurred. Please try again.");
         } finally {
             setSubmitting(false);
         }
     };
 
+    // ── Validate → check auth → check active → submit / redirect ─────────
+    const handleAppointmentSubmit = async (e) => {
+        e.preventDefault();
+
+        const newErrors = {};
+        if (!firstName.trim())  newErrors.firstName       = "First Name is required.";
+        if (!lastName.trim())   newErrors.lastName        = "Last Name is required.";
+        if (!email.trim()) {
+            newErrors.email = "Email is required.";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            newErrors.email = "Invalid email format.";
+        }
+        if (!location.trim())   newErrors.location        = "Location is required.";
+        if (!projectType)       newErrors.projectType     = "Project Type is required.";
+        if (!appointmentDate)   newErrors.appointmentDate = "Date is required.";
+        if (!appointmentTime)   newErrors.appointmentTime = "Time is required.";
+        if (!phone.trim()) {
+    newErrors.phone = "Contact number is required.";
+} else if (!/^09\d{9}$/.test(phone)) {
+    newErrors.phone = "Enter a valid PH number (e.g. 09XXXXXXXXX).";
+};
+        if (!captchaToken)      newErrors.captcha         = "Please complete the Captcha verification.";
+
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) return;
+
+        const token = localStorage.getItem("token");
+
+        // Not logged in → save draft → show auth modal
+        if (!token) {
+            sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+                firstName, lastName, email, phone,
+                location, projectType, appointmentMessage,
+                appointmentDate, appointmentTime,
+                captchaToken,
+            }));
+            setShowAuthModal(true);
+            return;
+        }
+
+        // Logged in → check active consultation first
+        const hasActive = await checkActiveConsultation(token);
+        if (hasActive) return; // blocker UI will show
+
+        // All clear → submit
+        await submitForm(
+            { firstName, lastName, email, phone, location, projectType, appointmentMessage, appointmentDate, appointmentTime, captchaToken },
+            token
+        );
+    };
+
+    // ── Active consultation blocker ───────────────────────────────────────
+    if (checkingActive) {
+        return (
+            <section className="w-full bg-[#f1f1f1] text-black min-h-screen flex items-center justify-center [font-family:var(--font-neue)]">
+                <p className="text-[11px] font-bold tracking-[0.2em] uppercase text-neutral-400 animate-pulse">
+                    Checking your consultations...
+                </p>
+            </section>
+        );
+    }
+
+    if (activeConsult) {
+        return <OngoingConsultationBlock consultation={activeConsult} onDashboard={() => navigate("/user/dashboard")} />;
+    }
+
     return (
         <section className="w-full bg-[#f1f1f1] text-black min-h-screen [font-family:var(--font-neue)]">
+
             {/* Auth Modal */}
             <AuthRequiredModal
                 isOpen={showAuthModal}
                 onClose={() => setShowAuthModal(false)}
                 onAction={() => {
                     setShowAuthModal(false);
-                    navigate("/auth");
+                    navigate(`/auth?email=${encodeURIComponent(email)}&firstName=${encodeURIComponent(firstName)}&lastName=${encodeURIComponent(lastName)}`);
                 }}
             />
 
-            {/* ── Header Section ── */}
+            {/* ── Header ── */}
             <div className="mx-auto max-w-screen-2xl px-6 pt-32 pb-16 md:pt-48 border-b border-neutral-300">
                 <div className="flex flex-col gap-8 md:gap-16">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:items-end">
@@ -161,107 +265,53 @@ export default function Appointments() {
                 </div>
             </div>
 
-            {/* ── Main Content (Sticky Image + Scrolling Form) ── */}
+            {/* ── Main Content ── */}
             <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:items-start">
-                    {/* Left: The Structured Form (Spans 7 columns) */}
                     <div className="lg:col-span-7">
-                        <form
-                            onSubmit={handleAppointmentSubmit}
-                            className="w-full"
-                        >
-                            {/* Phase 01: Client */}
+                        <form onSubmit={handleAppointmentSubmit} className="w-full">
+
+                            {/* Phase 01 */}
                             <div className="mb-20">
                                 <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
-                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">
-                                        Client Details
-                                    </h2>
-                                    <span className="text-xs font-bold tracking-widest text-neutral-400">
-                                        01
-                                    </span>
+                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Client Details</h2>
+                                    <span className="text-xs font-bold tracking-widest text-neutral-400">01</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                    <UnderlineInput
-                                        label="First Name *"
-                                        value={firstName}
-                                        onValueChange={setFirstName}
-                                        externalError={errors.firstName}
-                                    />
-                                    <UnderlineInput
-                                        label="Last Name *"
-                                        value={lastName}
-                                        onValueChange={setLastName}
-                                        externalError={errors.lastName}
-                                    />
-                                    <UnderlineInput
-                                        label="E-Mail *"
-                                        type="email"
-                                        value={email}
-                                        onValueChange={setEmail}
-                                        externalError={errors.email}
-                                    />
-                                    <UnderlineInput
-                                        label="Phone (Optional)"
-                                        type="tel"
-                                        isPhone
-                                        value={phone}
-                                        onValueChange={setPhone}
-                                        externalError={errors.phone}
-                                    />
+                                    <UnderlineInput label="First Name *" value={firstName} onValueChange={setFirstName} externalError={errors.firstName} />
+                                    <UnderlineInput label="Last Name *"  value={lastName}  onValueChange={setLastName}  externalError={errors.lastName} />
+                                    <UnderlineInput label="E-Mail *" type="email" value={email} onValueChange={setEmail} externalError={errors.email} />
+                                    <UnderlineInput label="Phone *" type="tel" isPhone value={phone} onValueChange={setPhone} externalError={errors.phone} />
                                 </div>
                             </div>
 
-                            {/* Phase 02: Project */}
+                            {/* Phase 02 */}
                             <div className="mb-20">
                                 <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
-                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">
-                                        Project Specs
-                                    </h2>
-                                    <span className="text-xs font-bold tracking-widest text-neutral-400">
-                                        02
-                                    </span>
+                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Project Specs</h2>
+                                    <span className="text-xs font-bold tracking-widests text-neutral-400">02</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
-                                    <UnderlineInput
-                                        label="Location *"
-                                        value={location}
-                                        onValueChange={setLocation}
-                                        externalError={errors.location}
-                                    />
+                                    <UnderlineInput label="Location *" value={location} onValueChange={setLocation} externalError={errors.location} />
                                     <UnderlineInput
                                         label="Project Type *"
-                                        options={[
-                                            "Residential",
-                                            "Commercial",
-                                            "Master Planning",
-                                            "Interior Architecture",
-                                        ]}
+                                        options={["Residential", "Commercial", "Master Planning", "Interior Architecture"]}
                                         value={projectType}
                                         onValueChange={setProjectType}
                                         externalError={errors.projectType}
                                     />
                                 </div>
-                                <AppointmentMessageField
-                                    label="Brief Description (Optional)"
-                                    value={appointmentMessage}
-                                    onValueChange={setAppointmentMessage}
-                                />
+                                <AppointmentMessageField label="Brief Description (Optional)" value={appointmentMessage} onValueChange={setAppointmentMessage} />
                             </div>
 
-                            {/* Phase 03: Schedule */}
+                            {/* Phase 03 */}
                             <div className="mb-10">
                                 <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
-                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">
-                                        Scheduling
-                                    </h2>
-                                    <span className="text-xs font-bold tracking-widest text-neutral-400">
-                                        03
-                                    </span>
+                                    <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Scheduling</h2>
+                                    <span className="text-xs font-bold tracking-widest text-neutral-400">03</span>
                                 </div>
                                 <div className="w-full">
-                                    <label
-                                        className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-6 transition-colors ${errors.appointmentDate || errors.appointmentTime ? "text-red-500" : "text-neutral-800"}`}
-                                    >
+                                    <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-6 transition-colors ${errors.appointmentDate || errors.appointmentTime ? "text-red-500" : "text-neutral-800"}`}>
                                         Select Date & Time *
                                     </label>
                                     <CalendarScheduler
@@ -270,33 +320,29 @@ export default function Appointments() {
                                         selectedTime={appointmentTime}
                                         onTimeChange={setAppointmentTime}
                                     />
-                                    {(errors.appointmentDate ||
-                                        errors.appointmentTime) && (
+                                    {(errors.appointmentDate || errors.appointmentTime) && (
                                         <p className="text-[10px] tracking-wide text-red-500 mt-4 uppercase font-bold">
-                                            {errors.appointmentDate ||
-                                                errors.appointmentTime}
+                                            {errors.appointmentDate || errors.appointmentTime}
                                         </p>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Captcha Section */}
+                            {/* Captcha */}
                             <div className="mb-10">
-
-<ReCAPTCHA
-    sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
-    onChange={(token) => setCaptchaToken(token)}
-/>
+                                <ReCAPTCHA
+                                    ref={captchaRef}
+                                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+                                    onChange={(token) => setCaptchaToken(token)}
+                                    onExpired={() => setCaptchaToken(null)}
+                                />
                                 <AnimatePresence mode="wait">
                                     {errors.captcha && (
                                         <motion.p
                                             initial={{ opacity: 0, height: 0 }}
-                                            animate={{
-                                                opacity: 1,
-                                                height: "auto",
-                                            }}
+                                            animate={{ opacity: 1, height: "auto" }}
                                             exit={{ opacity: 0, height: 0 }}
-                                            className="text-[10px] tracking-wide text-red-500 overflow-hidden uppercase font-bold"
+                                            className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
                                         >
                                             {errors.captcha}
                                         </motion.p>
@@ -304,7 +350,7 @@ export default function Appointments() {
                                 </AnimatePresence>
                             </div>
 
-                            {/* Submit Area */}
+                            {/* Submit error */}
                             <AnimatePresence>
                                 {submitError && (
                                     <motion.div
@@ -325,14 +371,12 @@ export default function Appointments() {
                                 disabled={submitting}
                                 className="rounded-full border border-black px-14 py-4 text-[11px] font-bold tracking-[0.2em] text-black uppercase transition-all hover:bg-black hover:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
-                                {submitting
-                                    ? "PROCESSING..."
-                                    : "REQUEST SCHEDULE"}
+                                {submitting ? "PROCESSING..." : "REQUEST SCHEDULE"}
                             </button>
                         </form>
                     </div>
 
-                    {/* Right: Sticky Architectural Image (Spans 5 columns) */}
+                    {/* Right sticky image */}
                     <div className="hidden lg:block lg:col-span-5 relative h-[750px] bg-neutral-200 overflow-hidden sticky top-32">
                         <img
                             src="/images/home-hero.webp"
@@ -347,55 +391,159 @@ export default function Appointments() {
     );
 }
 
-/* ─────────────────────────────────────────────────────────
-   SHARED COMPONENTS
-────────────────────────────────────────────────────────── */
+/* ── Ongoing Consultation Block ──────────────────────────────────────────── */
+function OngoingConsultationBlock({ consultation, onDashboard }) {
+    const statusColors = {
+        pending:     { bg: "bg-amber-50",  border: "border-amber-400",  text: "text-amber-700",  label: "Pending Review" },
+        accepted:    { bg: "bg-green-50",  border: "border-green-500",  text: "text-green-700",  label: "Confirmed" },
+        rescheduled: { bg: "bg-blue-50",   border: "border-blue-400",   text: "text-blue-700",   label: "Rescheduled" },
+    };
+    const s = statusColors[consultation?.status] ?? statusColors.pending;
 
+    const formattedDate = consultation?.consultation_date
+        ? new Date(consultation.consultation_date).toLocaleDateString("en-US", {
+              weekday: "long", year: "numeric", month: "long", day: "numeric",
+          })
+        : "To be confirmed";
+
+    const formattedTime = consultation?.consultation_date
+        ? new Date(consultation.consultation_date).toLocaleTimeString("en-US", {
+              hour: "numeric", minute: "2-digit", hour12: true,
+          })
+        : "";
+
+    return (
+        <section className="w-full bg-[#f1f1f1] text-black min-h-screen [font-family:var(--font-neue)]">
+            {/* Header */}
+            <div className="mx-auto max-w-screen-2xl px-6 pt-32 pb-16 md:pt-48 border-b border-neutral-300">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:items-end">
+                    <h1 className="lg:col-span-8 text-[3.5rem] md:text-[6rem] lg:text-[6.5rem] leading-[0.85] font-bold tracking-tighter uppercase">
+                        Schedule <br /> A Session.
+                    </h1>
+                    <div className="lg:col-span-4 lg:pb-3 border-l border-neutral-300 pl-6 md:pl-10">
+                        <p className="text-[15px] font-medium leading-relaxed text-neutral-600">
+                            Reserve a formal consultation with our principal architects.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Block content */}
+            <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:items-start">
+                    <div className="lg:col-span-7">
+
+                        {/* Notice banner */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="mb-12"
+                        >
+                            <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
+                                <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Active Consultation</h2>
+                                <span className={`text-[10px] font-bold tracking-widest uppercase px-3 py-1 ${s.bg} ${s.text} border ${s.border}`}>
+                                    {s.label}
+                                </span>
+                            </div>
+
+                            <p className="text-[14px] leading-relaxed text-neutral-600 mb-10">
+                                You currently have an ongoing consultation request. A new appointment cannot be scheduled until your current one is resolved. Visit your dashboard to view details, track its status, or contact us for assistance.
+                            </p>
+
+                            {/* Summary card */}
+                            <div className="border border-neutral-200 bg-white mb-10">
+                                <div className="bg-black px-6 py-4">
+                                    <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-400">
+                                        Current Booking
+                                    </p>
+                                </div>
+                                <div className="divide-y divide-neutral-100">
+                                    {[
+                                        { label: "Project Type", value: consultation?.project_type ?? "—" },
+                                        { label: "Location",     value: consultation?.location ?? "—" },
+                                        { label: "Date",         value: formattedDate },
+                                        { label: "Time",         value: formattedTime || "—" },
+                                        { label: "Status",       value: s.label, highlight: true, color: s.text },
+                                    ].map(({ label, value, highlight, color }) => (
+                                        <div key={label} className="flex justify-between items-center px-6 py-4">
+                                            <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-neutral-400">
+                                                {label}
+                                            </span>
+                                            <span className={`text-[13px] font-semibold ${highlight ? color : "text-neutral-800"}`}>
+                                                {value}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* CTA */}
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <button
+                                    onClick={onDashboard}
+                                    className="bg-black text-white px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all hover:bg-neutral-800 cursor-pointer"
+                                >
+                                    Go to Dashboard
+                                </button>
+                                <a
+                                    href="mailto:hello@rmty.com"
+                                    className="border border-black px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all hover:bg-black hover:text-white text-center cursor-pointer"
+                                >
+                                    Contact Us
+                                </a>
+                            </div>
+                        </motion.div>
+                    </div>
+
+                    {/* Right sticky image */}
+                    <div className="hidden lg:block lg:col-span-5 relative h-[750px] bg-neutral-200 overflow-hidden sticky top-32">
+                        <img
+                            src="/images/home-hero.webp"
+                            alt="Appointment Header"
+                            className="h-full w-full object-cover grayscale-[15%]"
+                        />
+                        <div className="absolute inset-0 bg-black/5 pointer-events-none" />
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/* ── Auth Required Modal ─────────────────────────────────────────────────── */
 function AuthRequiredModal({ isOpen, onClose, onAction }) {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center px-6 rounded-2">
-                    {/* Softer, more elegant backdrop */}
+                <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         onClick={onClose}
                         className="absolute inset-0 bg-black/20"
                     />
-
-                    {/* Pure Minimalist Modal Content */}
                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 10 }}
                         transition={{ duration: 0.3, ease: "easeOut" }}
                         className="relative w-full max-w-[420px] bg-white p-12 md:p-14 flex flex-col items-center text-center"
                     >
-                        {/* Tiny structural label */}
                         <span className="text-[10px] font-bold tracking-[0.25em] text-neutral-400 uppercase mb-6">
-                            Authentication
+                            One More Step
                         </span>
-
                         <h2 className="text-xl md:text-2xl font-medium tracking-tight text-neutral-900 mb-4">
-                            Client profile required.
+                            Sign in to submit.
                         </h2>
-
                         <p className="text-sm leading-relaxed text-neutral-500 mb-10 max-w-[280px]">
-                            Please create an account or sign in to secure your
-                            consultation schedule.
+                            Your booking details are saved. Sign in or create a profile — your appointment will be submitted automatically.
                         </p>
-
                         <div className="flex flex-col w-full gap-2">
                             <button
                                 onClick={onAction}
                                 className="w-full bg-black text-white py-4 text-[10px] font-bold tracking-[0.2em] uppercase transition-opacity hover:opacity-70 cursor-pointer"
                             >
-                                Continue to Sign In
+                                Sign In / Create Profile
                             </button>
-
-                            {/* "Ghost" cancel button - no borders, pure typography */}
                             <button
                                 onClick={onClose}
                                 className="w-full py-4 text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase transition-colors hover:text-black cursor-pointer"
@@ -410,96 +558,35 @@ function AuthRequiredModal({ isOpen, onClose, onAction }) {
     );
 }
 
-function UnderlineInput({
-    label,
-    type = "text",
-    options,
-    isPhone,
-    placeholder,
-    value,
-    onValueChange,
-    externalError,
-}) {
+/* ── Shared Input Components ─────────────────────────────────────────────── */
+function UnderlineInput({ label, type = "text", options, isPhone, placeholder, value, onValueChange, externalError }) {
     const hasError = !!externalError;
-
     const handleChange = (e) => {
         let val = e.target.value;
-        if (label.includes("Name"))
-            val = val.replace(/[^A-Za-z\s]/g, "").replace(/\s{2,}/g, " ");
+        if (label.includes("Name")) val = val.replace(/[^A-Za-z\s]/g, "").replace(/\s{2,}/g, " ");
         else if (isPhone) val = val.replace(/\D/g, "").slice(0, 11);
         onValueChange?.(val);
     };
-
     const inputClass = `w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none appearance-none ${
-        hasError
-            ? "border-red-500 text-red-500"
-            : "border-neutral-300 focus:border-black text-black"
+        hasError ? "border-red-500 text-red-500" : "border-neutral-300 focus:border-black text-black"
     }`;
-
     return (
         <div className="relative group w-full">
-            <label
-                className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}
-            >
+            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>
                 {label}
             </label>
-
             {options ? (
-                <select
-                    value={value}
-                    onChange={handleChange}
-                    className={inputClass}
-                >
-                    <option value="" disabled hidden>
-                        Select {label.replace("*", "")}
-                    </option>
-                    {options.map((opt) => (
-                        <option key={opt} value={opt} className="text-black">
-                            {opt}
-                        </option>
-                    ))}
-                </select>
-            ) : type === "time" ? (
-                <select
-                    value={value}
-                    onChange={handleChange}
-                    className={inputClass}
-                >
-                    <option value="" disabled hidden>
-                        Select Time
-                    </option>
-                    {Array.from({ length: 17 }).map((_, i) => {
-                        const totalMinutes = 9 * 60 + i * 30;
-                        const h = Math.floor(totalMinutes / 60);
-                        const m = totalMinutes % 60;
-                        const display = `${h % 12 || 12}:${m === 0 ? "00" : m} ${h < 12 ? "AM" : "PM"}`;
-                        const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-                        return (
-                            <option
-                                key={val}
-                                value={val}
-                                className="text-black"
-                            >
-                                {display}
-                            </option>
-                        );
-                    })}
+                <select value={value} onChange={handleChange} className={inputClass}>
+                    <option value="" disabled hidden>Select {label.replace("*", "")}</option>
+                    {options.map((opt) => <option key={opt} value={opt} className="text-black">{opt}</option>)}
                 </select>
             ) : (
-                <input
-                    type={type}
-                    value={value}
-                    onChange={handleChange}
-                    placeholder={placeholder}
-                    className={inputClass}
-                />
+                <input type={type} value={value} onChange={handleChange} placeholder={placeholder} className={inputClass} />
             )}
-
             <AnimatePresence mode="wait">
                 {externalError && (
                     <motion.p
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
                     >
@@ -511,26 +598,18 @@ function UnderlineInput({
     );
 }
 
-function AppointmentMessageField({
-    label,
-    value,
-    onValueChange,
-    externalError,
-}) {
+function AppointmentMessageField({ label, value, onValueChange, externalError }) {
     const hasError = !!externalError;
-
     return (
         <div className="relative group w-full">
-            <label
-                className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}
-            >
+            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>
                 {label}
             </label>
             <textarea
-                rows={4}
-                value={value}
-                onChange={(e) => onValueChange(e.target.value)}
-                className={`w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none resize-none ${hasError ? "border-red-500 text-red-500" : "border-neutral-300 focus:border-black text-black"}`}
+                rows={4} value={value} onChange={(e) => onValueChange(e.target.value)}
+                className={`w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none resize-none ${
+                    hasError ? "border-red-500 text-red-500" : "border-neutral-300 focus:border-black text-black"
+                }`}
             />
         </div>
     );
