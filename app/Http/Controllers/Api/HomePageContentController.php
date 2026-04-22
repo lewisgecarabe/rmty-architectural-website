@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Home;
+use Illuminate\Support\Str;
 
 class HomePageContentController extends Controller
 {
@@ -12,6 +13,17 @@ class HomePageContentController extends Controller
     public function index()
     {
         $content = Home::first() ?? new Home();
+
+        $defaultFeaturedDescription = 'RMTY approaches each project with a balance of architectural clarity and practical execution. Our featured works demonstrate how we translate site context, client goals, and technical requirements into spaces that are purposeful and enduring.';
+
+        if (
+            !empty($content->featured_description) &&
+            Str::contains($content->featured_description, ['At vero eos', 'Lorem ipsum', 'blanditiis praesentium'])
+        ) {
+            $content->featured_description = $defaultFeaturedDescription;
+            $content->save();
+        }
+
         return response()->json(['data' => $content]);
     }
 

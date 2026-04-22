@@ -120,7 +120,7 @@ export default function Contact() {
                     <p className="text-base leading-relaxed text-neutral-800 md:text-[1.05rem] max-w-full">
                         {content?.page_description && content.page_description
                             ? content.page_description
-                            : "Great architecture begins with a conversation. Share the details of your upcoming project, and our studio will be in touch to discuss how we can translate your concept into reality."}
+                            : "Great architecture begins with a conversation. Share the details of your upcoming project, and the RMTY team will connect with you to turn your goals into a clear and buildable design direction."}
                     </p>
                 </div>
 

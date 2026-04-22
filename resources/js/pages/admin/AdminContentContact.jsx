@@ -412,7 +412,7 @@ export default function AdminContentContact() {
                             value={form.page_description}
                             onChange={handleChange}
                             isTextArea={true}
-                            placeholder="e.g. At vero eos et accusamus et iusto odio dignissimos"
+                            placeholder="e.g. Share your project goals with RMTY and our team will guide you toward a clear, practical, and design-led direction."
                         />
                     </div>
                 </div>

@@ -380,7 +380,27 @@ export default function AdminContentProjects() {
                 headers: { ...getAuthHeaders(), Accept: "application/json" },
             });
 
-            if (!res.ok) throw new Error("Failed to submit");
+            if (!res.ok) {
+                let details = "";
+                try {
+                    const ct = res.headers.get("content-type") || "";
+                    if (ct.includes("application/json")) {
+                        const j = await res.json();
+                        details =
+                            j?.message ||
+                            (j?.errors
+                                ? Object.values(j.errors).flat().join("\n")
+                                : "");
+                    } else {
+                        details = await res.text();
+                    }
+                } catch {
+                    // ignore parse errors
+                }
+                throw new Error(
+                    `Failed to submit (${res.status}).${details ? `\n${details}` : ""}`,
+                );
+            }
 
             await fetchProjects();
             resetForm();
@@ -392,7 +412,7 @@ export default function AdminContentProjects() {
             setTimeout(() => setSuccessMessage(""), 3000);
         } catch (err) {
             console.error("Submit error:", err);
-            alert("Something went wrong. Check console for details.");
+            alert(err?.message || "Something went wrong.");
         } finally {
             setUpdating(false);
         }
@@ -412,7 +432,27 @@ export default function AdminContentProjects() {
                 credentials: "include",
                 headers: { ...getAuthHeaders(), Accept: "application/json" },
             });
-            if (!res.ok) throw new Error("Failed to save");
+            if (!res.ok) {
+                let details = "";
+                try {
+                    const ct = res.headers.get("content-type") || "";
+                    if (ct.includes("application/json")) {
+                        const j = await res.json();
+                        details =
+                            j?.message ||
+                            (j?.errors
+                                ? Object.values(j.errors).flat().join("\n")
+                                : "");
+                    } else {
+                        details = await res.text();
+                    }
+                } catch {
+                    // ignore
+                }
+                throw new Error(
+                    `Failed to save (${res.status}).${details ? `\n${details}` : ""}`,
+                );
+            }
 
             await fetchCtaSettings();
             setCtaPreview(null);
@@ -420,7 +460,7 @@ export default function AdminContentProjects() {
             setTimeout(() => setCtaSuccess(""), 3000);
         } catch (err) {
             console.error(err);
-            alert("Something went wrong.");
+            alert(err?.message || "Something went wrong.");
         } finally {
             setCtaSaving(false);
         }

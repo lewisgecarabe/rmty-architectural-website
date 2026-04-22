@@ -38,7 +38,7 @@ return new class extends Migration
 
         // Insert default row immediately so the frontend always has data to fetch
         DB::table('home_page_contents')->insert([
-            'featured_description' => 'At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi.',
+            'featured_description' => 'RMTY approaches each project with a balance of architectural clarity and practical execution. Our featured works demonstrate how we translate site context, client goals, and technical requirements into spaces that are purposeful and enduring.',
             'contact_address' => "911 Josefina 2 Sampaloc, Manila,\nPhilippines",
             'created_at' => now(),
             'updated_at' => now(),

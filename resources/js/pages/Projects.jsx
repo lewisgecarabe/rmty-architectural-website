@@ -83,6 +83,12 @@ export default function Projects() {
                     </div>
                 </div>
 
+                <p className="mb-10 max-w-3xl text-sm md:text-base leading-relaxed text-neutral-700">
+                    Explore RMTY projects shaped by context, function, and
+                    material clarity. Each work reflects our design process—from
+                    concept strategy to precise architectural execution.
+                </p>
+
                 {/* --- SECTION 2: HEADER + FILTER --- */}
                 <div className="relative mb-12 flex flex-wrap items-center gap-4">
                     <h2 className="text-4xl md:text-5xl font-bold uppercase tracking-tight">

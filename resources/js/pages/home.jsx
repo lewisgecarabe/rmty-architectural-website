@@ -154,6 +154,10 @@ export default function Home() {
                                 <h2 className="text-2xl md:text-3xl lg:text-5xl font-normal tracking-tight leading-none mt-2">
                                     {content?.hero_title_2 || "Studio"}
                                 </h2>
+                                <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-white/85">
+                                    {content?.hero_description ||
+                                        "RMTY is an architecture and design studio crafting purposeful spaces through contextual planning, refined detailing, and collaborative design leadership."}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -172,7 +176,7 @@ export default function Home() {
                         </h3>
                         <p className="text-gray-600 text-sm md:text-base leading-relaxed whitespace-pre-wrap">
                             {content?.featured_description ||
-                                "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi."}
+                                "RMTY approaches each project with a balance of architectural clarity and practical execution. Our featured works demonstrate how we translate site context, client goals, and technical requirements into spaces that are purposeful and enduring."}
                         </p>
                     </div>
 

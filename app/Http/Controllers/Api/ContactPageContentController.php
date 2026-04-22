@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ContactContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ContactPageContentController extends Controller
 {
@@ -16,7 +17,7 @@ class ContactPageContentController extends Controller
         if (!$content) {
             $content = ContactContent::create([
                 'page_heading'     => 'Connect',
-                'page_description' => 'At vero eos et accusamus et iusto odio dignissimos',
+                'page_description' => 'Share your project goals with RMTY and our team will guide you toward a clear, practical, and design-led direction.',
                 'location_label'   => 'Metro Manila',
                 'address_line_1'   => '911 Josefina II, Sampaloc, Manila, 1008',
                 'address_line_2'   => 'Metro Manila',
@@ -27,6 +28,14 @@ class ContactPageContentController extends Controller
                 'phone'            => '0932 454 9434',
                 'email'            => 'rmty.architects@gmail.com',
             ]);
+        }
+
+        if (
+            !empty($content->page_description) &&
+            Str::contains($content->page_description, ['At vero eos', 'Lorem ipsum', 'blanditiis praesentium'])
+        ) {
+            $content->page_description = 'Share your project goals with RMTY and our team will guide you toward a clear, practical, and design-led direction.';
+            $content->save();
         }
 
         return response()->json(['data' => $content]);

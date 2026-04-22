@@ -256,9 +256,10 @@ export default function Appointments() {
                         </h1>
                         <div className="lg:col-span-4 lg:pb-3 border-l border-neutral-300 pl-6 md:pl-10">
                             <p className="text-[15px] font-medium leading-relaxed text-neutral-600">
-                                Reserve a formal consultation with our principal
-                                architects to detail your vision, scope, and
-                                structural requirements.
+                                Reserve a formal consultation with the RMTY
+                                team to define your vision, clarify project
+                                scope, and align design direction with your
+                                site and budget requirements.
                             </p>
                         </div>
                     </div>

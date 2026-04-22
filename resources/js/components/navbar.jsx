@@ -56,12 +56,14 @@ export default function Navbar({ onOpenMenu }) {
 
         {/* Right: CTA */}
         <div className="justify-self-end">
-          <Link 
-            to="/projects" 
-            className="text-base md:text-2xl tracking-wide font-medium"
-          >
-            WORKS
-          </Link>
+          <div className="flex items-center gap-4 md:gap-6 text-sm md:text-xl tracking-wide font-medium">
+            <Link to="/faq" className="hover:opacity-70 transition-opacity">
+              FAQ
+            </Link>
+            <Link to="/projects" className="hover:opacity-70 transition-opacity">
+              WORKS
+            </Link>
+          </div>
         </div>
 
       </nav>
