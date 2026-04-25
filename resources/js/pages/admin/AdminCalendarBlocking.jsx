@@ -38,6 +38,16 @@ const formatDate = (date) => {
     return `${y}-${m}-${d}`;
 };
 
+const MAX_VISIBLE_EVENTS = 2; // max pills shown per day cell before "+N more"
+
+const fmtTime12 = (t) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    const hr = h % 12 || 12;
+    const ampm = h < 12 ? "a" : "p";
+    return `${hr}:${String(m).padStart(2, "0")}${ampm}`;
+};
+
 /* ──────────────── COMPONENT ──────────────── */
 export default function AdminCalendarBlocking() {
     const today = new Date();
@@ -132,7 +142,7 @@ export default function AdminCalendarBlocking() {
         bookedSlots.filter((s) => normDate(s) === dateStr).length;
 
     const getBookingsForDate = (dateStr) =>
-        bookedSlots.filter((s) => normDate(s) === dateStr);
+        bookedSlots.filter((s) => normDate(s) === dateStr).sort((a, b) => (a.blocked_time || "").localeCompare(b.blocked_time || ""));
 
     const isDateFullyUnavailable = (dateStr) => {
         const unavailable = getBlockedCount(dateStr) + getBookedCount(dateStr);
@@ -286,208 +296,276 @@ export default function AdminCalendarBlocking() {
                 </div>
             </div>
 
-            {/* Calendar + Time Slots */}
+            {/* ═══════════ MONTH CALENDAR GRID (Apple Calendar Style) ═══════════ */}
             <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-neutral-200">
-                    {/* Left: Calendar */}
-                    <div className="p-6 lg:p-8">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-sm font-bold tracking-[0.2em] uppercase">
-                                {MONTH_NAMES[currentMonth]} {currentYear}
-                            </h3>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}
-                                    disabled={isPrevDisabled}
-                                    type="button"
-                                    className={`p-2 transition-colors cursor-pointer ${isPrevDisabled ? "opacity-20 cursor-not-allowed" : "hover:bg-neutral-100"}`}
-                                >
-                                    <ChevronLeftIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}
-                                    type="button"
-                                    className="p-2 hover:bg-neutral-100 transition-colors cursor-pointer"
-                                >
-                                    <ChevronRightIcon className="w-4 h-4" />
-                                </button>
-                            </div>
+                {/* Month header + nav */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100">
+                    <h3 className="text-lg font-black tracking-tight text-neutral-900">
+                        {MONTH_NAMES[currentMonth]} {currentYear}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => {
+                                const t = new Date();
+                                t.setHours(0,0,0,0);
+                                setViewDate(new Date(t.getFullYear(), t.getMonth(), 1));
+                                setSelectedDate(formatDate(t));
+                            }}
+                            type="button"
+                            className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-all cursor-pointer"
+                        >
+                            Today
+                        </button>
+                        <button
+                            onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}
+                            disabled={isPrevDisabled}
+                            type="button"
+                            className={`p-2 rounded-lg transition-colors cursor-pointer ${isPrevDisabled ? "opacity-20 cursor-not-allowed" : "hover:bg-neutral-100"}`}
+                        >
+                            <ChevronLeftIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}
+                            type="button"
+                            className="p-2 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
+                        >
+                            <ChevronRightIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Day of week headers */}
+                <div className="grid grid-cols-7 border-b border-neutral-100 bg-neutral-50/60">
+                    {DAYS_OF_WEEK.map((day) => (
+                        <div key={day} className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 text-center py-2.5 uppercase">
+                            {day}
                         </div>
+                    ))}
+                </div>
 
-                        <div className="grid grid-cols-7 gap-1 mb-4">
-                            {DAYS_OF_WEEK.map((day) => (
-                                <div key={day} className="text-[10px] font-bold tracking-widest text-neutral-400 text-center py-2">
-                                    {day}
-                                </div>
-                            ))}
-                            {calendarDays.map((date, idx) => {
-                                const past = isPastDate(date);
-                                const dateStr = date ? formatDate(date) : null;
-                                const selected = dateStr === selectedDate;
-                                const isToday = date && date.getTime() === today.getTime();
-                                const blockedCount = dateStr ? getBlockedCount(dateStr) : 0;
-                                const bookedCount = dateStr ? getBookedCount(dateStr) : 0;
-                                const fullyUnavailable = dateStr ? isDateFullyUnavailable(dateStr) : false;
-                                const hasBlocked = blockedCount > 0;
-                                const hasBooked = bookedCount > 0;
+                {/* Day cells grid */}
+                <div className="grid grid-cols-7 auto-rows-fr">
+                    {calendarDays.map((date, idx) => {
+                        const dateStr = date ? formatDate(date) : null;
+                        const past = isPastDate(date);
+                        const selected = dateStr === selectedDate;
+                        const isToday = date && date.getTime() === today.getTime();
 
-                                return (
-                                    <div key={idx} className="aspect-square flex items-center justify-center">
-                                        {date ? (
-                                            <button
-                                                type="button"
-                                                disabled={past}
-                                                onClick={() => setSelectedDate(dateStr)}
+                        // get events for this date
+                        const bookings = dateStr ? getBookingsForDate(dateStr) : [];
+                        const blockedCount = dateStr ? getBlockedCount(dateStr) : 0;
+
+                        // build event list: bookings first, then blocked summary
+                        const events = [];
+                        bookings.forEach((b) => {
+                            events.push({
+                                type: "booked",
+                                label: b.client_name || "Booked",
+                                time: fmtTime12(b.blocked_time),
+                                data: b,
+                            });
+                        });
+                        if (blockedCount > 0) {
+                            events.push({
+                                type: "blocked",
+                                label: `${blockedCount} blocked`,
+                                time: "",
+                                data: null,
+                            });
+                        }
+
+                        const visible = events.slice(0, MAX_VISIBLE_EVENTS);
+                        const overflow = events.length - MAX_VISIBLE_EVENTS;
+
+                        return (
+                            <div
+                                key={idx}
+                                onClick={() => { if (date && !past) setSelectedDate(dateStr); }}
+                                className={`
+                                    min-h-[100px] border-b border-r border-neutral-100 p-1.5 flex flex-col transition-colors relative
+                                    ${!date ? "bg-neutral-50/40" : ""}
+                                    ${date && !past ? "cursor-pointer hover:bg-blue-50/30" : ""}
+                                    ${past ? "bg-neutral-50/60 cursor-default" : ""}
+                                    ${selected ? "bg-blue-50/60 ring-2 ring-inset ring-blue-500/30" : ""}
+                                `}
+                            >
+                                {date && (
+                                    <>
+                                        {/* Day number */}
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span
                                                 className={`
-                                                    relative w-10 h-10 flex items-center justify-center text-xs font-medium transition-all rounded-full
-                                                    ${past ? "text-neutral-300 cursor-not-allowed" : "cursor-pointer"}
-                                                    ${!past && !selected && !fullyUnavailable ? "hover:bg-neutral-200 text-black" : ""}
-                                                    ${selected ? "bg-black text-white" : ""}
-                                                    ${!selected && fullyUnavailable && !past ? "bg-red-50 text-red-400" : ""}
-                                                    ${isToday && !selected ? "border border-neutral-300" : ""}
+                                                    inline-flex items-center justify-center w-6 h-6 text-[11px] font-bold rounded-full
+                                                    ${isToday ? "bg-black text-white" : ""}
+                                                    ${past && !isToday ? "text-neutral-300" : ""}
+                                                    ${!past && !isToday ? "text-neutral-700" : ""}
                                                 `}
                                             >
                                                 {date.getDate()}
-                                                {!past && (hasBlocked || hasBooked) && !selected && (
-                                                    <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
-                                                        {hasBlocked && <span className="w-1 h-1 rounded-full bg-red-400" />}
-                                                        {hasBooked && <span className="w-1 h-1 rounded-full bg-blue-400" />}
-                                                    </span>
-                                                )}
-                                            </button>
-                                        ) : (
-                                            <div className="w-10 h-10" />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                            </span>
+                                        </div>
 
-                        {/* Legend */}
-                        <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t border-neutral-100">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-red-400" />
-                                <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Blocked</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                                <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Booked</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="w-3 h-3 rounded-full bg-red-50 border border-red-200" />
-                                <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Fully Unavailable</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right: Time Slots */}
-                    <div className="p-6 lg:p-8 flex flex-col min-h-[560px]">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-sm font-bold tracking-[0.2em] uppercase">
-                                {selectedDateLabel}
-                            </h3>
-                            {selectedDate && (
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => blockAllForDate(selectedDate)}
-                                        disabled={updating}
-                                        className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50"
-                                    >
-                                        Block All
-                                    </button>
-                                    <button
-                                        onClick={() => unblockAllForDate(selectedDate)}
-                                        disabled={updating}
-                                        className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-50 transition-all cursor-pointer disabled:opacity-50"
-                                    >
-                                        Unblock All
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                            <AnimatePresence mode="wait">
-                                {!selectedDate ? (
-                                    <motion.div
-                                        key="empty"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        className="flex items-center justify-center h-full text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase text-center mt-20"
-                                    >
-                                        Select a date <br /> to manage time slots
-                                    </motion.div>
-                                ) : (
-                                    <motion.div
-                                        key="slots"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="flex flex-col gap-2"
-                                    >
-                                        {TIME_SLOTS.map((slot) => {
-                                            const blocked = isBlocked(selectedDate, slot.value);
-                                            const booked = isBooked(selectedDate, slot.value);
-                                            const unavailable = blocked || booked;
-
-                                            const booking = booked ? getBookingForSlot(selectedDate, slot.value) : null;
-
-                                            return (
-                                                <button
-                                                    key={slot.value}
-                                                    type="button"
-                                                    disabled={updating && !booked}
-                                                    onClick={() => {
-                                                        if (booked && booking) {
-                                                            setSelectedBooking(booking);
-                                                        } else {
-                                                            toggleSlot(selectedDate, slot.value);
+                                        {/* Event pills */}
+                                        <div className="flex flex-col gap-[3px] flex-1 min-w-0 overflow-hidden">
+                                            {visible.map((ev, i) => (
+                                                <div
+                                                    key={i}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (ev.type === "booked" && ev.data) {
+                                                            setSelectedBooking(ev.data);
+                                                        } else if (!past) {
+                                                            setSelectedDate(dateStr);
                                                         }
                                                     }}
                                                     className={`
-                                                        w-full py-4 px-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all rounded-none flex items-center justify-between
-                                                        ${booked
-                                                            ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-pointer hover:bg-blue-100"
-                                                            : blocked
-                                                                ? "bg-red-50 text-red-500 border border-red-300 cursor-pointer hover:bg-red-100"
-                                                                : "bg-transparent text-black border border-neutral-300 hover:border-black cursor-pointer"
+                                                        truncate rounded px-1.5 py-[2px] text-[9px] font-bold leading-tight cursor-pointer transition-opacity
+                                                        ${ev.type === "booked"
+                                                            ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                                            : "bg-red-100 text-red-500 hover:bg-red-200"
                                                         }
-                                                        ${updating && !booked ? "opacity-50 pointer-events-none" : ""}
+                                                        ${past ? "opacity-40" : ""}
                                                     `}
+                                                    title={ev.type === "booked" ? `${ev.time} — ${ev.label}` : ev.label}
                                                 >
-                                                    <div className="flex flex-col items-start gap-0.5">
-                                                        <span>{slot.label}</span>
-                                                        {booked && booking?.client_name && (
-                                                            <span className="text-[9px] tracking-normal normal-case font-medium text-blue-400">
-                                                                {booking.client_name}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {booked && (
-                                                        <span className="text-[9px] tracking-[0.15em] bg-blue-100 text-blue-500 px-2 py-0.5 rounded">
-                                                            BOOKED
-                                                        </span>
-                                                    )}
-                                                    {blocked && !booked && (
-                                                        <span className="text-[9px] tracking-[0.15em] bg-red-100 text-red-500 px-2 py-0.5 rounded">
-                                                            BLOCKED
-                                                        </span>
-                                                    )}
-                                                    {!unavailable && (
-                                                        <span className="text-[9px] tracking-[0.15em] text-neutral-400">
-                                                            AVAILABLE
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </motion.div>
+                                                    {ev.time && <span className="mr-0.5 font-medium">{ev.time}</span>}
+                                                    {ev.label}
+                                                </div>
+                                            ))}
+                                            {overflow > 0 && (
+                                                <span
+                                                    className={`text-[9px] font-bold text-neutral-500 pl-1 cursor-pointer hover:text-black ${past ? "opacity-40" : ""}`}
+                                                    onClick={(e) => { e.stopPropagation(); if (!past) setSelectedDate(dateStr); }}
+                                                >
+                                                    +{overflow} more
+                                                </span>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
-                            </AnimatePresence>
-                        </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-5 px-6 py-3 border-t border-neutral-100 bg-neutral-50/40">
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-2 rounded-sm bg-blue-100 border border-blue-200" />
+                        <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Booked</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-2 rounded-sm bg-red-100 border border-red-200" />
+                        <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Blocked</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-black flex items-center justify-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </span>
+                        <span className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase">Today</span>
                     </div>
                 </div>
             </div>
+
+            {/* ═══════════ TIME SLOTS PANEL (shows when a date is selected) ═══════════ */}
+            <AnimatePresence>
+                {selectedDate && (
+                    <motion.div
+                        key="time-panel"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 12 }}
+                        transition={springTransition}
+                        className="mt-6 rounded-2xl border border-neutral-200 bg-white overflow-hidden"
+                    >
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50">
+                            <h3 className="text-sm font-bold tracking-[0.2em] uppercase">
+                                {selectedDateLabel}
+                            </h3>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => blockAllForDate(selectedDate)}
+                                    disabled={updating}
+                                    className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    Block All
+                                </button>
+                                <button
+                                    onClick={() => unblockAllForDate(selectedDate)}
+                                    disabled={updating}
+                                    className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-50 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    Unblock All
+                                </button>
+                                <button
+                                    onClick={() => setSelectedDate(null)}
+                                    className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer"
+                                >
+                                    <CloseIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
+                            {TIME_SLOTS.map((slot) => {
+                                const blocked = isBlocked(selectedDate, slot.value);
+                                const booked = isBooked(selectedDate, slot.value);
+                                const unavailable = blocked || booked;
+                                const booking = booked ? getBookingForSlot(selectedDate, slot.value) : null;
+
+                                return (
+                                    <button
+                                        key={slot.value}
+                                        type="button"
+                                        disabled={updating && !booked}
+                                        onClick={() => {
+                                            if (booked && booking) {
+                                                setSelectedBooking(booking);
+                                            } else {
+                                                toggleSlot(selectedDate, slot.value);
+                                            }
+                                        }}
+                                        className={`
+                                            py-3 px-4 text-[11px] font-bold tracking-[0.15em] uppercase transition-all rounded-xl flex items-center justify-between
+                                            ${booked
+                                                ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-pointer hover:bg-blue-100"
+                                                : blocked
+                                                    ? "bg-red-50 text-red-500 border border-red-300 cursor-pointer hover:bg-red-100"
+                                                    : "bg-transparent text-black border border-neutral-200 hover:border-black cursor-pointer"
+                                            }
+                                            ${updating && !booked ? "opacity-50 pointer-events-none" : ""}
+                                        `}
+                                    >
+                                        <div className="flex flex-col items-start gap-0.5">
+                                            <span>{slot.label}</span>
+                                            {booked && booking?.client_name && (
+                                                <span className="text-[9px] tracking-normal normal-case font-medium text-blue-400 truncate max-w-[120px]">
+                                                    {booking.client_name}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {booked && (
+                                            <span className="text-[9px] tracking-[0.1em] bg-blue-100 text-blue-500 px-2 py-0.5 rounded">
+                                                BOOKED
+                                            </span>
+                                        )}
+                                        {blocked && !booked && (
+                                            <span className="text-[9px] tracking-[0.1em] bg-red-100 text-red-500 px-2 py-0.5 rounded">
+                                                BLOCKED
+                                            </span>
+                                        )}
+                                        {!unavailable && (
+                                            <span className="text-[9px] tracking-[0.1em] text-neutral-400">
+                                                OPEN
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Appointments for selected date */}
             {selectedDate && selectedDateBookings.length > 0 && (

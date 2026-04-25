@@ -14,8 +14,23 @@ function fmt(dateTime, opts) {
     return isNaN(d) ? String(dateTime) : d.toLocaleString("en-US", opts);
 }
 const fmtDateTime = (dt) => fmt(dt, { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-const fmtDate     = (dt) => fmt(dt, { month: "long", day: "numeric", year: "numeric" });
-const fmtTime     = (dt) => fmt(dt, { hour: "numeric", minute: "2-digit" });
+
+// consultation_date is user-selected local time but Laravel serialises with Z suffix.
+// Strip timezone so new Date() treats it as local time.
+function parseLocal(dateTime) {
+    if (!dateTime) return null;
+    const raw = String(dateTime).replace(" ", "T").replace(/\.\d+Z$/i, "").replace(/Z$/i, "").replace(/[+-]\d{2}:\d{2}$/, "");
+    const d = new Date(raw);
+    return isNaN(d) ? null : d;
+}
+function fmtLocal(dateTime, opts) {
+    if (!dateTime) return "—";
+    const d = parseLocal(dateTime);
+    return d ? d.toLocaleString("en-US", opts) : String(dateTime);
+}
+const fmtLocalDate = (dt) => fmtLocal(dt, { month: "long", day: "numeric", year: "numeric" });
+const fmtLocalTime = (dt) => fmtLocal(dt, { hour: "numeric", minute: "2-digit" });
+const fmtLocalDateTime = (dt) => fmtLocal(dt, { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 function fmtStatus(s) {
     const v = String(s || "pending").toLowerCase();
@@ -43,10 +58,13 @@ function buildTimeOptions() {
 
 function splitDT(dt) {
     if (!dt) return { date: "", time: "" };
-    const d = new Date(String(dt).replace(" ", "T"));
-    if (isNaN(d)) return { date: "", time: "" };
+    const d = parseLocal(dt);
+    if (!d) return { date: "", time: "" };
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return {
-        date: d.toISOString().slice(0, 10),
+        date: `${y}-${m}-${day}`,
         time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
     };
 }
@@ -479,8 +497,8 @@ export default function UserDashboard() {
                             {/* Stat cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <StatCard label="Current Status"     value={selected ? fmtStatus(selected.status) : "—"} icon={<ActivityIcon />} />
-                                <StatCard label="Consultation Date"  value={selected ? fmtDate(selected.consultationDate) : "—"} icon={<CalendarIcon />} />
-                                <StatCard label="Consultation Time"  value={selected ? fmtTime(selected.consultationDate) : "—"} icon={<ClockIcon />} />
+                                <StatCard label="Consultation Date"  value={selected ? fmtLocalDate(selected.consultationDate) : "—"} icon={<CalendarIcon />} />
+                                <StatCard label="Consultation Time"  value={selected ? fmtLocalTime(selected.consultationDate) : "—"} icon={<ClockIcon />} />
                             </div>
 
                             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
@@ -580,7 +598,7 @@ export default function UserDashboard() {
                                                         <div className="flex items-start justify-between gap-4">
                                                             <div>
                                                                 <p className="text-sm font-bold text-neutral-900">{item.projectType || "Appointment"}</p>
-                                                                <p className="text-xs font-medium text-neutral-500 mt-1">{fmtDateTime(item.consultationDate)}</p>
+                                                                <p className="text-xs font-medium text-neutral-500 mt-1">{fmtLocalDateTime(item.consultationDate)}</p>
                                                             </div>
                                                             <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em] ${statusClasses(item.status)}`}>
                                                                 {fmtStatus(item.status)}
