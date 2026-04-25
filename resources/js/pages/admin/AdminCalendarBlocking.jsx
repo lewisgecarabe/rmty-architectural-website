@@ -38,14 +38,14 @@ const formatDate = (date) => {
     return `${y}-${m}-${d}`;
 };
 
-const MAX_VISIBLE_EVENTS = 2; // max pills shown per day cell before "+N more"
+const MAX_VISIBLE_EVENTS = 3; // max pills shown per day cell before "+N more"
 
 const fmtTime12 = (t) => {
     if (!t) return "";
     const [h, m] = t.split(":").map(Number);
     const hr = h % 12 || 12;
-    const ampm = h < 12 ? "a" : "p";
-    return `${hr}:${String(m).padStart(2, "0")}${ampm}`;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
 };
 
 /* ──────────────── COMPONENT ──────────────── */
@@ -61,6 +61,8 @@ export default function AdminCalendarBlocking() {
     const [updating, setUpdating] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
     const [selectedBooking, setSelectedBooking] = useState(null);
+    const [popoverDate, setPopoverDate] = useState(null);
+    const popoverRef = useRef(null);
     const toastRef = useRef(null);
 
     const currentYear = viewDate.getFullYear();
@@ -73,6 +75,18 @@ export default function AdminCalendarBlocking() {
     };
 
     useEffect(() => () => { if (toastRef.current) clearTimeout(toastRef.current); }, []);
+
+    // Close popover on outside click
+    useEffect(() => {
+        if (!popoverDate) return;
+        const handler = (e) => {
+            if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+                setPopoverDate(null);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [popoverDate]);
 
     /* ── Fetch data ── */
     const fetchSlots = async () => {
@@ -252,6 +266,7 @@ export default function AdminCalendarBlocking() {
 
     /* ── Appointments for selected date ── */
     const selectedDateBookings = selectedDate ? getBookingsForDate(selectedDate) : [];
+    const isSelectedPast = selectedDate ? new Date(selectedDate) < today : false;
 
     return (
         <div className="flex flex-col [font-family:var(--font-neue)] relative pb-10">
@@ -297,7 +312,7 @@ export default function AdminCalendarBlocking() {
             </div>
 
             {/* ═══════════ MONTH CALENDAR GRID (Apple Calendar Style) ═══════════ */}
-            <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+            <div className="rounded-2xl border border-neutral-200 bg-white overflow-visible">
                 {/* Month header + nav */}
                 <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100">
                     <h3 className="text-lg font-black tracking-tight text-neutral-900">
@@ -344,7 +359,7 @@ export default function AdminCalendarBlocking() {
                 </div>
 
                 {/* Day cells grid */}
-                <div className="grid grid-cols-7 auto-rows-fr">
+                <div className="grid grid-cols-7 auto-rows-fr" style={{ overflow: "visible" }}>
                     {calendarDays.map((date, idx) => {
                         const dateStr = date ? formatDate(date) : null;
                         const past = isPastDate(date);
@@ -377,15 +392,16 @@ export default function AdminCalendarBlocking() {
                         const visible = events.slice(0, MAX_VISIBLE_EVENTS);
                         const overflow = events.length - MAX_VISIBLE_EVENTS;
 
+                        const isPopoverOpen = popoverDate === dateStr;
+
                         return (
                             <div
                                 key={idx}
-                                onClick={() => { if (date && !past) setSelectedDate(dateStr); }}
+                                onClick={() => { if (date) { setSelectedDate(dateStr); setPopoverDate(null); } }}
                                 className={`
-                                    min-h-[100px] border-b border-r border-neutral-100 p-1.5 flex flex-col transition-colors relative
-                                    ${!date ? "bg-neutral-50/40" : ""}
-                                    ${date && !past ? "cursor-pointer hover:bg-blue-50/30" : ""}
-                                    ${past ? "bg-neutral-50/60 cursor-default" : ""}
+                                    min-h-[120px] border-b border-r border-neutral-100 p-1.5 flex flex-col transition-colors relative
+                                    ${!date ? "bg-neutral-50/40" : "cursor-pointer hover:bg-blue-50/30"}
+                                    ${past && !selected ? "bg-neutral-50/40" : ""}
                                     ${selected ? "bg-blue-50/60 ring-2 ring-inset ring-blue-500/30" : ""}
                                 `}
                             >
@@ -403,10 +419,15 @@ export default function AdminCalendarBlocking() {
                                             >
                                                 {date.getDate()}
                                             </span>
+                                            {bookings.length > 0 && (
+                                                <span className="text-[9px] font-bold text-blue-500 bg-blue-50 rounded px-1">
+                                                    {bookings.length}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Event pills */}
-                                        <div className="flex flex-col gap-[3px] flex-1 min-w-0 overflow-hidden">
+                                        <div className="flex flex-col gap-[3px] flex-1 min-w-0">
                                             {visible.map((ev, i) => (
                                                 <div
                                                     key={i}
@@ -414,7 +435,7 @@ export default function AdminCalendarBlocking() {
                                                         e.stopPropagation();
                                                         if (ev.type === "booked" && ev.data) {
                                                             setSelectedBooking(ev.data);
-                                                        } else if (!past) {
+                                                        } else {
                                                             setSelectedDate(dateStr);
                                                         }
                                                     }}
@@ -424,7 +445,7 @@ export default function AdminCalendarBlocking() {
                                                             ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
                                                             : "bg-red-100 text-red-500 hover:bg-red-200"
                                                         }
-                                                        ${past ? "opacity-40" : ""}
+                                                        ${past && ev.type !== "booked" ? "opacity-40" : ""}
                                                     `}
                                                     title={ev.type === "booked" ? `${ev.time} — ${ev.label}` : ev.label}
                                                 >
@@ -434,13 +455,70 @@ export default function AdminCalendarBlocking() {
                                             ))}
                                             {overflow > 0 && (
                                                 <span
-                                                    className={`text-[9px] font-bold text-neutral-500 pl-1 cursor-pointer hover:text-black ${past ? "opacity-40" : ""}`}
-                                                    onClick={(e) => { e.stopPropagation(); if (!past) setSelectedDate(dateStr); }}
+                                                    className="text-[9px] font-bold text-blue-600 bg-blue-50 rounded px-1.5 py-[2px] cursor-pointer hover:bg-blue-100 transition-colors inline-block"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPopoverDate(isPopoverOpen ? null : dateStr);
+                                                    }}
                                                 >
                                                     +{overflow} more
                                                 </span>
                                             )}
                                         </div>
+
+                                        {/* Popover — all clients for this day */}
+                                        {isPopoverOpen && events.length > 0 && (
+                                            <div
+                                                ref={popoverRef}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 w-[260px] max-h-[280px] overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-xl"
+                                            >
+                                                <div className="px-4 py-3 border-b border-neutral-100 bg-neutral-50/60 sticky top-0">
+                                                    <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-500 uppercase">
+                                                        {date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} — {bookings.length} client{bookings.length !== 1 ? "s" : ""}
+                                                    </p>
+                                                </div>
+                                                <div className="divide-y divide-neutral-100">
+                                                    {events.map((ev, i) => (
+                                                        <div
+                                                            key={i}
+                                                            onClick={() => {
+                                                                if (ev.type === "booked" && ev.data) {
+                                                                    setSelectedBooking(ev.data);
+                                                                    setPopoverDate(null);
+                                                                }
+                                                            }}
+                                                            className={`px-4 py-2.5 flex items-center gap-3 transition-colors ${
+                                                                ev.type === "booked" ? "cursor-pointer hover:bg-blue-50" : ""
+                                                            }`}
+                                                        >
+                                                            {ev.type === "booked" ? (
+                                                                <>
+                                                                    <img
+                                                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(ev.label)}&background=dbeafe&color=1d4ed8&rounded=true&size=28`}
+                                                                        alt=""
+                                                                        className="w-7 h-7 rounded-full shrink-0"
+                                                                    />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-xs font-bold text-neutral-900 truncate">{ev.label}</p>
+                                                                        <p className="text-[10px] font-medium text-neutral-400">{ev.time}</p>
+                                                                    </div>
+                                                                    <span className={`shrink-0 px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase rounded border ${
+                                                                        ev.data?.status === "accepted" ? "border-emerald-200 bg-emerald-50 text-emerald-600" :
+                                                                        ev.data?.status === "rescheduled" ? "border-blue-200 bg-blue-50 text-blue-600" :
+                                                                        "border-amber-200 bg-amber-50 text-amber-600"
+                                                                    }`}>
+                                                                        {ev.data?.status || "pending"}
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">{ev.label}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -482,21 +560,30 @@ export default function AdminCalendarBlocking() {
                             <h3 className="text-sm font-bold tracking-[0.2em] uppercase">
                                 {selectedDateLabel}
                             </h3>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => blockAllForDate(selectedDate)}
-                                    disabled={updating}
-                                    className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50"
-                                >
-                                    Block All
-                                </button>
-                                <button
-                                    onClick={() => unblockAllForDate(selectedDate)}
-                                    disabled={updating}
-                                    className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-50 transition-all cursor-pointer disabled:opacity-50"
-                                >
-                                    Unblock All
-                                </button>
+                            <div className="flex items-center gap-2">
+                                {isSelectedPast && (
+                                    <span className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-neutral-400">
+                                        Past date
+                                    </span>
+                                )}
+                                {!isSelectedPast && (
+                                    <>
+                                        <button
+                                            onClick={() => blockAllForDate(selectedDate)}
+                                            disabled={updating}
+                                            className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50"
+                                        >
+                                            Block All
+                                        </button>
+                                        <button
+                                            onClick={() => unblockAllForDate(selectedDate)}
+                                            disabled={updating}
+                                            className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase border border-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-50 transition-all cursor-pointer disabled:opacity-50"
+                                        >
+                                            Unblock All
+                                        </button>
+                                    </>
+                                )}
                                 <button
                                     onClick={() => setSelectedDate(null)}
                                     className="p-1.5 text-neutral-400 hover:text-black transition-colors cursor-pointer"
@@ -512,16 +599,17 @@ export default function AdminCalendarBlocking() {
                                 const booked = isBooked(selectedDate, slot.value);
                                 const unavailable = blocked || booked;
                                 const booking = booked ? getBookingForSlot(selectedDate, slot.value) : null;
+                                const canToggle = !isSelectedPast && !booked;
 
                                 return (
                                     <button
                                         key={slot.value}
                                         type="button"
-                                        disabled={updating && !booked}
+                                        disabled={(updating || isSelectedPast) && !booked}
                                         onClick={() => {
                                             if (booked && booking) {
                                                 setSelectedBooking(booking);
-                                            } else {
+                                            } else if (!isSelectedPast) {
                                                 toggleSlot(selectedDate, slot.value);
                                             }
                                         }}
@@ -530,8 +618,8 @@ export default function AdminCalendarBlocking() {
                                             ${booked
                                                 ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-pointer hover:bg-blue-100"
                                                 : blocked
-                                                    ? "bg-red-50 text-red-500 border border-red-300 cursor-pointer hover:bg-red-100"
-                                                    : "bg-transparent text-black border border-neutral-200 hover:border-black cursor-pointer"
+                                                    ? `bg-red-50 text-red-500 border border-red-300 ${canToggle ? "cursor-pointer hover:bg-red-100" : "opacity-50"}`
+                                                    : `bg-transparent border border-neutral-200 ${canToggle ? "text-black hover:border-black cursor-pointer" : "text-neutral-300 opacity-50"}`
                                             }
                                             ${updating && !booked ? "opacity-50 pointer-events-none" : ""}
                                         `}
@@ -556,7 +644,7 @@ export default function AdminCalendarBlocking() {
                                         )}
                                         {!unavailable && (
                                             <span className="text-[9px] tracking-[0.1em] text-neutral-400">
-                                                OPEN
+                                                {isSelectedPast ? "—" : "OPEN"}
                                             </span>
                                         )}
                                     </button>
