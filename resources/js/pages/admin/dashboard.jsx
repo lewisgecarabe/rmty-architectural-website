@@ -31,6 +31,44 @@ function timeAgo(dateStr) {
     return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const getStatusMeta = (status) => {
+    switch (status) {
+        case "accepted":
+            return { label: "Accepted", className: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" };
+        case "cancelled":
+            return { label: "Cancelled", className: "border-red-200 bg-red-50 text-red-700", dot: "bg-red-500" };
+        case "rescheduled":
+            return { label: "Rescheduled", className: "border-blue-200 bg-blue-50 text-blue-700", dot: "bg-blue-500" };
+        default:
+            return { label: "Pending", className: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" };
+    }
+};
+
+function formatSchedule(dateStr) {
+    if (!dateStr) return { date: "Not set", time: "" };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: dateStr, time: "" };
+    return {
+        date: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+        time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true }),
+    };
+}
+
+function getRelativeDay(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return { text: "Past", cls: "text-red-500 bg-red-50 border-red-200" };
+    if (diff === 0) return { text: "Today", cls: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+    if (diff === 1) return { text: "Tomorrow", cls: "text-blue-600 bg-blue-50 border-blue-200" };
+    if (diff <= 7) return { text: `In ${diff}d`, cls: "text-blue-600 bg-blue-50 border-blue-200" };
+    return null;
+}
+
 function buildMonthlyChart(inquiries, consultations) {
     const months = [];
     const now = new Date();
@@ -104,8 +142,27 @@ export default function AdminDashboard() {
         return () => { cancelled = true; };
     }, []);
 
-    const pendingConsultations = consultations.filter((c) => c.status === "pending").length;
-    const upcomingConsultations = consultations.filter((c) => ["pending", "accepted"].includes(c.status)).length;
+    const activeConsultations = consultations.filter((c) => c.is_published !== false && c.is_published !== 0 && c.status !== "archived");
+    const pendingConsultations = activeConsultations.filter((c) => c.status === "pending").length;
+    const upcomingConsultations = activeConsultations.filter((c) => {
+        if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
+        const d = new Date(c.consultation_date);
+        return !isNaN(d.getTime()) && d >= new Date();
+    }).length;
+
+    const nowDate = new Date();
+    const todayDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+    const tomorrowDate = new Date(todayDate.getTime() + 86400000);
+    const todaysAppointments = activeConsultations.filter((c) => {
+        if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
+        const d = new Date(c.consultation_date);
+        return !isNaN(d.getTime()) && d >= todayDate && d < tomorrowDate;
+    }).sort((a, b) => new Date(a.consultation_date) - new Date(b.consultation_date));
+
+    const recentAppointments = [...activeConsultations]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5);
+
     const publishedProjects = projects.filter((p) => p.is_published).length;
     const draftProjects = projects.filter((p) => !p.is_published).length;
     const totalProjects = projects.length;
@@ -121,19 +178,19 @@ export default function AdminDashboard() {
             color: "text-blue-500",
         },
         {
-            label: "Upcoming Consultations",
-            value: upcomingConsultations,
-            icon: <CalendarIcon />,
+            label: "Today's Appointments",
+            value: todaysAppointments.length,
+            icon: <ClockIcon />,
             color: "text-emerald-500",
         },
         {
-            label: "Total Projects",
-            value: totalProjects,
-            icon: <FolderIcon />,
-            color: "text-neutral-900",
+            label: "Upcoming",
+            value: upcomingConsultations,
+            icon: <CalendarIcon />,
+            color: "text-blue-500",
         },
         {
-            label: "Pending Consultations",
+            label: "Pending Review",
             value: pendingConsultations,
             icon: <ActivityIcon />,
             color: "text-amber-500",
@@ -355,9 +412,60 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Bottom Row: Perfect Height Alignment via items-stretch and flex-1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                {/* Left Column: Recent Inquiries (Stretched to match right column) */}
+            {/* Today's Schedule */}
+            {todaysAppointments.length > 0 && (
+                <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden mb-6">
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <h2 className="text-sm font-bold tracking-widest text-neutral-900 uppercase">
+                                Today's Schedule
+                            </h2>
+                            <span className="text-[10px] font-bold tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded uppercase">
+                                {todaysAppointments.length} appointment{todaysAppointments.length !== 1 ? "s" : ""}
+                            </span>
+                        </div>
+                        <Link
+                            to="/admin/consultations"
+                            className="text-[10px] font-bold text-neutral-400 hover:text-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer outline-none"
+                        >
+                            Manage <ArrowRightIcon className="w-3 h-3" />
+                        </Link>
+                    </div>
+                    <div className="divide-y divide-neutral-100">
+                        {todaysAppointments.map((c) => {
+                            const sched = formatSchedule(c.consultation_date);
+                            const meta = getStatusMeta(c.status);
+                            return (
+                                <div key={c.id} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50 transition-colors">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <img
+                                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true&size=32`}
+                                            alt=""
+                                            className="w-8 h-8 rounded-full shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-neutral-900 truncate">{c.first_name} {c.last_name}</p>
+                                            <p className="text-[11px] font-medium text-neutral-400 truncate">{c.project_type || "General"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-xs font-bold text-neutral-700">{sched.time}</span>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                                            {meta.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Bottom Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch mb-6">
+                {/* Left Column: Recent Inquiries */}
                 <div className="lg:col-span-2 rounded-2xl border border-neutral-200 bg-white overflow-hidden flex flex-col h-full">
                     <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
                         <h2 className="text-sm font-bold tracking-widest text-neutral-900 uppercase">
@@ -496,6 +604,97 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Recent Appointments */}
+            <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100 bg-neutral-50/50">
+                    <h2 className="text-sm font-bold tracking-widest text-neutral-900 uppercase">
+                        Recent Appointments
+                    </h2>
+                    <Link
+                        to="/admin/consultations"
+                        className="text-[10px] font-bold text-neutral-400 hover:text-black uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer outline-none"
+                    >
+                        View All <ArrowRightIcon className="w-3 h-3" />
+                    </Link>
+                </div>
+
+                <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-left border-collapse whitespace-nowrap">
+                        <thead className="bg-white border-b border-neutral-100">
+                            <tr>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Client</th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Project</th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">Schedule</th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">Status</th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">Submitted</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100">
+                            {recentAppointments.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="py-12 px-6 text-center text-sm font-medium text-neutral-400">
+                                        No appointments yet
+                                    </td>
+                                </tr>
+                            ) : (
+                                recentAppointments.map((c) => {
+                                    const sched = formatSchedule(c.consultation_date);
+                                    const rel = getRelativeDay(c.consultation_date);
+                                    const meta = getStatusMeta(c.status);
+                                    const isPast = rel?.text === "Past" && c.status !== "cancelled";
+                                    return (
+                                        <tr key={c.id} className={`group hover:bg-neutral-50 transition-colors h-[73px] ${isPast ? "opacity-50" : ""}`}>
+                                            <td className="py-4 px-6 align-middle">
+                                                <div className="flex items-center gap-3">
+                                                    <img
+                                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true&size=32`}
+                                                        alt=""
+                                                        className="w-8 h-8 rounded-full shrink-0"
+                                                    />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-neutral-900 truncate max-w-[160px]">{c.first_name} {c.last_name}</p>
+                                                        <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5">{c.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle">
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
+                                                    {c.project_type || "N/A"}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <p className={`text-sm font-bold ${isPast ? "text-red-400" : "text-neutral-900"}`}>
+                                                        {sched.date}
+                                                    </p>
+                                                    {sched.time && (
+                                                        <p className="text-[11px] font-medium text-neutral-400">{sched.time}</p>
+                                                    )}
+                                                    {rel && (
+                                                        <span className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.cls}`}>
+                                                            {rel.text}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                                                    {meta.label}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle text-right">
+                                                <p className="text-xs font-medium text-neutral-500">{timeAgo(c.created_at)}</p>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </motion.div>
     );
 }
@@ -623,6 +822,22 @@ function ArrowRightIcon({ className = "w-4 h-4" }) {
         >
             <path d="M5 12h14" />
             <path d="M12 5l7 7-7 7" />
+        </svg>
+    );
+}
+function ClockIcon({ className = "w-5 h-5" }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+        >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 3" />
         </svg>
     );
 }

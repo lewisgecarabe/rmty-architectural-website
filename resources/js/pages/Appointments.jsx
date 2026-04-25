@@ -34,6 +34,27 @@ export default function Appointments() {
     const [submitError, setSubmitError] = useState("");
     const [submitting,  setSubmitting]  = useState(false);
 
+    // Unavailable slots (admin-blocked + already-booked)
+    const [unavailableSlots, setUnavailableSlots] = useState([]);
+
+    // ── Fetch unavailable slots (blocked + booked) ────────────────────────
+    const fetchUnavailableSlots = async () => {
+        try {
+            const [blockedRes, bookedRes] = await Promise.all([
+                fetch(`${API_BASE}/api/blocked-slots`),
+                fetch(`${API_BASE}/api/booked-slots`),
+            ]);
+            const blocked = blockedRes.ok ? await blockedRes.json() : [];
+            const booked  = bookedRes.ok  ? await bookedRes.json()  : [];
+            setUnavailableSlots([
+                ...(Array.isArray(blocked) ? blocked : []),
+                ...(Array.isArray(booked)  ? booked  : []),
+            ]);
+        } catch {
+            // silent — calendar will just show everything as available
+        }
+    };
+
     // ── On mount: prefill from user + check for active consultation ───────
     useEffect(() => {
         const user  = JSON.parse(localStorage.getItem("user")  ?? "null");
@@ -50,6 +71,9 @@ export default function Appointments() {
         if (token && user) {
             checkActiveConsultation(token);
         }
+
+        // Fetch unavailable slots
+        fetchUnavailableSlots();
     }, []);
 
     // ── On mount: if returning from /auth with a draft, auto-submit ───────
@@ -320,6 +344,7 @@ export default function Appointments() {
                                         onDateChange={setAppointmentDate}
                                         selectedTime={appointmentTime}
                                         onTimeChange={setAppointmentTime}
+                                        unavailableSlots={unavailableSlots}
                                     />
                                     {(errors.appointmentDate || errors.appointmentTime) && (
                                         <p className="text-[10px] tracking-wide text-red-500 mt-4 uppercase font-bold">

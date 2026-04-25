@@ -64,6 +64,49 @@ const formatDisplayDate = (value) => {
     });
 };
 
+const formatDateOnly = (value) => {
+    const parsed = parseConsultationDate(value);
+    if (!parsed) return "Not Specified";
+    return parsed.toLocaleDateString(undefined, {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+};
+
+const formatTimeOnly = (value) => {
+    const parsed = parseConsultationDate(value);
+    if (!parsed) return "";
+    return parsed.toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    });
+};
+
+const getDateRelativeLabel = (value) => {
+    const parsed = parseConsultationDate(value);
+    if (!parsed) return null;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    const diffDays = Math.round((dateOnly - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { text: "Past", className: "text-red-500 bg-red-50 border-red-200" };
+    if (diffDays === 0) return { text: "Today", className: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+    if (diffDays === 1) return { text: "Tomorrow", className: "text-blue-600 bg-blue-50 border-blue-200" };
+    if (diffDays <= 7) return { text: `In ${diffDays} days`, className: "text-blue-600 bg-blue-50 border-blue-200" };
+    return null;
+};
+
+const isPastConsultation = (consultation) => {
+    const parsed = parseConsultationDate(consultation?.consultation_date);
+    if (!parsed) return false;
+    return parsed < new Date();
+};
+
 const toDateTimeLocalValue = (value) => {
     const parsed = parseConsultationDate(value);
     if (!parsed) return "";
@@ -388,6 +431,13 @@ export default function AdminBookingConsultations() {
         isArchivedConsultation(c),
     );
 
+    const pastConsultations = nonArchivedConsultations.filter(
+        (c) => {
+            const status = getBookingStatus(c);
+            return status !== "cancelled" && status !== "archived" && isPastConsultation(c);
+        },
+    );
+
     let displayedConsultations = [];
 
     switch (activeTab) {
@@ -403,10 +453,26 @@ export default function AdminBookingConsultations() {
         case "archived":
             displayedConsultations = archivedConsultations;
             break;
+        case "past":
+            displayedConsultations = pastConsultations;
+            break;
         default:
             displayedConsultations = nonArchivedConsultations;
             break;
     }
+
+    // Sort: upcoming first (soonest on top), past at bottom
+    displayedConsultations = [...displayedConsultations].sort((a, b) => {
+        const dateA = parseConsultationDate(a.consultation_date);
+        const dateB = parseConsultationDate(b.consultation_date);
+        const now = new Date();
+        const aPast = dateA ? dateA < now : true;
+        const bPast = dateB ? dateB < now : true;
+        if (aPast !== bPast) return aPast ? 1 : -1;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return aPast ? dateB - dateA : dateA - dateB;
+    });
 
     if (searchTerm.trim() !== "") {
         const lower = searchTerm.toLowerCase();
@@ -493,6 +559,11 @@ export default function AdminBookingConsultations() {
             id: "cancelled",
             label: "Cancelled",
             count: cancelledConsultations.length,
+        },
+        {
+            id: "past",
+            label: "Past",
+            count: pastConsultations.length,
         },
         {
             id: "archived",
@@ -1091,6 +1162,10 @@ export default function AdminBookingConsultations() {
                                                     selected?.id === c.id
                                                         ? "bg-neutral-50"
                                                         : ""
+                                                } ${
+                                                    isPastConsultation(c) && getBookingStatus(c) !== "cancelled" && getBookingStatus(c) !== "archived"
+                                                        ? "opacity-60"
+                                                        : ""
                                                 }`}
                                             >
                                                 <td
@@ -1143,11 +1218,24 @@ export default function AdminBookingConsultations() {
                                                 </td>
 
                                                 <td className="py-4 px-5 align-middle text-center">
-                                                    <p className="text-sm font-medium text-neutral-600 whitespace-normal leading-relaxed">
-                                                        {formatDisplayDate(
-                                                            c.consultation_date,
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <p className={`text-sm font-bold leading-tight ${isPastConsultation(c) && getBookingStatus(c) !== "cancelled" ? "text-red-400" : "text-neutral-900"}`}>
+                                                            {formatDateOnly(c.consultation_date)}
+                                                        </p>
+                                                        {formatTimeOnly(c.consultation_date) && (
+                                                            <p className="text-[11px] font-medium text-neutral-400">
+                                                                {formatTimeOnly(c.consultation_date)}
+                                                            </p>
                                                         )}
-                                                    </p>
+                                                        {(() => {
+                                                            const rel = getDateRelativeLabel(c.consultation_date);
+                                                            return rel ? (
+                                                                <span className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}>
+                                                                    {rel.text}
+                                                                </span>
+                                                            ) : null;
+                                                        })()}
+                                                    </div>
                                                 </td>
 
                                                 <td className="py-4 px-5 align-middle text-center">
@@ -1350,12 +1438,38 @@ export default function AdminBookingConsultations() {
 
                                     <div>
                                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
-                                            Schedule
+                                            Location
                                         </p>
-                                        <span className="text-sm font-medium text-neutral-700 whitespace-normal leading-relaxed">
-                                            {formatDisplayDate(
-                                                selected.consultation_date,
-                                            )}
+                                        <span className="text-sm font-medium text-neutral-700">
+                                            {selected.location || "N/A"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                            Date
+                                        </p>
+                                        <span className={`text-sm font-bold ${isPastConsultation(selected) && getBookingStatus(selected) !== "cancelled" ? "text-red-500" : "text-neutral-900"}`}>
+                                            {formatDateOnly(selected.consultation_date)}
+                                        </span>
+                                        {(() => {
+                                            const rel = getDateRelativeLabel(selected.consultation_date);
+                                            return rel ? (
+                                                <span className={`inline-block ml-2 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}>
+                                                    {rel.text}
+                                                </span>
+                                            ) : null;
+                                        })()}
+                                    </div>
+
+                                    <div>
+                                        <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
+                                            Time
+                                        </p>
+                                        <span className="text-sm font-bold text-neutral-900">
+                                            {formatTimeOnly(selected.consultation_date) || "Not Specified"}
                                         </span>
                                     </div>
                                 </div>

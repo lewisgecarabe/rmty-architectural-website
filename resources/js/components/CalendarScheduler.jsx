@@ -10,6 +10,7 @@ export default function CalendarScheduler({
     onDateChange,
     selectedTime,
     onTimeChange,
+    unavailableSlots = [],
 }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Normalize today to midnight for date comparisons
@@ -103,6 +104,35 @@ export default function CalendarScheduler({
         if (!date) return false;
         return date.getTime() === today.getTime();
     };
+
+    // Build a Set of "YYYY-MM-DD|HH:mm" keys for O(1) lookup
+    const unavailableSet = useMemo(() => {
+        const set = new Set();
+        unavailableSlots.forEach((s) => {
+            const d = (s.blocked_date || "").split("T")[0];
+            const t = s.blocked_time || "";
+            if (d && t) set.add(`${d}|${t}`);
+        });
+        return set;
+    }, [unavailableSlots]);
+
+    const isSlotUnavailable = (dateStr, timeValue) =>
+        unavailableSet.has(`${dateStr}|${timeValue}`);
+
+    // Total time slots count (9:00–17:00, 30-min = 17 slots)
+    const TOTAL_SLOTS = 17;
+
+    const getUnavailableCountForDate = (dateStr) => {
+        let count = 0;
+        unavailableSlots.forEach((s) => {
+            const d = (s.blocked_date || "").split("T")[0];
+            if (d === dateStr) count++;
+        });
+        return count;
+    };
+
+    const isDateFullyUnavailable = (dateStr) =>
+        getUnavailableCountForDate(dateStr) >= TOTAL_SLOTS;
 
     // Time slots: strictly 9:00 AM to 5:00 PM in 30-min increments
     const timeSlots = useMemo(() => {
@@ -198,6 +228,9 @@ export default function CalendarScheduler({
                         const past = isPastDate(date);
                         const selected = isSelected(date);
                         const todayFlag = isToday(date);
+                        const dateStr = date ? formatDate(date) : null;
+                        const fullyUnavailable = dateStr && !past ? isDateFullyUnavailable(dateStr) : false;
+                        const disabled = past || fullyUnavailable;
 
                         return (
                             <div
@@ -207,16 +240,17 @@ export default function CalendarScheduler({
                                 {date ? (
                                     <button
                                         type="button"
-                                        disabled={past}
+                                        disabled={disabled}
                                         onClick={() =>
                                             handleDateSelect(formatDate(date))
                                         }
                                         className={`
                                             w-10 h-10 flex items-center justify-center text-xs font-medium transition-all rounded-full
-                                            ${past ? "text-neutral-300 cursor-not-allowed" : "cursor-pointer"}
-                                            ${!past && !selected ? "hover:bg-neutral-200 text-black" : ""}
+                                            ${disabled ? "text-neutral-300 cursor-not-allowed" : "cursor-pointer"}
+                                            ${!disabled && !selected ? "hover:bg-neutral-200 text-black" : ""}
                                             ${selected ? "bg-black text-white" : ""}
                                             ${todayFlag && !selected ? "border border-neutral-300" : ""}
+                                            ${fullyUnavailable && !past ? "line-through" : ""}
                                         `}
                                     >
                                         {date.getDate()}
@@ -267,25 +301,30 @@ export default function CalendarScheduler({
                                     animate={{ opacity: 1, y: 0 }}
                                     className="flex flex-col gap-2"
                                 >
-                                    {timeSlots.map((slot) => (
-                                        <button
-                                            key={slot.value}
-                                            type="button"
-                                            onClick={() =>
-                                                onTimeChange(slot.value)
-                                            }
-                                            className={`
-                                                w-full py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all rounded-none cursor-pointer
-                                                ${
-                                                    selectedTime === slot.value
-                                                        ? "bg-black text-white border-black"
-                                                        : "bg-transparent text-black border border-neutral-300 hover:border-black"
+                                    {timeSlots.map((slot) => {
+                                        const slotUnavailable = selectedDate && isSlotUnavailable(selectedDate, slot.value);
+                                        return (
+                                            <button
+                                                key={slot.value}
+                                                type="button"
+                                                disabled={slotUnavailable}
+                                                onClick={() =>
+                                                    onTimeChange(slot.value)
                                                 }
-                                            `}
-                                        >
-                                            {slot.label}
-                                        </button>
-                                    ))}
+                                                className={`
+                                                    w-full py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all rounded-none
+                                                    ${slotUnavailable
+                                                        ? "bg-neutral-100 text-neutral-300 border border-neutral-200 cursor-not-allowed line-through"
+                                                        : selectedTime === slot.value
+                                                            ? "bg-black text-white border-black cursor-pointer"
+                                                            : "bg-transparent text-black border border-neutral-300 hover:border-black cursor-pointer"
+                                                    }
+                                                `}
+                                            >
+                                                {slotUnavailable ? `${slot.label} — UNAVAILABLE` : slot.label}
+                                            </button>
+                                        );
+                                    })}
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\InquiryController;
 use App\Http\Controllers\Api\GoogleOAuthController;
 use App\Http\Controllers\Api\FacebookOAuthController;
 use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\BlockedSlotController;
 use App\Http\Controllers\Api\HomePageContentController;
 use App\Http\Controllers\Api\ContactPageContentController;
 use App\Http\Controllers\Api\FaqController;
@@ -91,6 +92,10 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::post('/inquiries', [InquiryController::class, 'store']);
 Route::post('/consultations', [ConsultationController::class, 'store']);
 
+// Public — unavailable slots for client calendar
+Route::get('/blocked-slots', [BlockedSlotController::class, 'publicIndex']);
+Route::get('/booked-slots',  [BlockedSlotController::class, 'bookedSlots']);
+
 Route::post('password/send-otp', [PasswordResetController::class, 'sendOtp']);
 Route::post('password/verify-otp', [PasswordResetController::class, 'verifyOtp']);
 Route::post('password/reset', [PasswordResetController::class, 'resetPassword']);
@@ -126,6 +131,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/consultations/my',     [ConsultationController::class, 'my']);
     Route::get('/consultations/my-all', [ConsultationController::class, 'myAll']); // ← new
+
+    // Blocked slots (admin management)
+    Route::get('/admin/blocked-slots',    [BlockedSlotController::class, 'index']);
+    Route::post('/admin/blocked-slots',   [BlockedSlotController::class, 'store']);
+    Route::delete('/admin/blocked-slots/by-date-time', [BlockedSlotController::class, 'destroyByDateTime']);
+    Route::delete('/admin/blocked-slots/{id}', [BlockedSlotController::class, 'destroy']);
 });
 
 // Public

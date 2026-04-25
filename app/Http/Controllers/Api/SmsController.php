@@ -11,6 +11,13 @@ class SmsController
         $url = env('SMS_API_URL');
         $apiKey = env('SMS_API_KEY');
 
+        if (empty($url) || empty($apiKey)) {
+            \Log::warning('SMS not sent — SMS_API_URL or SMS_API_KEY is not configured.', [
+                'phone' => $number,
+            ]);
+            return false;
+        }
+
         $response = Http::asForm()->post($url, [
             'apikey' => $apiKey,
             'number' => self::formatNumber($number),
