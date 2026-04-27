@@ -11,8 +11,4 @@ class BlockedSlot extends Model
         'blocked_time',
         'reason',
     ];
-
-    protected $casts = [
-        'blocked_date' => 'date',
-    ];
 }
