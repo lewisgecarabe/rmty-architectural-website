@@ -45,7 +45,9 @@ const getBookingStatus = (consultation) => {
 
 const parseConsultationDate = (value) => {
     if (!value) return null;
-    const parsed = new Date(value);
+    // Replace space with T and strip timezone suffix so it's always parsed as local time
+    const raw = String(value).replace(" ", "T").replace(/\.\d+Z$/i, "").replace(/Z$/i, "").replace(/[+-]\d{2}:\d{2}$/, "");
+    const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 

@@ -44,10 +44,17 @@ const getStatusMeta = (status) => {
     }
 };
 
+function parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    const raw = String(dateStr).replace(" ", "T").replace(/\.\d+Z$/i, "").replace(/Z$/i, "").replace(/[+-]\d{2}:\d{2}$/, "");
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 function formatSchedule(dateStr) {
     if (!dateStr) return { date: "Not set", time: "" };
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { date: dateStr, time: "" };
+    const d = parseLocalDate(dateStr);
+    if (!d) return { date: dateStr, time: "" };
     return {
         date: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
         time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true }),
@@ -56,8 +63,8 @@ function formatSchedule(dateStr) {
 
 function getRelativeDay(dateStr) {
     if (!dateStr) return null;
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
+    const d = parseLocalDate(dateStr);
+    if (!d) return null;
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -146,8 +153,8 @@ export default function AdminDashboard() {
     const pendingConsultations = activeConsultations.filter((c) => c.status === "pending").length;
     const upcomingConsultations = activeConsultations.filter((c) => {
         if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
-        const d = new Date(c.consultation_date);
-        return !isNaN(d.getTime()) && d >= new Date();
+        const d = parseLocalDate(c.consultation_date);
+        return d && d >= new Date();
     }).length;
 
     const nowDate = new Date();
@@ -155,9 +162,9 @@ export default function AdminDashboard() {
     const tomorrowDate = new Date(todayDate.getTime() + 86400000);
     const todaysAppointments = activeConsultations.filter((c) => {
         if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
-        const d = new Date(c.consultation_date);
-        return !isNaN(d.getTime()) && d >= todayDate && d < tomorrowDate;
-    }).sort((a, b) => new Date(a.consultation_date) - new Date(b.consultation_date));
+        const d = parseLocalDate(c.consultation_date);
+        return d && d >= todayDate && d < tomorrowDate;
+    }).sort((a, b) => (parseLocalDate(a.consultation_date) || 0) - (parseLocalDate(b.consultation_date) || 0));
 
     const recentAppointments = [...activeConsultations]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
