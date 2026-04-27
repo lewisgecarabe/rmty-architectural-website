@@ -553,19 +553,9 @@ export default function UserDashboard() {
                                                     </p>
                                                 </DetailCard>
 
-                                                <DetailCard title="Appointment Tracking">
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                        <TimelineStep label="Submitted"    active />
-                                                        <TimelineStep label="Pending Review" active />
-                                                        <TimelineStep label={fmtStatus(selected.status)} active />
-                                                    </div>
-                                                    {selected.rescheduleReason?.trim() && (
-                                                        <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-                                                            <p className="text-[10px] font-bold tracking-[0.15em] text-blue-700 uppercase mb-2">Reschedule Reason</p>
-                                                            <p className="text-sm text-blue-900 leading-relaxed">{selected.rescheduleReason}</p>
-                                                        </div>
-                                                    )}
-                                                </DetailCard>
+                                               <DetailCard title="Appointment Tracking">
+  <AppointmentTimeline appointment={selected} />
+</DetailCard>
 
                                                 {/* Actions — only for active statuses */}
                                                 {["pending", "accepted", "rescheduled"].includes(selected.status) && (
@@ -705,6 +695,100 @@ function StatCard({ label, value, icon }) {
             <p className="text-2xl font-black text-neutral-900 mt-2 leading-tight break-words">{value || "—"}</p>
         </div>
     );
+}
+
+function AppointmentTimeline({ appointment }) {
+  if (!appointment) return null;
+
+  const status = String(appointment.status || "pending").toLowerCase();
+
+  const steps = (() => {
+    const base = [
+      {
+        key: "submitted",
+        label: "Submitted",
+        desc: "Your consultation request has been recorded.",
+        state: "done",
+      },
+      {
+        key: "review",
+        label: status === "pending" ? "Pending review" : "Reviewed",
+        desc: status === "pending"
+          ? "Our team is reviewing your request."
+          : "Your request has been reviewed by our team.",
+        state: status === "pending" ? "active" : "done",
+      },
+    ];
+
+    if (status === "pending") {
+      base.push({ key: "final", label: "Confirmation", desc: "Awaiting confirmation from our team.", state: "future" });
+    } else if (status === "accepted") {
+      base.push({ key: "final", label: "Accepted", desc: "Your appointment is confirmed and scheduled.", state: "active" });
+    } else if (status === "rescheduled") {
+      base.push({ key: "final", label: "Rescheduled", desc: "Your appointment has been moved to a new date.", state: "active", note: appointment.rescheduleReason });
+    } else if (status === "cancelled") {
+      base.push({ key: "final", label: "Cancelled", desc: "This appointment has been cancelled.", state: "cancel" });
+    } else if (status === "completed") {
+      base.push({ key: "final", label: "Completed", desc: "Your consultation has been completed.", state: "done" });
+    } else {
+      base.push({ key: "final", label: fmtStatus(status), desc: "Status updated by our team.", state: "active" });
+    }
+
+    return base;
+  })();
+
+  return (
+    <div className="flex flex-col">
+      {steps.map((step, i) => {
+        const isLast = i === steps.length - 1;
+        return (
+          <div key={step.key} className="flex gap-3.5">
+            <div className="flex flex-col items-center w-6 flex-shrink-0 pt-0.5">
+              <DotIcon state={step.state} />
+              {!isLast && (
+                <div className={`w-0.5 flex-1 min-h-3 mt-1 rounded-sm ${step.state === "done" ? "bg-neutral-900" : "bg-neutral-200"}`} />
+              )}
+            </div>
+            <div className={`${isLast ? "pb-0" : "pb-5"} flex-1`}>
+              <p className="text-sm font-bold text-neutral-900 leading-tight">{step.label}</p>
+              <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{step.desc}</p>
+              {step.note?.trim() && (
+                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5">
+                  <p className="text-[10px] font-bold tracking-[0.12em] text-blue-700 uppercase mb-1">Reschedule reason</p>
+                  <p className="text-xs text-blue-900 leading-relaxed">{step.note}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DotIcon({ state }) {
+  const base = "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all";
+  if (state === "done") return (
+    <div className={`${base} bg-neutral-900 border-neutral-900 text-white`}>
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+        <polyline points="2 6 5 9 10 3" />
+      </svg>
+    </div>
+  );
+  if (state === "cancel") return (
+    <div className={`${base} bg-red-50 border-red-300 text-red-600`}>
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-3 h-3">
+        <line x1="3" y1="3" x2="9" y2="9" /><line x1="9" y1="3" x2="3" y2="9" />
+      </svg>
+    </div>
+  );
+  if (state === "active") return (
+    <div className={`${base} bg-white border-neutral-900`}>
+      <div className="w-2.5 h-2.5 rounded-full bg-neutral-900" />
+    </div>
+  );
+  return <div className={`${base} bg-neutral-50 border-neutral-200`} />;
+  
 }
 function DetailCard({ title, children }) {
     return (

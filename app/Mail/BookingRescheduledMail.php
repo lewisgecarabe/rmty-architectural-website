@@ -10,18 +10,16 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Carbon\Carbon;
 
-class BookingConfirmationMail extends Mailable
+class BookingRescheduledMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public string $clientName;
-    public string $email;
-    public string $phone;
     public string $projectType;
     public string $location;
     public string $consultationDate;
     public string $consultationTime;
-    public string $notes;
+    public string $rescheduleReason;
     public string $dashboardUrl;
 
     public function __construct(Consultation $consultation)
@@ -31,21 +29,17 @@ class BookingConfirmationMail extends Mailable
             : null;
 
         $this->clientName       = trim($consultation->first_name . ' ' . $consultation->last_name);
-        $this->email            = $consultation->email;
-        $this->phone            = $consultation->phone ?? '';
         $this->projectType      = $consultation->project_type ?? 'N/A';
         $this->location         = $consultation->location ?? 'N/A';
-        $this->consultationDate = $dt ? $dt->format('F j, Y') : 'To be confirmed';
-        $this->consultationTime = $dt ? $dt->format('g:i A')  : 'To be confirmed';
-        $this->notes            = $consultation->message ?? '';
+        $this->consultationDate = $dt ? $dt->format('F j, Y') : '—';
+        $this->consultationTime = $dt ? $dt->format('g:i A')  : '—';
+        $this->rescheduleReason = $consultation->reschedule_reason ?? '';
         $this->dashboardUrl     = config('app.url') . '/user/dashboard';
     }
 
     public function build(): self
     {
-        return $this->subject('Your Consultation is Confirmed — RMTY Designs')
-                    ->view('emails.booking-confirmation');
+        return $this->subject('Your Consultation Has Been Rebooked — RMTY Designs')
+                    ->view('emails.booking-rescheduled');
     }
 }
-
-

@@ -5,74 +5,93 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Consultation;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\BookingConfirmationMail;
+use App\Mail\BookingCancelledMail;
+use App\Mail\BookingRescheduledMail;
 
 class ConsultationController extends Controller
 {
-    public function index()
+    // GET /api/admin/consultations  (admin)
+    public function index(): JsonResponse
     {
-        $consultations = Consultation::latest()->get();
-
-        return response()->json($consultations);
+        return response()->json(Consultation::latest()->get());
     }
 
-    public function store(Request $request)
+    // POST /api/consultations  (client — auto-accepts + sends confirmation email)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:30',
-            'project_type' => 'nullable|string|max:255',
-            'location' => 'nullable|string|max:255',
+            'first_name'        => 'required|string|max:255',
+            'last_name'         => 'required|string|max:255',
+            'email'             => 'required|email|max:255',
+            'phone'             => 'nullable|string|max:30',
+            'project_type'      => 'nullable|string|max:255',
+            'location'          => 'nullable|string|max:255',
             'consultation_date' => 'nullable|date',
-            'message' => 'nullable|string',
-            'content' => 'nullable|string',
+            'message'           => 'nullable|string',
         ]);
 
+        // ── Block if user already has an active consultation ──────────────
+        $ongoing = Consultation::where('email', $validated['email'])
+            ->whereIn('status', ['pending', 'accepted', 'rescheduled'])
+            ->where('is_published', 1)
+            ->first();
+
+        if ($ongoing) {
+            return response()->json([
+                'message'      => 'You already have an ongoing consultation.',
+                'has_active'   => true,
+                'consultation' => $ongoing,
+            ], 409);
+        }
+
+        // ── Create as ACCEPTED immediately ────────────────────────────────
         $consultation = Consultation::create([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'] ?? null,
-            'project_type' => $validated['project_type'] ?? null,
-            'location' => $validated['location'] ?? null,
-            'consultation_date' => $validated['consultation_date'] ?? null,
-            'message' => $validated['message'] ?? null,
-            'content' => $validated['content'] ?? null,
-            'status' => 'pending',
-            'is_published' => 1,
+            ...$validated,
+            'status'            => 'accepted',   // ← auto-accepted
+            'is_published'      => 1,
+            'reschedule_reason' => null,
         ]);
+
+        // ── Send booking confirmation email ───────────────────────────────
+        try {
+            Mail::to($consultation->email)
+                ->send(new BookingConfirmationMail($consultation));
+        } catch (\Throwable $e) {
+            Log::error('BookingConfirmationMail failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Consultation submitted successfully.',
-            'data' => $consultation,
+            'data'    => $consultation,
         ], 201);
     }
 
-    public function show($id)
+    // GET /api/consultations/{id}
+    public function show($id): JsonResponse
     {
-        $consultation = Consultation::findOrFail($id);
-
-        return response()->json($consultation);
+        return response()->json(Consultation::findOrFail($id));
     }
 
-    public function update(Request $request, $id)
+    // PUT /api/consultations/{id}  (admin — sends email on cancel/reschedule)
+    public function update(Request $request, $id): JsonResponse
     {
         $consultation = Consultation::findOrFail($id);
 
         $validated = $request->validate([
-            'first_name' => 'sometimes|string|max:255',
-            'last_name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|max:255',
-            'phone' => 'sometimes|nullable|string|max:30',
-            'project_type' => 'sometimes|nullable|string|max:255',
-            'location' => 'sometimes|nullable|string|max:255',
+            'first_name'        => 'sometimes|string|max:255',
+            'last_name'         => 'sometimes|string|max:255',
+            'email'             => 'sometimes|email|max:255',
+            'phone'             => 'sometimes|nullable|string|max:30',
+            'project_type'      => 'sometimes|nullable|string|max:255',
+            'location'          => 'sometimes|nullable|string|max:255',
             'consultation_date' => 'sometimes|nullable|date',
-            'message' => 'sometimes|nullable|string',
-            'content' => 'sometimes|nullable|string',
-            'status' => 'sometimes|string|in:pending,accepted,cancelled,rescheduled,archived',
-            'is_published' => 'sometimes|boolean',
+            'message'           => 'sometimes|nullable|string',
+            'status'            => 'sometimes|string|in:pending,accepted,cancelled,rescheduled,archived',
+            'is_published'      => 'sometimes|boolean',
             'reschedule_reason' => 'sometimes|nullable|string|max:1000',
         ]);
 
@@ -83,76 +102,79 @@ class ConsultationController extends Controller
         $consultation->refresh();
 
         $newStatus = strtolower((string) $consultation->status);
+        $smsSent   = null;
 
-        $smsSent = null;
+        // ── Send email when admin cancels or reschedules ──────────────────
+        if ($oldStatus !== $newStatus) {
 
-        $shouldSendSms = in_array($newStatus, [
-            'accepted',
-            'cancelled',
-            'rescheduled',
-        ], true);
+            if ($newStatus === 'cancelled') {
+                try {
+                    Mail::to($consultation->email)
+                        ->send(new BookingCancelledMail($consultation));
+                } catch (\Throwable $e) {
+                    Log::error('BookingCancelledMail failed: ' . $e->getMessage());
+                }
+            }
 
-        if ($shouldSendSms) {
-            if (!empty($consultation->phone)) {
-                $message = SmsController::buildBookingStatusMessage(
-                    $consultation,
-                    $newStatus
-                );
+            if ($newStatus === 'rescheduled') {
+                try {
+                    Mail::to($consultation->email)
+                        ->send(new BookingRescheduledMail($consultation));
+                } catch (\Throwable $e) {
+                    Log::error('BookingRescheduledMail failed: ' . $e->getMessage());
+                }
+            }
 
-                $smsSent = SmsController::send(
-                    $consultation->phone,
-                    $message
-                );
-
-                Log::info('Consultation SMS attempt finished.', [
-                    'consultation_id' => $consultation->id,
-                    'phone' => $consultation->phone,
-                    'status' => $newStatus,
-                    'sms_sent' => $smsSent,
-                ]);
-            } else {
-                $smsSent = false;
-
-                Log::warning('Consultation SMS not sent because phone number is missing.', [
-                    'consultation_id' => $consultation->id,
-                    'status' => $newStatus,
-                ]);
+            // ── SMS (existing behaviour) ──────────────────────────────────
+            if (
+                in_array($newStatus, ['accepted', 'cancelled', 'rescheduled'], true) &&
+                !empty($consultation->phone)
+            ) {
+                try {
+                    $smsMessage = SmsController::buildBookingStatusMessage($consultation, $newStatus);
+                    $smsSent    = SmsController::send($consultation->phone, $smsMessage);
+                } catch (\Throwable $e) {
+                    Log::error('SMS failed: ' . $e->getMessage());
+                    $smsSent = false;
+                }
             }
         }
 
         return response()->json([
-            'message' => 'Consultation updated successfully.',
-            'data' => $consultation,
-            'sms_sent' => $smsSent,
+            'message'    => 'Consultation updated successfully.',
+            'data'       => $consultation,
+            'sms_sent'   => $smsSent,
             'old_status' => $oldStatus,
             'new_status' => $newStatus,
         ]);
     }
 
-    public function destroy($id)
+    // DELETE /api/consultations/{id}
+    public function destroy($id): JsonResponse
     {
-        $consultation = Consultation::findOrFail($id);
+        Consultation::findOrFail($id)->delete();
+        return response()->json(['message' => 'Consultation deleted successfully.']);
+    }
 
-        $consultation->delete();
+    // GET /api/consultations/my  (client — active only)
+    public function my(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $active = Consultation::where('email', $user->email)
+            ->whereIn('status', ['pending', 'accepted', 'rescheduled'])
+            ->where('is_published', 1)
+            ->latest()
+            ->first();
 
         return response()->json([
-            'message' => 'Consultation deleted successfully.',
+            'has_active'   => $active !== null,
+            'consultation' => $active,
         ]);
     }
 
-    public function my(Request $request)
-    {
-        $user = $request->user();
-
-        $consultations = Consultation::where('email', $user->email)
-            ->where('is_published', 1)
-            ->latest()
-            ->get();
-
-        return response()->json($consultations);
-    }
-
-    public function myAll(Request $request)
+    // GET /api/consultations/my-all  (client — full history)
+    public function myAll(Request $request): JsonResponse
     {
         $user = $request->user();
 
@@ -160,6 +182,6 @@ class ConsultationController extends Controller
             ->latest()
             ->get();
 
-        return response()->json($consultations);
+        return response()->json(['consultations' => $consultations]);
     }
 }
