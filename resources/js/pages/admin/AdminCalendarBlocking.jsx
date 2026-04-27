@@ -89,8 +89,8 @@ export default function AdminCalendarBlocking() {
     }, [popoverDate]);
 
     /* ── Fetch data ── */
-    const fetchSlots = async () => {
-        setLoading(true);
+    const fetchSlots = async (showLoading = false) => {
+        if (showLoading) setLoading(true);
         try {
             const [blockedRes, bookedRes] = await Promise.all([
                 fetch(`${API_BASE}/api/admin/blocked-slots`, {
@@ -113,14 +113,14 @@ export default function AdminCalendarBlocking() {
         } catch (err) {
             console.error("Failed to fetch slots:", err);
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     };
 
     useEffect(() => {
         (async () => {
             try { await fetch("/sanctum/csrf-cookie", { credentials: "include" }); } catch {}
-            await fetchSlots();
+            await fetchSlots(true);
         })();
     }, []);
 
@@ -166,16 +166,25 @@ export default function AdminCalendarBlocking() {
     /* ── Block / Unblock ── */
     const toggleSlot = async (dateStr, time) => {
         if (isBooked(dateStr, time)) return;
-        setUpdating(true);
+        const wasBlocked = isBlocked(dateStr, time);
+
+        // Optimistic update
+        if (wasBlocked) {
+            setBlockedSlots((prev) => prev.filter((s) => !(normDate(s) === dateStr && s.blocked_time === time)));
+            showToast("Slot unblocked");
+        } else {
+            setBlockedSlots((prev) => [...prev, { blocked_date: dateStr, blocked_time: time }]);
+            showToast("Slot blocked");
+        }
+
         try {
-            if (isBlocked(dateStr, time)) {
+            if (wasBlocked) {
                 await fetch(`${API_BASE}/api/admin/blocked-slots/by-date-time`, {
                     method: "DELETE",
                     credentials: "include",
                     headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
                     body: JSON.stringify({ date: dateStr, time }),
                 });
-                showToast("Slot unblocked");
             } else {
                 await fetch(`${API_BASE}/api/admin/blocked-slots`, {
                     method: "POST",
@@ -183,14 +192,14 @@ export default function AdminCalendarBlocking() {
                     headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
                     body: JSON.stringify({ slots: [{ date: dateStr, time }] }),
                 });
-                showToast("Slot blocked");
             }
-            await fetchSlots();
+            // Sync with server in background
+            fetchSlots();
         } catch (err) {
             console.error(err);
-            alert("Something went wrong.");
-        } finally {
-            setUpdating(false);
+            // Revert on error
+            fetchSlots();
+            showToast("Something went wrong — reverted");
         }
     };
 
@@ -200,7 +209,14 @@ export default function AdminCalendarBlocking() {
         ).map((s) => ({ date: dateStr, time: s.value }));
 
         if (slotsToBlock.length === 0) return;
-        setUpdating(true);
+
+        // Optimistic update
+        setBlockedSlots((prev) => [
+            ...prev,
+            ...slotsToBlock.map((s) => ({ blocked_date: s.date, blocked_time: s.time })),
+        ]);
+        showToast(`Blocked ${slotsToBlock.length} slot(s)`);
+
         try {
             await fetch(`${API_BASE}/api/admin/blocked-slots`, {
                 method: "POST",
@@ -208,13 +224,11 @@ export default function AdminCalendarBlocking() {
                 headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
                 body: JSON.stringify({ slots: slotsToBlock }),
             });
-            showToast(`Blocked ${slotsToBlock.length} slot(s)`);
-            await fetchSlots();
+            fetchSlots();
         } catch (err) {
             console.error(err);
-            alert("Something went wrong.");
-        } finally {
-            setUpdating(false);
+            fetchSlots();
+            showToast("Something went wrong — reverted");
         }
     };
 
@@ -223,7 +237,15 @@ export default function AdminCalendarBlocking() {
             (s) => (s.blocked_date?.split("T")[0] || s.blocked_date) === dateStr
         );
         if (blockedForDate.length === 0) return;
-        setUpdating(true);
+
+        // Optimistic update — remove all blocked for this date instantly
+        const idsToRemove = new Set(blockedForDate.map((s) => s.id).filter(Boolean));
+        setBlockedSlots((prev) => prev.filter((s) => {
+            if (idsToRemove.size > 0) return !idsToRemove.has(s.id);
+            return normDate(s) !== dateStr;
+        }));
+        showToast(`Unblocked ${blockedForDate.length} slot(s)`);
+
         try {
             await Promise.all(
                 blockedForDate.map((s) =>
@@ -234,13 +256,11 @@ export default function AdminCalendarBlocking() {
                     })
                 )
             );
-            showToast(`Unblocked ${blockedForDate.length} slot(s)`);
-            await fetchSlots();
+            fetchSlots();
         } catch (err) {
             console.error(err);
-            alert("Something went wrong.");
-        } finally {
-            setUpdating(false);
+            fetchSlots();
+            showToast("Something went wrong — reverted");
         }
     };
 
