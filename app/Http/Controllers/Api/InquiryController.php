@@ -135,14 +135,26 @@ class InquiryController
         } catch (\Throwable $e) {
             \Log::error('[RMTY] InquiryNotification mail failed: ' . $e->getMessage());
         }
-        return response()->json($inquiry, 201);
-    }
+return response()->json([
+    ...$inquiry->toArray(),
+    'reference_id' => $inquiry->reference_id,   // already in toArray(), but explicit for clarity
+], 201);    }
 
     // GET /api/inquiries/{id}
     public function show(Inquiry $inquiry): JsonResponse
     {
         return response()->json($inquiry);
     }
+
+    public function showByReference(string $referenceId): \Illuminate\Http\JsonResponse
+{
+    $inquiry = \App\Models\Inquiry::where(
+        'reference_id',
+        strtoupper($referenceId)
+    )->firstOrFail();
+ 
+    return response()->json($inquiry);
+}
 
     // PUT /api/inquiries/{id}
     public function update(Request $request, Inquiry $inquiry): JsonResponse
@@ -327,24 +339,6 @@ class InquiryController
         return response()->json(['message' => 'Reply sent via Instagram.', 'inquiry' => $inquiry->fresh()]);
     }
 
-    private function replyViaViber(Inquiry $inquiry, string $message, int $userId): JsonResponse
-    {
-        $senderId = $inquiry->raw_payload['sender_id'] ?? null;
-        $name     = $inquiry->name ?? 'User';
-
-        if (!$senderId) {
-            return response()->json(['error' => 'No Viber sender ID found.'], 422);
-        }
-
-        $sent = $this->viberSender->send($senderId, $name, $message);
-
-        if (!$sent) {
-            return response()->json(['error' => 'Failed to send Viber reply.'], 500);
-        }
-
-        $inquiry->markReplied();
-        return response()->json(['message' => 'Reply sent via Viber.', 'inquiry' => $inquiry->fresh()]);
-    }
 
     private function buildSubject(string $message): string
     {

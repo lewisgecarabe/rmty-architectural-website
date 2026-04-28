@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Api\SearchController;
+ 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Inquiry;
@@ -39,6 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Global Search Route (Protected) ──
     Route::get('/admin/search', [SearchController::class, 'globalSearch']);
 });
+
+Route::get('/consultations/ref/{referenceId}', [ConsultationController::class, 'showByReference']);
 
 Route::get('/projects', [ProjectController::class, 'index']);
 Route::get('/projects/{slug}', [ProjectController::class, 'show']);
@@ -83,6 +86,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/contact-content', [ContactPageContentController::class, 'store']);
 });
 
+Route::post('/client/forgot-password',   [PasswordResetController::class, 'sendOtp']);
+Route::post('/client/verify-reset-otp',  [PasswordResetController::class, 'verifyOtp']);
+Route::post('/client/reset-password',    [PasswordResetController::class, 'resetPassword']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -120,6 +126,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update']);
     Route::delete('/inquiries/{inquiry}', [InquiryController::class, 'destroy']);
     Route::post('/inquiries/{inquiry}/reply', [InquiryController::class, 'reply']);
+        Route::get('/inquiries/ref/{referenceId}', [InquiryController::class, 'showByReference']);
+
 
 
 

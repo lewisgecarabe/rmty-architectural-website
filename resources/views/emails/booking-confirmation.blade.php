@@ -1,110 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consultation Confirmed</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Booking Confirmed</title>
+    <style>
+        body  { margin:0; padding:0; background:#f5f5f5; font-family:'Helvetica Neue',Arial,sans-serif; color:#111; }
+        .wrap { max-width:560px; margin:40px auto; background:#fff; border:1px solid #e5e5e5; }
+        .head { background:#000; padding:36px 40px; }
+        .head h1 { margin:0; color:#fff; font-size:22px; font-weight:700; letter-spacing:-.3px; }
+        .head p  { margin:6px 0 0; color:#aaa; font-size:12px; letter-spacing:.1em; text-transform:uppercase; }
+        .ref  { background:#f9f9f9; border-left:3px solid #000; margin:32px 40px 0; padding:14px 20px; }
+        .ref .label { font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#888; margin:0 0 4px; }
+        .ref .value { font-size:20px; font-weight:800; letter-spacing:.05em; color:#000; margin:0; font-variant-numeric:tabular-nums; }
+        .body { padding:32px 40px; }
+        .body p  { font-size:15px; line-height:1.6; color:#444; margin:0 0 20px; }
+        .table   { width:100%; border-collapse:collapse; margin:24px 0; }
+        .table td { padding:11px 0; border-bottom:1px solid #f0f0f0; font-size:13px; vertical-align:top; }
+        .table td:first-child { color:#888; font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:10px; width:42%; padding-right:12px; }
+        .table td:last-child  { color:#111; font-weight:600; }
+        .btn  { display:inline-block; margin-top:8px; padding:14px 28px; background:#000; color:#fff;
+                text-decoration:none; font-size:11px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; }
+        .foot { border-top:1px solid #f0f0f0; padding:24px 40px; font-size:11px; color:#bbb; line-height:1.6; }
+    </style>
 </head>
-<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f8; margin: 0; padding: 40px 20px; -webkit-font-smoothing: antialiased;">
+<body>
+<div class="wrap">
 
-    <div style="max-width: 540px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
-
-        {{-- Header --}}
-        <div style="background-color: #000000; padding: 40px; text-align: center;">
-            <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 900; letter-spacing: -0.05em; color: #ffffff; text-transform: uppercase;">RMTY</h2>
-            <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.25em; color: #737373; text-transform: uppercase;">Designs Studio</p>
-        </div>
-
-        {{-- Status Banner --}}
-        <div style="background-color: #f0fdf4; border-bottom: 1px solid #bbf7d0; padding: 18px 40px;">
-            <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: #15803d; text-transform: uppercase;">
-                &#10003; &nbsp; Consultation Successfully Confirmed
-            </p>
-        </div>
-
-        {{-- Body --}}
-        <div style="padding: 40px;">
-
-            <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: #a3a3a3; text-transform: uppercase;">Hello,</p>
-            <p style="margin: 0 0 20px 0; font-size: 22px; font-weight: 800; color: #000000; letter-spacing: -0.03em;">{{ $clientName }}.</p>
-
-            <p style="margin: 0 0 30px 0; font-size: 14px; line-height: 1.7; color: #525252;">
-                Your architecture consultation with <strong>RMTY Design</strong> has been successfully confirmed. We look forward to discussing your project and exploring how we can bring your vision to life.
-            </p>
-
-            {{-- Booking Summary --}}
-            <div style="border: 1px solid #e5e5e5; border-radius: 16px; overflow: hidden; margin-bottom: 30px;">
-                <div style="background-color: #000000; padding: 16px 24px;">
-                    <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: #737373; text-transform: uppercase;">Appointment Details</p>
-                </div>
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 0 24px;">
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase; width: 40%;">Client</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $clientName }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Date</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $consultationDate }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Time</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $consultationTime }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Location</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $location }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Project Type</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $projectType }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Status</td>
-                        <td style="padding: 16px 0; text-align: right;">
-                            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #15803d; text-transform: uppercase; background-color: #f0fdf4; padding: 4px 12px; border-radius: 99px; border: 1px solid #bbf7d0;">Confirmed</span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            @if(!empty($notes))
-            <div style="background-color: #fafafa; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px 24px; margin-bottom: 30px;">
-                <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; color: #a3a3a3; text-transform: uppercase;">Your Notes</p>
-                <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #525252; font-style: italic;">"{{ $notes }}"</p>
-            </div>
-            @endif
-
-            {{-- Manage Booking CTA --}}
-            <div style="text-align: center; margin-bottom: 30px;">
-                <a href="{{ $dashboardUrl }}" style="display: inline-block; background-color: #000000; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;">
-                    Manage My Booking
-                </a>
-            </div>
-
-            {{-- What's Next --}}
-            <div style="background-color: #f8fafc; border-left: 3px solid #3b82f6; padding: 20px 20px 20px 24px; border-radius: 0 8px 8px 0; margin-bottom: 16px;">
-                <p style="margin: 0 0 10px 0; font-size: 11px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.1em;">What Happens Next</p>
-                <ul style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 2; color: #1e3a8a;">
-                    <li>Our team will reach out prior to your scheduled date.</li>
-                    <li>You can manage or update your booking via the button above.</li>
-                </ul>
-            </div>
-
-        
-        </div>
-
-        <hr style="margin: 25px 0; border: none; border-top: 1px solid #e5e5e5;">
-
-<p style="font-size: 12px; color: #777; line-height: 1.6;">
-    📞 (+63) 915 896 2275<br>
-    📍 911 Josefina 2 Sampaloc, Manila, Philippines, 1008
-</p>
-        {{-- Footer --}}
-        <div style="background-color: #fafafa; border-top: 1px solid #f5f5f5; padding: 30px 40px; text-align: center;">
-            <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: #525252;">Warm regards, RMTY Designs Studio</p>
-            <p style="margin: 0; font-size: 10px; color: #a3a3a3; font-weight: 500;">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
-        </div>
-
+    <!-- Header -->
+    <div class="head">
+        <h1>Your Session is Confirmed.</h1>
+        <p>RMTY Architectural Design</p>
     </div>
+
+    <!-- Reference ID -->
+    <div class="ref">
+        <p class="label">Your Reference Number</p>
+        <p class="value">{{ $referenceId }}</p>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+        <p>Hi {{ $clientName }},</p>
+        <p>
+            We've received your consultation request and it has been confirmed.
+            Please keep your reference number — you'll need it for any follow-ups,
+            rescheduling, or support enquiries.
+        </p>
+
+        <table class="table">
+            <tr>
+                <td>Reference</td>
+                <td>{{ $referenceId }}</td>
+            </tr>
+            <tr>
+                <td>Project Type</td>
+                <td>{{ $projectType }}</td>
+            </tr>
+            <tr>
+                <td>Location</td>
+                <td>{{ $location }}</td>
+            </tr>
+            <tr>
+                <td>Date</td>
+                <td>{{ $consultationDate }}</td>
+            </tr>
+            <tr>
+                <td>Time</td>
+                <td>{{ $consultationTime }}</td>
+            </tr>
+            @if($phone)
+            <tr>
+                <td>Contact</td>
+                <td>{{ $phone }}</td>
+            </tr>
+            @endif
+            @if($notes)
+            <tr>
+                <td>Notes</td>
+                <td>{{ $notes }}</td>
+            </tr>
+            @endif
+        </table>
+
+        <p>
+            You can track the status of your consultation anytime through your
+            client dashboard.
+        </p>
+
+        <a href="{{ $dashboardUrl }}" class="btn">View Dashboard</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="foot">
+        <p>
+            Questions? Reply to this email or contact us at
+            <a href="mailto:hello@rmty.com" style="color:#111;">hello@rmty.com</a>
+            and quote your reference number <strong>{{ $referenceId }}</strong>.
+        </p>
+        <p style="margin-top:10px;color:#ccc;">
+            © {{ date('Y') }} RMTY Architectural Design. All rights reserved.
+        </p>
+    </div>
+
+</div>
 </body>
 </html>

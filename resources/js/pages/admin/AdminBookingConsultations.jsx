@@ -1135,12 +1135,16 @@ export default function AdminBookingConsultations() {
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Client
                                         </th>
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase hidden xl:table-cell">
+    Reference
+</th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Project Type
                                         </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Schedule
                                         </th>
+        
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Booking Status
                                         </th>
@@ -1211,7 +1215,11 @@ export default function AdminBookingConsultations() {
                                                         </div>
                                                     </div>
                                                 </td>
-
+<td className="py-4 px-5 align-middle hidden xl:table-cell">
+    <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+        {c.reference_id ?? "—"}
+    </span>
+</td>
                                                 <td className="py-4 px-5 align-middle">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
                                                         {c.project_type ||
@@ -1410,6 +1418,34 @@ export default function AdminBookingConsultations() {
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+                                {selected.reference_id && (
+    <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 flex items-center justify-between">
+        <div>
+            <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
+                Reference Number
+            </p>
+            <p className="font-mono text-base font-black text-neutral-900 tracking-wider">
+                {selected.reference_id}
+            </p>
+        </div>
+        <button
+            onClick={() => {
+                navigator.clipboard.writeText(selected.reference_id);
+            }}
+            title="Copy reference ID"
+            className="p-2 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+        >
+            {/* Clipboard icon */}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                 className="w-4 h-4">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+        </button>
+    </div>
+)}
+ 
                                 <div>
                                     <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
                                         Client

@@ -15,9 +15,16 @@ use App\Mail\BookingRescheduledMail;
 class ConsultationController extends Controller
 {
     // GET /api/admin/consultations  (admin)
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(Consultation::latest()->get());
+        $query = Consultation::latest();
+
+        // Allow searching by reference_id or client name/email from admin panel
+        if ($search = $request->query('search')) {
+            $query->search($search);
+        }
+
+        return response()->json($query->get());
     }
 
     // POST /api/consultations  (client — auto-accepts + sends confirmation email)
@@ -48,10 +55,10 @@ class ConsultationController extends Controller
             ], 409);
         }
 
-        // ── Create as ACCEPTED immediately ────────────────────────────────
+        // ── Create as ACCEPTED immediately (reference_id auto-generated) ──
         $consultation = Consultation::create([
             ...$validated,
-            'status'            => 'accepted',   // ← auto-accepted
+            'status'            => 'accepted',
             'is_published'      => 1,
             'reschedule_reason' => null,
         ]);
@@ -65,8 +72,9 @@ class ConsultationController extends Controller
         }
 
         return response()->json([
-            'message' => 'Consultation submitted successfully.',
-            'data'    => $consultation,
+            'message'      => 'Consultation submitted successfully.',
+            'data'         => $consultation,
+            'reference_id' => $consultation->reference_id,   // ← NEW
         ], 201);
     }
 
@@ -74,6 +82,15 @@ class ConsultationController extends Controller
     public function show($id): JsonResponse
     {
         return response()->json(Consultation::findOrFail($id));
+    }
+
+    // GET /api/consultations/ref/{referenceId}  ← NEW: look up by reference ID
+    public function showByReference(string $referenceId): JsonResponse
+    {
+        $consultation = Consultation::where('reference_id', strtoupper($referenceId))
+            ->firstOrFail();
+
+        return response()->json($consultation);
     }
 
     // PUT /api/consultations/{id}  (admin — sends email on cancel/reschedule)
@@ -141,11 +158,12 @@ class ConsultationController extends Controller
         }
 
         return response()->json([
-            'message'    => 'Consultation updated successfully.',
-            'data'       => $consultation,
-            'sms_sent'   => $smsSent,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
+            'message'      => 'Consultation updated successfully.',
+            'data'         => $consultation,
+            'reference_id' => $consultation->reference_id,   // ← NEW
+            'sms_sent'     => $smsSent,
+            'old_status'   => $oldStatus,
+            'new_status'   => $newStatus,
         ]);
     }
 

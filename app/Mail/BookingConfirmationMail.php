@@ -1,7 +1,5 @@
 <?php
-// ============================================================
-// FILE 1: app/Mail/BookingConfirmationMail.php
-// ============================================================
+
 namespace App\Mail;
 
 use App\Models\Consultation;
@@ -14,6 +12,7 @@ class BookingConfirmationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public string $referenceId;        // ← NEW
     public string $clientName;
     public string $email;
     public string $phone;
@@ -30,6 +29,7 @@ class BookingConfirmationMail extends Mailable
             ? Carbon::parse($consultation->consultation_date)
             : null;
 
+        $this->referenceId      = $consultation->reference_id;             // ← NEW
         $this->clientName       = trim($consultation->first_name . ' ' . $consultation->last_name);
         $this->email            = $consultation->email;
         $this->phone            = $consultation->phone ?? '';
@@ -43,9 +43,7 @@ class BookingConfirmationMail extends Mailable
 
     public function build(): self
     {
-        return $this->subject('Your Consultation is Confirmed — RMTY Designs')
+        return $this->subject("Booking Confirmed [{$this->referenceId}] — RMTY Designs")
                     ->view('emails.booking-confirmation');
     }
 }
-
-

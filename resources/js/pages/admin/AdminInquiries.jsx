@@ -1004,18 +1004,18 @@ export default function AdminInquiries() {
                                                         ] ?? thread.platform}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-4 align-middle hidden md:table-cell">
-                                                    <p
-                                                        className={`text-[12px] truncate max-w-[250px] xl:max-w-[350px] ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}
-                                                    >
-                                                        {thread.latestMsg
-                                                            .admin_reply
-                                                            ? `You: ${thread.latestMsg.admin_reply}`
-                                                            : thread.latestMsg
-                                                                  .message ||
-                                                              "—"}
-                                                    </p>
-                                                </td>
+                                               <td className="px-5 py-4 align-middle hidden md:table-cell">
+    {thread.latestMsg.reference_id && (
+        <span className="font-mono text-[10px] text-neutral-400 tracking-wider mr-2">
+            {thread.latestMsg.reference_id}
+        </span>
+    )}
+    <p className={`text-[12px] truncate max-w-[220px] xl:max-w-[320px] inline ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}>
+        {thread.latestMsg.admin_reply
+            ? `You: ${thread.latestMsg.admin_reply}`
+            : thread.latestMsg.message || "—"}
+    </p>
+</td>
                                                 <td className="px-5 py-4 align-middle">
                                                     <div className="flex items-center gap-2">
                                                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600">
@@ -1221,6 +1221,15 @@ export default function AdminInquiries() {
                                             selectedThread.platform
                                         ] ?? selectedThread.platform}
                                     </span>
+                                    {selectedThread.latestMsg?.reference_id && (
+    <span
+        className="ml-2 font-mono text-[10px] font-bold text-neutral-400 tracking-wider cursor-pointer hover:text-neutral-700 transition-colors"
+        title="Click to copy"
+        onClick={() => navigator.clipboard.writeText(selectedThread.latestMsg.reference_id)}
+    >
+        {selectedThread.latestMsg.reference_id}
+    </span>
+)}
                                     <button
                                         onClick={() => {
                                             setSelectedThreadKey(null);

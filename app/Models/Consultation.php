@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Services\ReferenceIdService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use DateTimeInterface;
 
 class Consultation extends Model
@@ -14,6 +15,7 @@ class Consultation extends Model
     }
 
     protected $fillable = [
+        'reference_id',       // ← NEW
         'first_name',
         'last_name',
         'email',
@@ -28,10 +30,21 @@ class Consultation extends Model
     ];
 
     protected $casts = [
-        'is_published' => 'boolean',
+        'is_published'      => 'boolean',
         'consultation_date' => 'datetime',
     ];
 
+    // ── Auto-generate reference_id on creation ────────────────────────────
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            if (empty($model->reference_id)) {
+                $model->reference_id = ReferenceIdService::forConsultation();
+            }
+        });
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('is_published', true);
@@ -45,11 +58,12 @@ class Consultation extends Model
     public function scopeSearch(Builder $query, string $term): Builder
     {
         return $query->where(function (Builder $q) use ($term) {
-            $q->where('first_name', 'like', "%{$term}%")
-                ->orWhere('last_name', 'like', "%{$term}%")
-                ->orWhere('email', 'like', "%{$term}%")
-                ->orWhere('phone', 'like', "%{$term}%")
-                ->orWhere('status', 'like', "%{$term}%");
+            $q->where('first_name',    'like', "%{$term}%")
+              ->orWhere('last_name',   'like', "%{$term}%")
+              ->orWhere('email',       'like', "%{$term}%")
+              ->orWhere('phone',       'like', "%{$term}%")
+              ->orWhere('status',      'like', "%{$term}%")
+              ->orWhere('reference_id','like', "%{$term}%");   // ← NEW
         });
     }
 }

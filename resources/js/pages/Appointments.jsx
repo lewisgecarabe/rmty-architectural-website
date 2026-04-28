@@ -175,13 +175,30 @@ export default function Appointments() {
                 throw new Error(data.message || "Submission failed.");
             }
 
-            await Swal.fire({
-                icon: "success",
-                title: "Session Requested",
-                text: "We will contact you shortly to confirm your consultation schedule.",
-                confirmButtonColor: "#000000",
-                confirmButtonText: "Go to Dashboard",
-            });
+            const referenceId = data?.reference_id ?? data?.data?.reference_id ?? null;
+ 
+await Swal.fire({
+    icon: "success",
+    title: "Session Confirmed",
+    html: referenceId
+        ? `<p style="color:#555;font-size:14px;margin-bottom:8px;">
+               A confirmation email has been sent to you.
+           </p>
+           <div style="background:#f5f5f5;border-left:3px solid #000;padding:12px 16px;text-align:left;margin-top:12px;">
+               <p style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#888;margin:0 0 4px;">
+                   Your Reference Number
+               </p>
+               <p style="font-size:20px;font-weight:800;color:#000;margin:0;font-family:monospace;">
+                   ${referenceId}
+               </p>
+           </div>
+           <p style="font-size:12px;color:#aaa;margin-top:10px;">
+               Keep this number for follow-ups and rescheduling.
+           </p>`
+        : "We will contact you shortly to confirm your consultation schedule.",
+    confirmButtonColor: "#000000",
+    confirmButtonText: "Go to Dashboard",
+});
 
             navigate("/user/dashboard");
 
@@ -431,6 +448,16 @@ function OngoingConsultationBlock({ consultation, onDashboard }) {
               weekday: "long", year: "numeric", month: "long", day: "numeric",
           })
         : "To be confirmed";
+const rows = [
+    ...(consultation?.reference_id
+        ? [{ label: "Reference No.", value: consultation.reference_id, mono: true }]
+        : []),
+    { label: "Project Type", value: consultation?.project_type ?? "—" },
+    { label: "Location",     value: consultation?.location ?? "—" },
+    { label: "Date",         value: formattedDate },
+    { label: "Time",         value: formattedTime || "—" },
+    { label: "Status",       value: s.label, highlight: true, color: s.text },
+];
 
     const formattedTime = consultation?.consultation_date
         ? new Date(consultation.consultation_date).toLocaleTimeString("en-US", {
@@ -485,22 +512,16 @@ function OngoingConsultationBlock({ consultation, onDashboard }) {
                                     </p>
                                 </div>
                                 <div className="divide-y divide-neutral-100">
-                                    {[
-                                        { label: "Project Type", value: consultation?.project_type ?? "—" },
-                                        { label: "Location",     value: consultation?.location ?? "—" },
-                                        { label: "Date",         value: formattedDate },
-                                        { label: "Time",         value: formattedTime || "—" },
-                                        { label: "Status",       value: s.label, highlight: true, color: s.text },
-                                    ].map(({ label, value, highlight, color }) => (
-                                        <div key={label} className="flex justify-between items-center px-6 py-4">
-                                            <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-neutral-400">
-                                                {label}
-                                            </span>
-                                            <span className={`text-[13px] font-semibold ${highlight ? color : "text-neutral-800"}`}>
-                                                {value}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {rows.map(({ label, value, highlight, color, mono }) => (
+    <div key={label} className="flex justify-between items-center px-6 py-4">
+        <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-neutral-400">
+            {label}
+        </span>
+        <span className={`text-[13px] font-semibold ${highlight ? color : "text-neutral-800"} ${mono ? "font-mono tracking-wider" : ""}`}>
+            {value}
+        </span>
+    </div>
+))}
                                 </div>
                             </div>
 
