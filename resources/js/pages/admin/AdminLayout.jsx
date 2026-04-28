@@ -125,16 +125,26 @@ function AdminSidebar({ isOpen, setIsOpen }) {
         },
     ];
 
-   const systemNav = [
-    { label: "Platform Settings", to: "/admin/settings", icon: <SettingsIcon /> },
+    const systemNav = [
+        {
+            label: "Platform Settings",
+            to: "/admin/settings",
+            icon: <SettingsIcon />,
+        },
 
-    // ✅ ONLY SUPER ADMIN CAN SEE THIS
-    ...(role === "super_admin"
-        ? [{ label: "User Management", to: "/admin/users", icon: <UsersIcon /> }]
-        : []),
+        // ✅ ONLY SUPER ADMIN CAN SEE THIS
+        ...(role === "super_admin"
+            ? [
+                  {
+                      label: "User Management",
+                      to: "/admin/users",
+                      icon: <UsersIcon />,
+                  },
+              ]
+            : []),
 
-    { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
-];
+        { label: "Profile", to: "/admin/profile", icon: <UserIcon /> },
+    ];
 
     useEffect(() => {
         if (location.pathname.startsWith("/admin/content")) {
@@ -446,10 +456,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                             key,
                             name: inq.name || "Unknown",
                             subtitle:
-                                inq.email ||
-                                inq.phone ||
-                                inq.platform ||
-                                "",
+                                inq.email || inq.phone || inq.platform || "",
                             platform: inq.platform,
                             inquiries: [],
                         };
@@ -524,9 +531,7 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
     }, [notifOpen, notifItems, notifPos]);
 
     const markAllSeen = () => {
-        const seenMap = JSON.parse(
-            localStorage.getItem("seenNotifs") || "{}",
-        );
+        const seenMap = JSON.parse(localStorage.getItem("seenNotifs") || "{}");
         const now = new Date().toISOString();
         notifItems.forEach((item) => {
             seenMap[item.threadKey] = now;
@@ -589,16 +594,6 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                     <SleekSearchIcon className="w-4 h-4" />
                                     <span>Search...</span>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-[10px] font-bold text-neutral-400">
-                                        {navigator.platform.includes("Mac")
-                                            ? "⌘"
-                                            : "Ctrl"}
-                                    </span>
-                                    <span className="px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-[10px] font-bold text-neutral-400">
-                                        K
-                                    </span>
-                                </div>
                             </button>
                         </div>
 
@@ -606,17 +601,9 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                         <div className="relative" ref={notifRef}>
                             <button
                                 onClick={() => {
-                                    console.log("Notification bell clicked, notifOpen:", notifOpen);
                                     if (!notifOpen && notifRef.current) {
-                                        const rect =
-                                            notifRef.current.getBoundingClientRect();
-                                        console.log("Button rect:", rect);
+                                        const rect = notifRef.current.getBoundingClientRect();
                                         setNotifPos({
-                                            top: rect.bottom + 12,
-                                            right:
-                                                window.innerWidth - rect.right,
-                                        });
-                                        console.log("Set position to:", {
                                             top: rect.bottom + 12,
                                             right: window.innerWidth - rect.right,
                                         });
@@ -624,15 +611,27 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                     setNotifOpen(!notifOpen);
                                     setDropdownOpen(false);
                                 }}
-                                className="relative text-neutral-400 hover:text-black transition-colors duration-200 outline-none cursor-pointer"
+                                className={`relative p-2 rounded-full transition-all duration-300 outline-none cursor-pointer group ${
+                                    notifOpen ? "bg-neutral-100 text-black" : "text-neutral-400 hover:text-black hover:bg-neutral-50"
+                                }`}
                             >
                                 <SleekBellIcon />
-                                {notifCount > 0 ? (
-                                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-[#f7f7f8] text-[9px] font-black text-white leading-none">
-                                        {notifCount > 9 ? "9+" : notifCount}
-                                    </span>
-                                ) : (
-                                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500 border border-[#f7f7f8]"></span>
+                                
+                                {notifCount > 0 && (
+                                    <>
+                                        {/* Pulsing Outer Ring */}
+                                        <span className="absolute top-1.5 right-1.5 flex h-3 w-3">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border-2 border-[#f7f7f8]"></span>
+                                        </span>
+                                        
+                                        {/* Optional: Small Number Badge if you prefer numbers */}
+                                        {/* 
+                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white border-2 border-[#f7f7f8]">
+                                            {notifCount > 9 ? '9+' : notifCount}
+                                        </span> 
+                                        */}
+                                    </>
                                 )}
                             </button>
                         </div>
@@ -641,11 +640,27 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                 {notifOpen && (
                                     <motion.div
                                         ref={notifDropdownRef}
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        initial={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        transition={{ duration: 0.2, ease: smoothEase }}
-                                        style={{ position: "fixed", top: notifPos.top, right: notifPos.right, width: 280 }}
+                                        exit={{
+                                            opacity: 0,
+                                            y: 10,
+                                            scale: 0.95,
+                                        }}
+                                        transition={{
+                                            duration: 0.2,
+                                            ease: smoothEase,
+                                        }}
+                                        style={{
+                                            position: "fixed",
+                                            top: notifPos.top,
+                                            right: notifPos.right,
+                                            width: 280,
+                                        }}
                                         className="bg-white border border-neutral-200 rounded-2xl p-4 z-[9999] shadow-xl origin-top-right"
                                         onMouseDown={(e) => e.stopPropagation()}
                                     >
@@ -654,7 +669,9 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                                 Notifications
                                             </span>
                                             <button
-                                                onClick={() => setNotifOpen(false)}
+                                                onClick={() =>
+                                                    setNotifOpen(false)
+                                                }
                                                 className="text-neutral-400 hover:text-neutral-900 cursor-pointer outline-none"
                                             >
                                                 <CloseIcon className="w-4 h-4" />
@@ -674,23 +691,67 @@ function AdminTopbar({ profile, onProfileUpdate, onMenuClick }) {
                                                         <button
                                                             key={item.id}
                                                             onClick={() => {
-                                                                const seenMap = JSON.parse(localStorage.getItem("seenNotifs") || "{}");
-                                                                seenMap[item.threadKey] = new Date().toISOString();
-                                                                localStorage.setItem("seenNotifs", JSON.stringify(seenMap));
-                                                                setNotifItems((prev) => prev.filter((n) => n.id !== item.id));
-                                                                setNotifCount((prev) => Math.max(0, prev - 1));
-                                                                navigate("/admin/inquiries", { state: { openThreadKey: item.threadKey } });
-                                                                setNotifOpen(false);
+                                                                const seenMap =
+                                                                    JSON.parse(
+                                                                        localStorage.getItem(
+                                                                            "seenNotifs",
+                                                                        ) ||
+                                                                            "{}",
+                                                                    );
+                                                                seenMap[
+                                                                    item.threadKey
+                                                                ] =
+                                                                    new Date().toISOString();
+                                                                localStorage.setItem(
+                                                                    "seenNotifs",
+                                                                    JSON.stringify(
+                                                                        seenMap,
+                                                                    ),
+                                                                );
+                                                                setNotifItems(
+                                                                    (prev) =>
+                                                                        prev.filter(
+                                                                            (
+                                                                                n,
+                                                                            ) =>
+                                                                                n.id !==
+                                                                                item.id,
+                                                                        ),
+                                                                );
+                                                                setNotifCount(
+                                                                    (prev) =>
+                                                                        Math.max(
+                                                                            0,
+                                                                            prev -
+                                                                                1,
+                                                                        ),
+                                                                );
+                                                                navigate(
+                                                                    "/admin/inquiries",
+                                                                    {
+                                                                        state: {
+                                                                            openThreadKey:
+                                                                                item.threadKey,
+                                                                        },
+                                                                    },
+                                                                );
+                                                                setNotifOpen(
+                                                                    false,
+                                                                );
                                                             }}
                                                             className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-50 text-left transition-colors cursor-pointer w-full"
                                                         >
                                                             <div className="mt-1 h-2 w-2 rounded-full shrink-0 bg-blue-500" />
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-[12px] font-bold text-neutral-900 leading-tight truncate">
-                                                                    New inquiry from {item.title}
+                                                                    New inquiry
+                                                                    from{" "}
+                                                                    {item.title}
                                                                 </p>
                                                                 <p className="text-[11px] text-neutral-400 truncate">
-                                                                    {item.subtitle}
+                                                                    {
+                                                                        item.subtitle
+                                                                    }
                                                                 </p>
                                                             </div>
                                                         </button>

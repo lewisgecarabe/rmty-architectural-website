@@ -34,7 +34,7 @@ import ForgotPassword from "./pages/admin/ForgotPassword";
 import AuthPage from "./pages/authpage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard";
-import AdminBookingConsultations from "./pages/admin/AdminBookingConsultations";
+import AdminBookingConsultations from "./pages/admin/AdminAppointments";
 import AdminCalendarBlocking from "./pages/admin/AdminCalendarBlocking";
 import AdminContentServices from "./pages/admin/AdminContentServices";
 import AdminContentProjects from "./pages/admin/AdminContentProjects";

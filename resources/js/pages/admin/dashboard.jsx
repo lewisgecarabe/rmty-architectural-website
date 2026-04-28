@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const smoothEase = [0.22, 1, 0.36, 1];
@@ -28,25 +28,48 @@ function timeAgo(dateStr) {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return new Date(dateStr).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+    });
 }
 
 const getStatusMeta = (status) => {
     switch (status) {
         case "accepted":
-            return { label: "Accepted", className: "border-emerald-200 bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" };
+            return {
+                label: "Accepted",
+                className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+                dot: "bg-emerald-500",
+            };
         case "cancelled":
-            return { label: "Cancelled", className: "border-red-200 bg-red-50 text-red-700", dot: "bg-red-500" };
+            return {
+                label: "Cancelled",
+                className: "border-red-200 bg-red-50 text-red-700",
+                dot: "bg-red-500",
+            };
         case "rescheduled":
-            return { label: "Rescheduled", className: "border-blue-200 bg-blue-50 text-blue-700", dot: "bg-blue-500" };
+            return {
+                label: "Rescheduled",
+                className: "border-blue-200 bg-blue-50 text-blue-700",
+                dot: "bg-blue-500",
+            };
         default:
-            return { label: "Pending", className: "border-amber-200 bg-amber-50 text-amber-700", dot: "bg-amber-500" };
+            return {
+                label: "Pending",
+                className: "border-amber-200 bg-amber-50 text-amber-700",
+                dot: "bg-amber-500",
+            };
     }
 };
 
 function parseLocalDate(dateStr) {
     if (!dateStr) return null;
-    const raw = String(dateStr).replace(" ", "T").replace(/\.\d+Z$/i, "").replace(/Z$/i, "").replace(/[+-]\d{2}:\d{2}$/, "");
+    const raw = String(dateStr)
+        .replace(" ", "T")
+        .replace(/\.\d+Z$/i, "")
+        .replace(/Z$/i, "")
+        .replace(/[+-]\d{2}:\d{2}$/, "");
     const d = new Date(raw);
     return isNaN(d.getTime()) ? null : d;
 }
@@ -56,8 +79,16 @@ function formatSchedule(dateStr) {
     const d = parseLocalDate(dateStr);
     if (!d) return { date: dateStr, time: "" };
     return {
-        date: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
-        time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true }),
+        date: d.toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+        }),
+        time: d.toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        }),
     };
 }
 
@@ -69,10 +100,23 @@ function getRelativeDay(dateStr) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return { text: "Past", cls: "text-red-500 bg-red-50 border-red-200" };
-    if (diff === 0) return { text: "Today", cls: "text-emerald-600 bg-emerald-50 border-emerald-200" };
-    if (diff === 1) return { text: "Tomorrow", cls: "text-blue-600 bg-blue-50 border-blue-200" };
-    if (diff <= 7) return { text: `In ${diff}d`, cls: "text-blue-600 bg-blue-50 border-blue-200" };
+    if (diff < 0)
+        return { text: "Past", cls: "text-red-500 bg-red-50 border-red-200" };
+    if (diff === 0)
+        return {
+            text: "Today",
+            cls: "text-emerald-600 bg-emerald-50 border-emerald-200",
+        };
+    if (diff === 1)
+        return {
+            text: "Tomorrow",
+            cls: "text-blue-600 bg-blue-50 border-blue-200",
+        };
+    if (diff <= 7)
+        return {
+            text: `In ${diff}d`,
+            cls: "text-blue-600 bg-blue-50 border-blue-200",
+        };
     return null;
 }
 
@@ -91,15 +135,22 @@ function buildMonthlyChart(inquiries, consultations) {
     }
     inquiries.forEach((inq) => {
         const d = new Date(inq.created_at);
-        const slot = months.find((m) => m.monthIdx === d.getMonth() && m.year === d.getFullYear());
+        const slot = months.find(
+            (m) => m.monthIdx === d.getMonth() && m.year === d.getFullYear(),
+        );
         if (slot) slot.inquiries++;
     });
     consultations.forEach((c) => {
         const d = new Date(c.created_at);
-        const slot = months.find((m) => m.monthIdx === d.getMonth() && m.year === d.getFullYear());
+        const slot = months.find(
+            (m) => m.monthIdx === d.getMonth() && m.year === d.getFullYear(),
+        );
         if (slot) slot.consultations++;
     });
-    const maxVal = Math.max(...months.map((m) => Math.max(m.inquiries, m.consultations)), 1);
+    const maxVal = Math.max(
+        ...months.map((m) => Math.max(m.inquiries, m.consultations)),
+        1,
+    );
     return months.map((m) => ({
         ...m,
         inquiriesPct: Math.round((m.inquiries / maxVal) * 100),
@@ -108,9 +159,15 @@ function buildMonthlyChart(inquiries, consultations) {
 }
 
 export default function AdminDashboard() {
+    const navigate = useNavigate();
     const [adminName, setAdminName] = useState("Admin");
     const [loading, setLoading] = useState(true);
-    const [inquiryStats, setInquiryStats] = useState({ total: 0, new: 0, replied: 0, archived: 0 });
+    const [inquiryStats, setInquiryStats] = useState({
+        total: 0,
+        new: 0,
+        replied: 0,
+        archived: 0,
+    });
     const [recentInquiries, setRecentInquiries] = useState([]);
     const [allInquiries, setAllInquiries] = useState([]);
     const [consultations, setConsultations] = useState([]);
@@ -120,7 +177,14 @@ export default function AdminDashboard() {
         let cancelled = false;
         (async () => {
             try {
-                const [meRes, statsRes, recentRes, allInqRes, consultRes, projRes] = await Promise.allSettled([
+                const [
+                    meRes,
+                    statsRes,
+                    recentRes,
+                    allInqRes,
+                    consultRes,
+                    projRes,
+                ] = await Promise.allSettled([
                     apiFetch("/admin/me"),
                     apiFetch("/inquiries/stats"),
                     apiFetch("/inquiries?per_page=5&status=new"),
@@ -132,39 +196,73 @@ export default function AdminDashboard() {
                 if (cancelled) return;
 
                 if (meRes.status === "fulfilled") {
-                    const name = meRes.value?.data?.first_name || meRes.value?.data?.name?.split(" ")[0];
+                    const name =
+                        meRes.value?.data?.first_name ||
+                        meRes.value?.data?.name?.split(" ")[0];
                     if (name) setAdminName(name);
                 }
-                if (statsRes.status === "fulfilled") setInquiryStats(statsRes.value);
-                if (recentRes.status === "fulfilled") setRecentInquiries(recentRes.value?.data?.slice(0, 5) || []);
-                if (allInqRes.status === "fulfilled") setAllInquiries(allInqRes.value?.data || []);
-                if (consultRes.status === "fulfilled") setConsultations(Array.isArray(consultRes.value) ? consultRes.value : []);
-                if (projRes.status === "fulfilled") setProjects(Array.isArray(projRes.value) ? projRes.value : []);
+                if (statsRes.status === "fulfilled")
+                    setInquiryStats(statsRes.value);
+                if (recentRes.status === "fulfilled")
+                    setRecentInquiries(
+                        recentRes.value?.data?.slice(0, 5) || [],
+                    );
+                if (allInqRes.status === "fulfilled")
+                    setAllInquiries(allInqRes.value?.data || []);
+                if (consultRes.status === "fulfilled")
+                    setConsultations(
+                        Array.isArray(consultRes.value) ? consultRes.value : [],
+                    );
+                if (projRes.status === "fulfilled")
+                    setProjects(
+                        Array.isArray(projRes.value) ? projRes.value : [],
+                    );
             } catch (err) {
                 console.error("Dashboard load error:", err);
             } finally {
                 if (!cancelled) setLoading(false);
             }
         })();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
-    const activeConsultations = consultations.filter((c) => c.is_published !== false && c.is_published !== 0 && c.status !== "archived");
-    const pendingConsultations = activeConsultations.filter((c) => c.status === "pending").length;
+    const activeConsultations = consultations.filter(
+        (c) =>
+            c.is_published !== false &&
+            c.is_published !== 0 &&
+            c.status !== "archived",
+    );
+    const pendingConsultations = activeConsultations.filter(
+        (c) => c.status === "pending",
+    ).length;
     const upcomingConsultations = activeConsultations.filter((c) => {
-        if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
+        if (!["pending", "accepted", "rescheduled"].includes(c.status))
+            return false;
         const d = parseLocalDate(c.consultation_date);
         return d && d >= new Date();
     }).length;
 
     const nowDate = new Date();
-    const todayDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+    const todayDate = new Date(
+        nowDate.getFullYear(),
+        nowDate.getMonth(),
+        nowDate.getDate(),
+    );
     const tomorrowDate = new Date(todayDate.getTime() + 86400000);
-    const todaysAppointments = activeConsultations.filter((c) => {
-        if (!["pending", "accepted", "rescheduled"].includes(c.status)) return false;
-        const d = parseLocalDate(c.consultation_date);
-        return d && d >= todayDate && d < tomorrowDate;
-    }).sort((a, b) => (parseLocalDate(a.consultation_date) || 0) - (parseLocalDate(b.consultation_date) || 0));
+    const todaysAppointments = activeConsultations
+        .filter((c) => {
+            if (!["pending", "accepted", "rescheduled"].includes(c.status))
+                return false;
+            const d = parseLocalDate(c.consultation_date);
+            return d && d >= todayDate && d < tomorrowDate;
+        })
+        .sort(
+            (a, b) =>
+                (parseLocalDate(a.consultation_date) || 0) -
+                (parseLocalDate(b.consultation_date) || 0),
+        );
 
     const recentAppointments = [...activeConsultations]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -173,7 +271,8 @@ export default function AdminDashboard() {
     const publishedProjects = projects.filter((p) => p.is_published).length;
     const draftProjects = projects.filter((p) => !p.is_published).length;
     const totalProjects = projects.length;
-    const publishedPct = totalProjects > 0 ? publishedProjects / totalProjects : 0;
+    const publishedPct =
+        totalProjects > 0 ? publishedProjects / totalProjects : 0;
 
     const chartData = buildMonthlyChart(allInquiries, consultations);
 
@@ -351,7 +450,8 @@ export default function AdminDashboard() {
                                             className="w-3 sm:w-4 lg:w-5 bg-neutral-200 rounded-full relative cursor-pointer hover:bg-neutral-300 transition-colors"
                                         >
                                             <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 bg-white border border-neutral-200 text-neutral-900 text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">
-                                                {data.consultations} consultations
+                                                {data.consultations}{" "}
+                                                consultations
                                             </div>
                                         </motion.div>
                                     </div>
@@ -381,37 +481,66 @@ export default function AdminDashboard() {
                                 className="w-full h-full transform -rotate-90"
                                 viewBox="0 0 100 100"
                             >
-                                <circle cx="50" cy="50" r="44" fill="transparent" stroke="#f5f5f5" strokeWidth="4" />
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="44"
+                                    fill="transparent"
+                                    stroke="#f5f5f5"
+                                    strokeWidth="4"
+                                />
                                 <motion.circle
-                                    cx="50" cy="50" r="44"
+                                    cx="50"
+                                    cy="50"
+                                    r="44"
                                     fill="transparent"
                                     stroke="#0a0a0a"
                                     strokeWidth="4"
                                     strokeDasharray={2 * Math.PI * 44}
-                                    initial={{ strokeDashoffset: 2 * Math.PI * 44 }}
-                                    animate={{ strokeDashoffset: 2 * Math.PI * 44 - 2 * Math.PI * 44 * publishedPct }}
-                                    transition={{ duration: 1.5, ease: smoothEase, delay: 0.5 }}
+                                    initial={{
+                                        strokeDashoffset: 2 * Math.PI * 44,
+                                    }}
+                                    animate={{
+                                        strokeDashoffset:
+                                            2 * Math.PI * 44 -
+                                            2 * Math.PI * 44 * publishedPct,
+                                    }}
+                                    transition={{
+                                        duration: 1.5,
+                                        ease: smoothEase,
+                                        delay: 0.5,
+                                    }}
                                     strokeLinecap="round"
                                 />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-4xl font-black text-neutral-900 leading-none">{totalProjects}</span>
-                                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-neutral-400 mt-1">Total</span>
+                                <span className="text-4xl font-black text-neutral-900 leading-none">
+                                    {totalProjects}
+                                </span>
+                                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-neutral-400 mt-1">
+                                    Total
+                                </span>
                             </div>
                         </div>
 
                         <div className="w-full flex justify-around px-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                             <div className="flex flex-col items-center gap-1">
-                                <span className="text-lg font-black text-neutral-900">{publishedProjects}</span>
+                                <span className="text-lg font-black text-neutral-900">
+                                    {publishedProjects}
+                                </span>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-900"></span> Published
+                                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-900"></span>{" "}
+                                    Published
                                 </div>
                             </div>
                             <div className="w-px h-8 bg-neutral-100"></div>
                             <div className="flex flex-col items-center gap-1">
-                                <span className="text-lg font-black text-neutral-400">{draftProjects}</span>
+                                <span className="text-lg font-black text-neutral-400">
+                                    {draftProjects}
+                                </span>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-200"></span> Archived
+                                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-200"></span>{" "}
+                                    Archived
                                 </div>
                             </div>
                         </div>
@@ -429,7 +558,8 @@ export default function AdminDashboard() {
                                 Today's Schedule
                             </h2>
                             <span className="text-[10px] font-bold tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded uppercase">
-                                {todaysAppointments.length} appointment{todaysAppointments.length !== 1 ? "s" : ""}
+                                {todaysAppointments.length} appointment
+                                {todaysAppointments.length !== 1 ? "s" : ""}
                             </span>
                         </div>
                         <Link
@@ -444,7 +574,11 @@ export default function AdminDashboard() {
                             const sched = formatSchedule(c.consultation_date);
                             const meta = getStatusMeta(c.status);
                             return (
-                                <div key={c.id} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50 transition-colors">
+                                <div 
+                                    key={c.id} 
+                                    onClick={() => navigate("/admin/consultations", { state: { openAppointmentId: c.id, status: c.status } })}
+                                    className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50 transition-colors cursor-pointer"
+                                >
                                     <div className="flex items-center gap-3 min-w-0">
                                         <img
                                             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${c.first_name || ""} ${c.last_name || ""}`)}&background=f3f4f6&color=000000&rounded=true&size=32`}
@@ -452,14 +586,24 @@ export default function AdminDashboard() {
                                             className="w-8 h-8 rounded-full shrink-0"
                                         />
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold text-neutral-900 truncate">{c.first_name} {c.last_name}</p>
-                                            <p className="text-[11px] font-medium text-neutral-400 truncate">{c.project_type || "General"}</p>
+                                            <p className="text-sm font-bold text-neutral-900 truncate">
+                                                {c.first_name} {c.last_name}
+                                            </p>
+                                            <p className="text-[11px] font-medium text-neutral-400 truncate">
+                                                {c.project_type || "General"}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 shrink-0">
-                                        <span className="text-xs font-bold text-neutral-700">{sched.time}</span>
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                                        <span className="text-xs font-bold text-neutral-700">
+                                            {sched.time}
+                                        </span>
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}
+                                        >
+                                            <span
+                                                className={`w-1.5 h-1.5 rounded-full ${meta.dot}`}
+                                            />
                                             {meta.label}
                                         </span>
                                     </div>
@@ -490,28 +634,55 @@ export default function AdminDashboard() {
                         <table className="w-full text-left border-collapse whitespace-nowrap h-full">
                             <thead className="bg-white border-b border-neutral-100">
                                 <tr>
-                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Contact</th>
-                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Platform</th>
-                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">Received</th>
+                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                        Contact
+                                    </th>
+                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                        Reference
+                                    </th>
+                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                        Platform
+                                    </th>
+                                    <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">
+                                        Received
+                                    </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-neutral-100">
+                            <tbody className="divide-y divide-neutral-100 cursor-pointer">
                                 {recentInquiries.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="py-12 px-6 text-center text-sm font-medium text-neutral-400">
+                                        <td
+                                            colSpan={4}
+                                            className="py-12 px-6 text-center text-sm font-medium text-neutral-400"
+                                        >
                                             No new inquiries
                                         </td>
                                     </tr>
                                 ) : (
-                                    recentInquiries.map((inq) => (
-                                        <tr key={inq.id} className="group hover:bg-neutral-50 transition-colors h-[73px]">
-                                            <td className="py-4 px-6 align-middle">
+                                    recentInquiries.map((inq) => {
+                                        const threadKey = inq.email || inq.phone || `id_${inq.id}`;
+                                        return (
+                                            <tr 
+                                                key={inq.id} 
+                                                onClick={() => navigate("/admin/inquiries", { state: { openThreadKey: threadKey } })}
+                                                className="group hover:bg-neutral-50 transition-colors h-[73px] cursor-pointer"
+                                            >
+                                                <td className="py-4 px-6 align-middle">
                                                 <p className="text-sm font-bold text-neutral-900">
-                                                    {inq.name || inq.first_name || "Unknown"}
+                                                    {inq.name ||
+                                                        inq.first_name ||
+                                                        "Unknown"}
                                                 </p>
                                                 <p className="text-[11px] font-medium text-neutral-500 mt-0.5">
-                                                    {inq.email || inq.phone || "—"}
+                                                    {inq.email ||
+                                                        inq.phone ||
+                                                        "—"}
                                                 </p>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle">
+                                                <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+                                                    {inq.reference_id || "—"}
+                                                </span>
                                             </td>
                                             <td className="py-4 px-6 align-middle">
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-blue-200 bg-blue-50 text-blue-700">
@@ -525,7 +696,8 @@ export default function AdminDashboard() {
                                                 </p>
                                             </td>
                                         </tr>
-                                    ))
+                                    );
+                                })
                                 )}
                             </tbody>
                         </table>
@@ -630,28 +802,54 @@ export default function AdminDashboard() {
                     <table className="w-full text-left border-collapse whitespace-nowrap">
                         <thead className="bg-white border-b border-neutral-100">
                             <tr>
-                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Client</th>
-                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">Project</th>
-                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">Schedule</th>
-                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">Status</th>
-                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">Submitted</th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                    Client
+                                </th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                    Reference
+                                </th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                    Project
+                                </th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
+                                    Schedule
+                                </th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
+                                    Status
+                                </th>
+                                <th className="py-4 px-6 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-right">
+                                    Submitted
+                                </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-neutral-100">
+                        <tbody className="divide-y divide-neutral-100 cursor-pointer">
                             {recentAppointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="py-12 px-6 text-center text-sm font-medium text-neutral-400">
+                                    <td
+                                        colSpan={6}
+                                        className="py-12 px-6 text-center text-sm font-medium text-neutral-400"
+                                    >
                                         No appointments yet
                                     </td>
                                 </tr>
                             ) : (
                                 recentAppointments.map((c) => {
-                                    const sched = formatSchedule(c.consultation_date);
-                                    const rel = getRelativeDay(c.consultation_date);
+                                    const sched = formatSchedule(
+                                        c.consultation_date,
+                                    );
+                                    const rel = getRelativeDay(
+                                        c.consultation_date,
+                                    );
                                     const meta = getStatusMeta(c.status);
-                                    const isPast = rel?.text === "Past" && c.status !== "cancelled";
+                                    const isPast =
+                                        rel?.text === "Past" &&
+                                        c.status !== "cancelled";
                                     return (
-                                        <tr key={c.id} className={`group hover:bg-neutral-50 transition-colors h-[73px] ${isPast ? "opacity-50" : ""}`}>
+                                        <tr 
+                                            key={c.id} 
+                                            onClick={() => navigate("/admin/consultations", { state: { openAppointmentId: c.id, status: c.status } })}
+                                            className={`group hover:bg-neutral-50 transition-colors h-[73px] cursor-pointer ${isPast ? "opacity-50" : ""}`}
+                                        >
                                             <td className="py-4 px-6 align-middle">
                                                 <div className="flex items-center gap-3">
                                                     <img
@@ -660,10 +858,20 @@ export default function AdminDashboard() {
                                                         className="w-8 h-8 rounded-full shrink-0"
                                                     />
                                                     <div>
-                                                        <p className="text-sm font-bold text-neutral-900 truncate max-w-[160px]">{c.first_name} {c.last_name}</p>
-                                                        <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5">{c.email}</p>
+                                                        <p className="text-sm font-bold text-neutral-900 truncate max-w-[160px]">
+                                                            {c.first_name}{" "}
+                                                            {c.last_name}
+                                                        </p>
+                                                        <p className="text-[11px] font-medium text-neutral-400 truncate max-w-[200px] mt-0.5">
+                                                            {c.email}
+                                                        </p>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="py-4 px-6 align-middle">
+                                                <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+                                                    {c.reference_id || "—"}
+                                                </span>
                                             </td>
                                             <td className="py-4 px-6 align-middle">
                                                 <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
@@ -672,27 +880,39 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="py-4 px-6 align-middle text-center">
                                                 <div className="flex flex-col items-center gap-1">
-                                                    <p className={`text-sm font-bold ${isPast ? "text-red-400" : "text-neutral-900"}`}>
+                                                    <p
+                                                        className={`text-sm font-bold ${isPast ? "text-red-400" : "text-neutral-900"}`}
+                                                    >
                                                         {sched.date}
                                                     </p>
                                                     {sched.time && (
-                                                        <p className="text-[11px] font-medium text-neutral-400">{sched.time}</p>
+                                                        <p className="text-[11px] font-medium text-neutral-400">
+                                                            {sched.time}
+                                                        </p>
                                                     )}
                                                     {rel && (
-                                                        <span className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.cls}`}>
+                                                        <span
+                                                            className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.cls}`}
+                                                        >
                                                             {rel.text}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="py-4 px-6 align-middle text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${meta.className}`}
+                                                >
+                                                    <span
+                                                        className={`w-1.5 h-1.5 rounded-full ${meta.dot}`}
+                                                    />
                                                     {meta.label}
                                                 </span>
                                             </td>
                                             <td className="py-4 px-6 align-middle text-right">
-                                                <p className="text-xs font-medium text-neutral-500">{timeAgo(c.created_at)}</p>
+                                                <p className="text-xs font-medium text-neutral-500">
+                                                    {timeAgo(c.created_at)}
+                                                </p>
                                             </td>
                                         </tr>
                                     );

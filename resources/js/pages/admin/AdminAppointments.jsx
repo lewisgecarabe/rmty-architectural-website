@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { getAuthHeaders } from "../../lib/authHeaders";
 
@@ -46,7 +47,11 @@ const getBookingStatus = (consultation) => {
 const parseConsultationDate = (value) => {
     if (!value) return null;
     // Replace space with T and strip timezone suffix so it's always parsed as local time
-    const raw = String(value).replace(" ", "T").replace(/\.\d+Z$/i, "").replace(/Z$/i, "").replace(/[+-]\d{2}:\d{2}$/, "");
+    const raw = String(value)
+        .replace(" ", "T")
+        .replace(/\.\d+Z$/i, "")
+        .replace(/Z$/i, "")
+        .replace(/[+-]\d{2}:\d{2}$/, "");
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
@@ -93,13 +98,33 @@ const getDateRelativeLabel = (value) => {
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dateOnly = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    const dateOnly = new Date(
+        parsed.getFullYear(),
+        parsed.getMonth(),
+        parsed.getDate(),
+    );
     const diffDays = Math.round((dateOnly - today) / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { text: "Past", className: "text-red-500 bg-red-50 border-red-200" };
-    if (diffDays === 0) return { text: "Today", className: "text-emerald-600 bg-emerald-50 border-emerald-200" };
-    if (diffDays === 1) return { text: "Tomorrow", className: "text-blue-600 bg-blue-50 border-blue-200" };
-    if (diffDays <= 7) return { text: `In ${diffDays} days`, className: "text-blue-600 bg-blue-50 border-blue-200" };
+    if (diffDays < 0)
+        return {
+            text: "Past",
+            className: "text-red-500 bg-red-50 border-red-200",
+        };
+    if (diffDays === 0)
+        return {
+            text: "Today",
+            className: "text-emerald-600 bg-emerald-50 border-emerald-200",
+        };
+    if (diffDays === 1)
+        return {
+            text: "Tomorrow",
+            className: "text-blue-600 bg-blue-50 border-blue-200",
+        };
+    if (diffDays <= 7)
+        return {
+            text: `In ${diffDays} days`,
+            className: "text-blue-600 bg-blue-50 border-blue-200",
+        };
     return null;
 };
 
@@ -307,6 +332,7 @@ const AnimatedSelect = ({
 
 /* ---------------- COMPONENT ---------------- */
 export default function AdminBookingConsultations() {
+    const location = useLocation();
     const [consultations, setConsultations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -327,10 +353,62 @@ export default function AdminBookingConsultations() {
     const [activeTab, setActiveTab] = useState("all");
     const [successMessage, setSuccessMessage] = useState("");
     const [updating, setUpdating] = useState(false);
-    const [selected, setSelected] = useState(null);
+    const [selectedId, setSelectedId] = useState(null);
+
+    const selected = useMemo(
+        () => consultations.find((c) => String(c.id) === String(selectedId)) || null,
+        [consultations, selectedId]
+    );
 
     const [searchTerm, setSearchTerm] = useState("");
     const [filterType, setFilterType] = useState("");
+    const [filters, setFilters] = useState({
+        search: "",
+        type: ""
+    });
+
+    const hasProcessedNavState = useRef(false);
+
+    // Handle initial selection from Dashboard
+    useEffect(() => {
+        const stateId = location.state?.openAppointmentId;
+        if (stateId && consultations.length > 0 && !loading && !hasProcessedNavState.current) {
+            const found = consultations.find(c => String(c.id) === String(stateId));
+            
+            if (found) {
+                hasProcessedNavState.current = true;
+                setSelectedId(found.id);
+                
+                // Determine correct tab
+                const status = getBookingStatus(found);
+                const isArchived = isArchivedConsultation(found);
+                const isPast = isPastConsultation(found);
+
+                if (isArchived) {
+                    setActiveTab("archived");
+                } else if (isPast && status !== "cancelled") {
+                    setActiveTab("past");
+                } else if (["accepted", "rescheduled", "cancelled"].includes(status)) {
+                    setActiveTab(status);
+                } else {
+                    setActiveTab("all");
+                }
+
+                // Clear state
+                window.history.replaceState(null, document.title);
+            }
+        }
+    }, [location.state, consultations, loading]);
+
+    const setFilter = (key, val) => {
+        setFilters((prev) => ({ ...prev, [key]: val }));
+        setPage(1);
+        if (key === "search") {
+            setSearchTerm(val);
+        } else if (key === "type") {
+            setFilterType(val);
+        }
+    };
 
     const toastTimeoutRef = useRef(null);
 
@@ -358,8 +436,6 @@ export default function AdminBookingConsultations() {
         setLoading(true);
 
         try {
-            const selectedId = selected?.id;
-
             const res = await fetch("/api/admin/consultations", {
                 credentials: "include",
                 headers: getAuthHeaders(),
@@ -377,13 +453,6 @@ export default function AdminBookingConsultations() {
                   : [];
 
             setConsultations(list);
-
-            if (selectedId) {
-                const refreshedSelected = list.find(
-                    (item) => item.id === selectedId,
-                );
-                setSelected(refreshedSelected || null);
-            }
         } catch (err) {
             console.error(err);
             setConsultations([]);
@@ -433,12 +502,14 @@ export default function AdminBookingConsultations() {
         isArchivedConsultation(c),
     );
 
-    const pastConsultations = nonArchivedConsultations.filter(
-        (c) => {
-            const status = getBookingStatus(c);
-            return status !== "cancelled" && status !== "archived" && isPastConsultation(c);
-        },
-    );
+    const pastConsultations = nonArchivedConsultations.filter((c) => {
+        const status = getBookingStatus(c);
+        return (
+            status !== "cancelled" &&
+            status !== "archived" &&
+            isPastConsultation(c)
+        );
+    });
 
     let displayedConsultations = [];
 
@@ -485,12 +556,14 @@ export default function AdminBookingConsultations() {
             const email = String(c.email || "").toLowerCase();
             const phone = String(c.phone || "").toLowerCase();
             const status = getBookingStatus(c).toLowerCase();
+            const refId = String(c.reference_id || "").toLowerCase();
 
             return (
                 fullName.includes(lower) ||
                 email.includes(lower) ||
                 phone.includes(lower) ||
-                status.includes(lower)
+                status.includes(lower) ||
+                refId.includes(lower)
             );
         });
     }
@@ -723,7 +796,7 @@ export default function AdminBookingConsultations() {
             setSelectedIds([]);
 
             if (selected && selectedIds.includes(selected.id)) {
-                setSelected(null);
+                setSelectedId(null);
             }
         }
     };
@@ -805,7 +878,7 @@ export default function AdminBookingConsultations() {
             successText: "Record archived successfully",
             afterSuccess: () => {
                 if (selected?.id === archiveTarget.id) {
-                    setSelected(null);
+                    setSelectedId(null);
                 }
                 setArchiveTarget(null);
             },
@@ -832,7 +905,7 @@ export default function AdminBookingConsultations() {
             showToast("Record deleted permanently");
 
             if (selected?.id === deleteTarget.id) {
-                setSelected(null);
+                setSelectedId(null);
             }
             setDeleteTarget(null);
         } catch (err) {
@@ -853,7 +926,7 @@ export default function AdminBookingConsultations() {
             successText: "Record restored successfully",
             afterSuccess: () => {
                 if (selected?.id === consultation.id) {
-                    setSelected(null);
+                    setSelectedId(null);
                 }
             },
         });
@@ -864,7 +937,7 @@ export default function AdminBookingConsultations() {
         paginated.every((item) => selectedIds.includes(item.id));
 
     return (
-        <div className="flex flex-col [font-family:var(--font-neue)] relative pb-10">
+        <div className="flex flex-col h-full [font-family:var(--font-neue)] relative pb-10">
             <div className="mb-6 lg:mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <p className="text-sm font-medium text-neutral-500">
@@ -902,7 +975,7 @@ export default function AdminBookingConsultations() {
                             onClick={() => {
                                 setActiveTab(tab.id);
                                 setPage(1);
-                                setSelected(null);
+                                setSelectedId(null);
                             }}
                             // FIX: Added whitespace-nowrap and shrink-0 so they don't get squashed on mobile
                             className={`whitespace-nowrap shrink-0 rounded-xl border px-5 py-2.5 text-sm font-medium transition-all focus:outline-none cursor-pointer flex-1 md:flex-none text-center ${
@@ -917,7 +990,6 @@ export default function AdminBookingConsultations() {
                 </div>
 
                 {/* SEARCH & ACTIONS - Right side on Desktop */}
-                {/* FIX 1: Removed xl:w-auto and xl:justify-end so this container can grow fully */}
                 <div className="w-full flex-1 min-w-0 flex">
                     <AnimatePresence mode="wait">
                         {selectedIds.length > 0 ? (
@@ -983,12 +1055,11 @@ export default function AdminBookingConsultations() {
                                     <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                     <input
                                         type="text"
-                                        placeholder="Search clients, phone, email..."
-                                        value={searchTerm}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setPage(1);
-                                        }}
+                                        placeholder="Search by client, email, or Reference ID..."
+                                        value={filters.search}
+                                        onChange={(e) =>
+                                            setFilter("search", e.target.value)
+                                        }
                                         className="w-full rounded-xl border border-neutral-200 bg-white pl-10 pr-4 py-2.5 text-sm font-medium placeholder-neutral-400 text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 [font-family:inherit]"
                                     />
                                 </motion.div>
@@ -1103,13 +1174,13 @@ export default function AdminBookingConsultations() {
                         )}
                     </AnimatePresence>
 
-                    <div className="flex-1 overflow-x-auto no-scrollbar">
+                    <div className="flex-1 overflow-x-auto pb-4">
                         {!loading && paginated.length === 0 ? (
                             <div className="flex flex-col h-full min-h-[400px] items-center justify-center text-center p-8 gap-4">
                                 <CalendarIcon className="w-12 h-12 text-neutral-300" />
                                 <div>
                                     <p className="text-base font-bold text-neutral-900">
-                                        No consultations found
+                                        No appointments found
                                     </p>
                                     <p className="text-sm font-medium text-neutral-500 mt-1">
                                         {searchTerm || filterType !== ""
@@ -1135,16 +1206,16 @@ export default function AdminBookingConsultations() {
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Client
                                         </th>
-                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase hidden xl:table-cell">
-    Reference
-</th>
+                                        <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                            Reference
+                                        </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
                                             Project Type
                                         </th>
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Schedule
                                         </th>
-        
+
                                         <th className="py-4 px-5 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase text-center">
                                             Booking Status
                                         </th>
@@ -1163,13 +1234,17 @@ export default function AdminBookingConsultations() {
                                         return (
                                             <tr
                                                 key={c.id}
-                                                onClick={() => setSelected(c)}
+                                                onClick={() => setSelectedId(c.id)}
                                                 className={`group cursor-pointer transition-colors hover:bg-neutral-50 min-h-[73px] ${
-                                                    selected?.id === c.id
+                                                    String(selectedId) === String(c.id)
                                                         ? "bg-neutral-50"
                                                         : ""
                                                 } ${
-                                                    isPastConsultation(c) && getBookingStatus(c) !== "cancelled" && getBookingStatus(c) !== "archived"
+                                                    isPastConsultation(c) &&
+                                                    getBookingStatus(c) !==
+                                                        "cancelled" &&
+                                                    getBookingStatus(c) !==
+                                                        "archived"
                                                         ? "opacity-60"
                                                         : ""
                                                 }`}
@@ -1215,11 +1290,11 @@ export default function AdminBookingConsultations() {
                                                         </div>
                                                     </div>
                                                 </td>
-<td className="py-4 px-5 align-middle hidden xl:table-cell">
-    <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
-        {c.reference_id ?? "—"}
-    </span>
-</td>
+                                                <td className="py-4 px-5 align-middle">
+                                                    <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+                                                        {c.reference_id ?? "—"}
+                                                    </span>
+                                                </td>
                                                 <td className="py-4 px-5 align-middle">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-neutral-50 text-neutral-600 border-neutral-200">
                                                         {c.project_type ||
@@ -1229,18 +1304,31 @@ export default function AdminBookingConsultations() {
 
                                                 <td className="py-4 px-5 align-middle text-center">
                                                     <div className="flex flex-col items-center gap-1">
-                                                        <p className={`text-sm font-bold leading-tight ${isPastConsultation(c) && getBookingStatus(c) !== "cancelled" ? "text-red-400" : "text-neutral-900"}`}>
-                                                            {formatDateOnly(c.consultation_date)}
+                                                        <p
+                                                            className={`text-sm font-bold leading-tight ${isPastConsultation(c) && getBookingStatus(c) !== "cancelled" ? "text-red-400" : "text-neutral-900"}`}
+                                                        >
+                                                            {formatDateOnly(
+                                                                c.consultation_date,
+                                                            )}
                                                         </p>
-                                                        {formatTimeOnly(c.consultation_date) && (
+                                                        {formatTimeOnly(
+                                                            c.consultation_date,
+                                                        ) && (
                                                             <p className="text-[11px] font-medium text-neutral-400">
-                                                                {formatTimeOnly(c.consultation_date)}
+                                                                {formatTimeOnly(
+                                                                    c.consultation_date,
+                                                                )}
                                                             </p>
                                                         )}
                                                         {(() => {
-                                                            const rel = getDateRelativeLabel(c.consultation_date);
+                                                            const rel =
+                                                                getDateRelativeLabel(
+                                                                    c.consultation_date,
+                                                                );
                                                             return rel ? (
-                                                                <span className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}>
+                                                                <span
+                                                                    className={`inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}
+                                                                >
                                                                     {rel.text}
                                                                 </span>
                                                             ) : null;
@@ -1355,29 +1443,42 @@ export default function AdminBookingConsultations() {
                         )}
                     </div>
 
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-5 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl">
-                            <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
-                                Page {page} of {totalPages}
+                    {/* TABLE SUMMARY & PAGINATION FOOTER */}
+                    {totalPages > 0 && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-t border-neutral-100 bg-neutral-50/50 mt-auto rounded-b-2xl gap-4 sm:gap-0">
+                            <p className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase text-center sm:text-left">
+                                {displayedConsultations.length} Consultation
+                                {displayedConsultations.length !== 1 ? "s" : ""}
+                                {" · "}
+                                {paginated.length} shown on this page
                             </p>
 
-                            <div className="flex gap-2">
+                            {/* PAGINATION CONTROLS */}
+                            <div className="flex items-center justify-center gap-4">
                                 <button
-                                    disabled={page === 1}
-                                    onClick={() => setPage((p) => p - 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    onClick={() =>
+                                        setPage((p) => Math.max(1, p - 1))
+                                    }
+                                    disabled={page <= 1}
+                                    className="flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100 hover:text-black cursor-pointer"
                                 >
-                                    <ChevronLeft className="w-3 h-3" />
-                                    Prev
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
 
+                                <span className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
+                                    Page {page} of {totalPages}
+                                </span>
+
                                 <button
-                                    disabled={page === totalPages}
-                                    onClick={() => setPage((p) => p + 1)}
-                                    className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase transition-colors hover:border-neutral-300 hover:text-black disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center gap-1"
+                                    onClick={() =>
+                                        setPage((p) =>
+                                            Math.min(totalPages, p + 1),
+                                        )
+                                    }
+                                    disabled={page >= totalPages}
+                                    className="flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100 hover:text-black cursor-pointer"
                                 >
-                                    Next
-                                    <ChevronRight className="w-3 h-3" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -1394,7 +1495,7 @@ export default function AdminBookingConsultations() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/20 z-[70] cursor-pointer"
-                            onClick={() => setSelected(null)}
+                            onClick={() => setSelectedId(null)}
                         />
 
                         <motion.div
@@ -1410,7 +1511,7 @@ export default function AdminBookingConsultations() {
                                     Consultation Details
                                 </h3>
                                 <button
-                                    onClick={() => setSelected(null)}
+                                    onClick={() => setSelectedId(null)}
                                     className="text-neutral-400 hover:text-black transition-colors outline-none cursor-pointer"
                                 >
                                     <CloseIcon className="w-5 h-5" />
@@ -1419,33 +1520,25 @@ export default function AdminBookingConsultations() {
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
                                 {selected.reference_id && (
-    <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 flex items-center justify-between">
-        <div>
-            <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
-                Reference Number
-            </p>
-            <p className="font-mono text-base font-black text-neutral-900 tracking-wider">
-                {selected.reference_id}
-            </p>
-        </div>
-        <button
-            onClick={() => {
-                navigator.clipboard.writeText(selected.reference_id);
-            }}
-            title="Copy reference ID"
-            className="p-2 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-200 transition-colors cursor-pointer"
-        >
-            {/* Clipboard icon */}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                 className="w-4 h-4">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-        </button>
-    </div>
-)}
- 
+                                    <div
+                                        className="group flex items-center gap-2 cursor-pointer"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(
+                                                selected.reference_id,
+                                            );
+                                            showToast("Reference ID Copied");
+                                        }}
+                                        title="Click to copy"
+                                    >
+                                        <span className="font-mono text-[10px] text-neutral-400 tracking-wider">
+                                            {selected.reference_id}
+                                        </span>
+                                        <span className="text-[9px] font-bold text-neutral-300 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                            Click to copy
+                                        </span>
+                                    </div>
+                                )}
+
                                 <div>
                                     <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-1">
                                         Client
@@ -1489,13 +1582,21 @@ export default function AdminBookingConsultations() {
                                         <p className="text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase mb-2">
                                             Date
                                         </p>
-                                        <span className={`text-sm font-bold ${isPastConsultation(selected) && getBookingStatus(selected) !== "cancelled" ? "text-red-500" : "text-neutral-900"}`}>
-                                            {formatDateOnly(selected.consultation_date)}
+                                        <span
+                                            className={`text-sm font-bold ${isPastConsultation(selected) && getBookingStatus(selected) !== "cancelled" ? "text-red-500" : "text-neutral-900"}`}
+                                        >
+                                            {formatDateOnly(
+                                                selected.consultation_date,
+                                            )}
                                         </span>
                                         {(() => {
-                                            const rel = getDateRelativeLabel(selected.consultation_date);
+                                            const rel = getDateRelativeLabel(
+                                                selected.consultation_date,
+                                            );
                                             return rel ? (
-                                                <span className={`inline-block ml-2 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}>
+                                                <span
+                                                    className={`inline-block ml-2 px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase rounded border ${rel.className}`}
+                                                >
                                                     {rel.text}
                                                 </span>
                                             ) : null;
@@ -1507,7 +1608,9 @@ export default function AdminBookingConsultations() {
                                             Time
                                         </p>
                                         <span className="text-sm font-bold text-neutral-900">
-                                            {formatTimeOnly(selected.consultation_date) || "Not Specified"}
+                                            {formatTimeOnly(
+                                                selected.consultation_date,
+                                            ) || "Not Specified"}
                                         </span>
                                     </div>
                                 </div>

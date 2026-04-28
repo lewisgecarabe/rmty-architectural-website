@@ -161,6 +161,8 @@ const AnimatedSelect = ({
 };
 
 /* ---------------- COMPONENT ---------------- */
+const PAGE_SIZE = 6;
+
 export default function AdminInquiries() {
     const [inquiries, setInquiries] = useState([]);
     const [stats, setStats] = useState({});
@@ -222,6 +224,7 @@ export default function AdminInquiries() {
     const searchTimer = useRef(null);
     const pollTimer = useRef(null);
     const pendingMarkReadKey = useRef(null);
+    const hasProcessedNavState = useRef(false);
 
     function showToast(msg, type = "success") {
         setToast({ msg, type });
@@ -290,8 +293,8 @@ export default function AdminInquiries() {
         async (p = 1, f = filters, silent = false) => {
             try {
                 if (!silent) setLoading(true);
-                // Lowered per_page to 50 so pagination works cleanly without breaking threads
-                const params = new URLSearchParams({ page: p, per_page: 50 });
+                // Increased per_page to ensure we have all data for client-side thread pagination
+                const params = new URLSearchParams({ page: 1, per_page: 200 });
                 if (f.platform) params.set("platform", f.platform);
                 if (f.search) params.set("search", f.search);
                 const [data, statsData] = await Promise.all([
@@ -359,6 +362,12 @@ export default function AdminInquiries() {
         });
     }, [allThreads, filters.status]);
 
+    const paginatedThreads = useMemo(() => {
+        return threads.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    }, [threads, page]);
+
+    const totalPages = Math.ceil(threads.length / PAGE_SIZE) || 1;
+
     const selectedThread = useMemo(
         () => allThreads.find((t) => t.key === selectedThreadKey) ?? null,
         [allThreads, selectedThreadKey],
@@ -372,16 +381,30 @@ export default function AdminInquiries() {
 
     useEffect(() => {
         const key = location.state?.openThreadKey;
-        if (key) {
-            setSelectedThreadKey(key);
-            pendingMarkReadKey.current = key;
-            window.history.replaceState({}, document.title);
+        if (key && allThreads.length > 0 && !hasProcessedNavState.current) {
+            const thread = allThreads.find(t => t.key === key);
+            if (thread) {
+                hasProcessedNavState.current = true;
+                setSelectedThreadKey(key);
+                // Switch tab to the correct status
+                if (thread.isArchived) {
+                    if (filters.status !== "archived") setFilter("status", "archived");
+                } else if (thread.hasNew) {
+                    if (filters.status !== "new") setFilter("status", "new");
+                } else if (thread.hasReplied) {
+                    if (filters.status !== "replied") setFilter("status", "replied");
+                }
+                pendingMarkReadKey.current = key;
+                window.history.replaceState(null, document.title);
+            }
         }
-    }, [location.state]);
+    }, [location.state, allThreads, filters.status]);
 
     useEffect(() => {
         if (!pendingMarkReadKey.current) return;
-        const thread = allThreads.find((t) => t.key === pendingMarkReadKey.current);
+        const thread = allThreads.find(
+            (t) => t.key === pendingMarkReadKey.current,
+        );
         if (thread) {
             thread.messages.forEach((m) => markAsRead(m.id));
             pendingMarkReadKey.current = null;
@@ -390,6 +413,7 @@ export default function AdminInquiries() {
 
     useEffect(() => {
         setSelectedIds([]);
+        setPage(1);
     }, [filters]);
 
     function setFilter(key, val) {
@@ -407,18 +431,13 @@ export default function AdminInquiries() {
     /* ---------------- PAGINATION HANDLERS ---------------- */
     const handlePrevPage = () => {
         if (page > 1) {
-            const newPage = page - 1;
-            setPage(newPage);
-            load(newPage, filters);
+            setPage((p) => p - 1);
         }
     };
 
     const handleNextPage = () => {
-        const lastPage = meta?.last_page || meta?.meta?.last_page || 1;
-        if (page < lastPage) {
-            const newPage = page + 1;
-            setPage(newPage);
-            load(newPage, filters);
+        if (page < totalPages) {
+            setPage((p) => p + 1);
         }
     };
 
@@ -605,7 +624,7 @@ export default function AdminInquiries() {
     ];
 
     return (
-        <div className="flex flex-col [font-family:var(--font-neue)] relative pb-10">
+        <div className="flex flex-col h-full [font-family:var(--font-neue)] relative pb-10">
             {/* Header & Stats */}
             <div className="mb-6 lg:mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -742,7 +761,7 @@ export default function AdminInquiries() {
                                     <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                                     <input
                                         type="text"
-                                        placeholder="Search messages..."
+                                        placeholder="Search messages or Reference ID..."
                                         value={filters.search}
                                         onChange={(e) =>
                                             setFilter("search", e.target.value)
@@ -866,7 +885,7 @@ export default function AdminInquiries() {
                         )}
                     </AnimatePresence>
 
-                    <div className="flex-1 overflow-auto no-scrollbar">
+                    <div className="flex-1 overflow-auto pb-4">
                         {!loading && threads.length === 0 ? (
                             <div className="flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center gap-4">
                                 <InboxIcon className="w-12 h-12 text-neutral-300" />
@@ -907,6 +926,9 @@ export default function AdminInquiries() {
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200">
                                             Platform
                                         </th>
+                                        <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase">
+                                            Reference
+                                        </th>
                                         <th className="px-5 py-4 text-[10px] font-bold tracking-[0.15em] text-neutral-400 uppercase border-b border-neutral-200 hidden md:table-cell w-1/3">
                                             Latest Message
                                         </th>
@@ -922,7 +944,7 @@ export default function AdminInquiries() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-100">
-                                    {threads.map((thread) => {
+                                    {paginatedThreads.map((thread) => {
                                         const isUnread =
                                             thread.hasNew &&
                                             !thread.messages.every((m) =>
@@ -1004,18 +1026,29 @@ export default function AdminInquiries() {
                                                         ] ?? thread.platform}
                                                     </span>
                                                 </td>
-                                               <td className="px-5 py-4 align-middle hidden md:table-cell">
-    {thread.latestMsg.reference_id && (
-        <span className="font-mono text-[10px] text-neutral-400 tracking-wider mr-2">
-            {thread.latestMsg.reference_id}
-        </span>
-    )}
-    <p className={`text-[12px] truncate max-w-[220px] xl:max-w-[320px] inline ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}>
-        {thread.latestMsg.admin_reply
-            ? `You: ${thread.latestMsg.admin_reply}`
-            : thread.latestMsg.message || "—"}
-    </p>
-</td>
+                                                <td className="px-5 py-4 align-middle">
+                                                    {thread.latestMsg
+                                                        .reference_id && (
+                                                        <span className="font-mono text-[11px] font-bold tracking-wider text-neutral-500 bg-neutral-100 px-2 py-1 rounded">
+                                                            {
+                                                                thread.latestMsg
+                                                                    .reference_id
+                                                            }
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-5 py-4 align-middle hidden md:table-cell">
+                                                    <p
+                                                        className={`text-[12px] truncate max-w-[220px] xl:max-w-[320px] inline ${isUnread ? "font-semibold text-neutral-800" : "font-normal text-neutral-400"}`}
+                                                    >
+                                                        {thread.latestMsg
+                                                            .admin_reply
+                                                            ? `You: ${thread.latestMsg.admin_reply}`
+                                                            : thread.latestMsg
+                                                                  .message ||
+                                                              "—"}
+                                                    </p>
+                                                </td>
                                                 <td className="px-5 py-4 align-middle">
                                                     <div className="flex items-center gap-2">
                                                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600">
@@ -1146,26 +1179,16 @@ export default function AdminInquiries() {
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-
                                 <span className="text-[11px] font-bold tracking-widest text-neutral-400 uppercase">
-                                    Page {page} of{" "}
-                                    {meta?.last_page ||
-                                        meta?.meta?.last_page ||
-                                        1}
+                                    Page {page} of {totalPages}
                                 </span>
-
                                 <button
                                     onClick={handleNextPage}
-                                    disabled={
-                                        page >=
-                                        (meta?.last_page ||
-                                            meta?.meta?.last_page ||
-                                            1)
-                                    }
+                                    disabled={page >= totalPages}
                                     className="flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 bg-white text-neutral-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-100 hover:text-black cursor-pointer"
                                 >
                                     <ChevronRight className="w-4 h-4" />
-                                </button>
+                                </button>{" "}
                             </div>
                         </div>
                     )}
@@ -1222,14 +1245,22 @@ export default function AdminInquiries() {
                                         ] ?? selectedThread.platform}
                                     </span>
                                     {selectedThread.latestMsg?.reference_id && (
-    <span
-        className="ml-2 font-mono text-[10px] font-bold text-neutral-400 tracking-wider cursor-pointer hover:text-neutral-700 transition-colors"
-        title="Click to copy"
-        onClick={() => navigator.clipboard.writeText(selectedThread.latestMsg.reference_id)}
-    >
-        {selectedThread.latestMsg.reference_id}
-    </span>
-)}
+                                        <span
+                                            className="ml-2 font-mono text-[10px] font-bold text-neutral-400 tracking-wider cursor-pointer hover:text-neutral-700 transition-colors"
+                                            title="Click to copy"
+                                            onClick={() =>
+                                                navigator.clipboard.writeText(
+                                                    selectedThread.latestMsg
+                                                        .reference_id,
+                                                )
+                                            }
+                                        >
+                                            {
+                                                selectedThread.latestMsg
+                                                    .reference_id
+                                            }
+                                        </span>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setSelectedThreadKey(null);
