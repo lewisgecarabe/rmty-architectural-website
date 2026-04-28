@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Webhooks\MetaWebhookController;
 use App\Http\Controllers\Webhooks\GmailWebhookController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\ClientPasswordResetController;
+
  
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -86,9 +88,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/contact-content', [ContactPageContentController::class, 'store']);
 });
 
-Route::post('/client/forgot-password',   [PasswordResetController::class, 'sendOtp']);
-Route::post('/client/verify-reset-otp',  [PasswordResetController::class, 'verifyOtp']);
-Route::post('/client/reset-password',    [PasswordResetController::class, 'resetPassword']);
+Route::post('/client/forgot-password',   [ClientPasswordResetController::class, 'sendOtp']);
+Route::post('/client/verify-reset-otp',  [ClientPasswordResetController::class, 'verifyOtp']);
+Route::post('/client/reset-password',    [ClientPasswordResetController::class, 'resetPassword']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/login', [AuthController::class, 'login']);

@@ -12,13 +12,12 @@ export default function Appointments() {
     const navigate   = useNavigate();
     const captchaRef = useRef(null);
 
-    const [captchaToken,   setCaptchaToken]   = useState(null);
-    const [isLoggedIn,     setIsLoggedIn]     = useState(!!localStorage.getItem("token"));
-    const [showAuthModal,  setShowAuthModal]  = useState(false);
+    const [captchaToken,  setCaptchaToken]  = useState(null);
+    const [isLoggedIn,    setIsLoggedIn]    = useState(!!localStorage.getItem("token"));
+    const [showAuthModal, setShowAuthModal] = useState(false);
 
-    // Ongoing consultation state
-    const [checkingActive,  setCheckingActive]  = useState(false);
-    const [activeConsult,   setActiveConsult]   = useState(null); // null = none, obj = has one
+    const [checkingActive, setCheckingActive] = useState(false);
+    const [activeConsult,  setActiveConsult]  = useState(null);
 
     const [firstName,          setFirstName]          = useState("");
     const [lastName,           setLastName]           = useState("");
@@ -33,11 +32,8 @@ export default function Appointments() {
     const [errors,      setErrors]      = useState({});
     const [submitError, setSubmitError] = useState("");
     const [submitting,  setSubmitting]  = useState(false);
-
-    // Unavailable slots (admin-blocked + already-booked)
     const [unavailableSlots, setUnavailableSlots] = useState([]);
 
-    // ── Fetch unavailable slots (blocked + booked) ────────────────────────
     const fetchUnavailableSlots = async () => {
         try {
             const [blockedRes, bookedRes] = await Promise.all([
@@ -50,12 +46,9 @@ export default function Appointments() {
                 ...(Array.isArray(blocked) ? blocked : []),
                 ...(Array.isArray(booked)  ? booked  : []),
             ]);
-        } catch {
-            // silent — calendar will just show everything as available
-        }
+        } catch { /* silent */ }
     };
 
-    // ── On mount: prefill from user + check for active consultation ───────
     useEffect(() => {
         const user  = JSON.parse(localStorage.getItem("user")  ?? "null");
         const token = localStorage.getItem("token");
@@ -67,16 +60,10 @@ export default function Appointments() {
             setLastName(parts.slice(1).join(" ") ?? "");
         }
 
-        // If logged in, check for active consultation
-        if (token && user) {
-            checkActiveConsultation(token);
-        }
-
-        // Fetch unavailable slots
+        if (token && user) checkActiveConsultation(token);
         fetchUnavailableSlots();
     }, []);
 
-    // ── On mount: if returning from /auth with a draft, auto-submit ───────
     useEffect(() => {
         const token = localStorage.getItem("token");
         const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null");
@@ -92,52 +79,34 @@ export default function Appointments() {
             setAppointmentDate(draft.appointmentDate ?? "");
             setAppointmentTime(draft.appointmentTime ?? "");
             setIsLoggedIn(true);
-
             sessionStorage.removeItem(DRAFT_KEY);
 
-            // Check active consultation before auto-submitting
             setTimeout(async () => {
                 const hasActive = await checkActiveConsultation(token);
-                if (!hasActive) {
-                    submitForm(draft, token);
-                }
+                if (!hasActive) submitForm(draft, token);
             }, 400);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ── Check if user already has an active consultation ─────────────────
     const checkActiveConsultation = async (token) => {
         try {
             setCheckingActive(true);
             const res = await fetch(`${API_BASE}/api/consultations/my`, {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            if (data.has_active) {
-                setActiveConsult(data.consultation);
-                return true;
-            }
+            if (data.has_active) { setActiveConsult(data.consultation); return true; }
             setActiveConsult(null);
             return false;
-        } catch {
-            return false;
-        } finally {
-            setCheckingActive(false);
-        }
+        } catch { return false; }
+        finally { setCheckingActive(false); }
     };
 
-    // ── Core submit ────────────────────────────────────────────────────────
     const submitForm = async (values, authToken) => {
-        const {
-            firstName: fn, lastName: ln, email: em, phone: ph,
-            location: loc, projectType: pt, appointmentMessage: msg,
-            appointmentDate: date, appointmentTime: time,
-            captchaToken: ct,
-        } = values;
+        const { firstName: fn, lastName: ln, email: em, phone: ph, location: loc,
+                projectType: pt, appointmentMessage: msg, appointmentDate: date,
+                appointmentTime: time, captchaToken: ct } = values;
 
         try {
             setSubmitting(true);
@@ -145,63 +114,37 @@ export default function Appointments() {
 
             const res = await fetch(`${API_BASE}/api/consultations`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    Authorization: `Bearer ${authToken}`,
-                },
+                headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${authToken}` },
                 body: JSON.stringify({
-                    first_name:        fn,
-                    last_name:         ln,
-                    email:             em,
-                    phone:             ph,
-                    location:          loc,
-                    project_type:      pt,
-                    captcha_token:     ct ?? null,
-                    message:           msg ?? "",
-                    consultation_date: `${date} ${time}:00`,
+                    first_name: fn, last_name: ln, email: em, phone: ph,
+                    location: loc, project_type: pt, captcha_token: ct ?? null,
+                    message: msg ?? "", consultation_date: `${date} ${time}:00`,
                 }),
             });
 
             const data = await res.json().catch(() => ({}));
 
-            // 409 = already has an ongoing consultation
-            if (res.status === 409) {
-                setActiveConsult(data.consultation ?? {});
-                return;
-            }
-
-            if (!res.ok) {
-                throw new Error(data.message || "Submission failed.");
-            }
+            if (res.status === 409) { setActiveConsult(data.consultation ?? {}); return; }
+            if (!res.ok) throw new Error(data.message || "Submission failed.");
 
             const referenceId = data?.reference_id ?? data?.data?.reference_id ?? null;
- 
-await Swal.fire({
-    icon: "success",
-    title: "Session Confirmed",
-    html: referenceId
-        ? `<p style="color:#555;font-size:14px;margin-bottom:8px;">
-               A confirmation email has been sent to you.
-           </p>
-           <div style="background:#f5f5f5;border-left:3px solid #000;padding:12px 16px;text-align:left;margin-top:12px;">
-               <p style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#888;margin:0 0 4px;">
-                   Your Reference Number
-               </p>
-               <p style="font-size:20px;font-weight:800;color:#000;margin:0;font-family:monospace;">
-                   ${referenceId}
-               </p>
-           </div>
-           <p style="font-size:12px;color:#aaa;margin-top:10px;">
-               Keep this number for follow-ups and rescheduling.
-           </p>`
-        : "We will contact you shortly to confirm your consultation schedule.",
-    confirmButtonColor: "#000000",
-    confirmButtonText: "Go to Dashboard",
-});
+
+            await Swal.fire({
+                icon: "success",
+                title: "Session Confirmed",
+                html: referenceId
+                    ? `<p style="color:#555;font-size:14px;margin-bottom:8px;">A confirmation email has been sent to you.</p>
+                       <div style="background:#f5f5f5;border-left:3px solid #000;padding:12px 16px;text-align:left;margin-top:12px;">
+                           <p style="font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#888;margin:0 0 4px;">Your Reference Number</p>
+                           <p style="font-size:20px;font-weight:800;color:#000;margin:0;font-family:monospace;">${referenceId}</p>
+                       </div>
+                       <p style="font-size:12px;color:#aaa;margin-top:10px;">Keep this number for follow-ups and rescheduling.</p>`
+                    : "We will contact you shortly to confirm your consultation schedule.",
+                confirmButtonColor: "#000000",
+                confirmButtonText: "Go to Dashboard",
+            });
 
             navigate("/user/dashboard");
-
         } catch (err) {
             setSubmitError(err.message || "An error occurred. Please try again.");
         } finally {
@@ -209,58 +152,52 @@ await Swal.fire({
         }
     };
 
-    // ── Validate → check auth → check active → submit / redirect ─────────
     const handleAppointmentSubmit = async (e) => {
         e.preventDefault();
 
         const newErrors = {};
-        if (!firstName.trim())  newErrors.firstName       = "First Name is required.";
-        if (!lastName.trim())   newErrors.lastName        = "Last Name is required.";
+        if (!firstName.trim()) newErrors.firstName = "First Name is required.";
+        if (!lastName.trim())  newErrors.lastName  = "Last Name is required.";
         if (!email.trim()) {
             newErrors.email = "Email is required.";
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             newErrors.email = "Invalid email format.";
         }
-        if (!location.trim())   newErrors.location        = "Location is required.";
-        if (!projectType)       newErrors.projectType     = "Project Type is required.";
-        if (!appointmentDate)   newErrors.appointmentDate = "Date is required.";
-        if (!appointmentTime)   newErrors.appointmentTime = "Time is required.";
         if (!phone.trim()) {
-    newErrors.phone = "Contact number is required.";
-} else if (!/^09\d{9}$/.test(phone)) {
-    newErrors.phone = "Enter a valid PH number (e.g. 09XXXXXXXXX).";
-};
-        if (!captchaToken)      newErrors.captcha         = "Please complete the Captcha verification.";
+            newErrors.phone = "Contact number is required.";
+        } else if (!/^09\d{9}$/.test(phone)) {
+            newErrors.phone = "Enter a valid PH number (e.g. 09XXXXXXXXX).";
+        }
+        if (!location.trim()) newErrors.location    = "Location is required.";
+        if (!projectType)     newErrors.projectType = "Project Type is required.";
+        if (!appointmentDate) newErrors.appointmentDate = "Date is required.";
+        if (!appointmentTime) newErrors.appointmentTime = "Time is required.";
+        if (!captchaToken)    newErrors.captcha = "Please complete the Captcha verification.";
 
         setErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
 
         const token = localStorage.getItem("token");
 
-        // Not logged in → save draft → show auth modal
         if (!token) {
             sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
-                firstName, lastName, email, phone,
-                location, projectType, appointmentMessage,
-                appointmentDate, appointmentTime,
-                captchaToken,
+                firstName, lastName, email, phone, location, projectType,
+                appointmentMessage, appointmentDate, appointmentTime, captchaToken,
             }));
             setShowAuthModal(true);
             return;
         }
 
-        // Logged in → check active consultation first
         const hasActive = await checkActiveConsultation(token);
-        if (hasActive) return; // blocker UI will show
+        if (hasActive) return;
 
-        // All clear → submit
         await submitForm(
-            { firstName, lastName, email, phone, location, projectType, appointmentMessage, appointmentDate, appointmentTime, captchaToken },
+            { firstName, lastName, email, phone, location, projectType,
+              appointmentMessage, appointmentDate, appointmentTime, captchaToken },
             token
         );
     };
 
-    // ── Active consultation blocker ───────────────────────────────────────
     if (checkingActive) {
         return (
             <section className="w-full bg-[#f1f1f1] text-black min-h-screen flex items-center justify-center [font-family:var(--font-neue)]">
@@ -277,8 +214,6 @@ await Swal.fire({
 
     return (
         <section className="w-full bg-[#f1f1f1] text-black min-h-screen [font-family:var(--font-neue)]">
-
-            {/* Auth Modal */}
             <AuthRequiredModal
                 isOpen={showAuthModal}
                 onClose={() => setShowAuthModal(false)}
@@ -288,7 +223,6 @@ await Swal.fire({
                 }}
             />
 
-            {/* ── Header ── */}
             <div className="mx-auto max-w-screen-2xl px-6 pt-32 pb-16 md:pt-48 border-b border-neutral-300">
                 <div className="flex flex-col gap-8 md:gap-16">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:items-end">
@@ -297,17 +231,13 @@ await Swal.fire({
                         </h1>
                         <div className="lg:col-span-4 lg:pb-3 border-l border-neutral-300 pl-6 md:pl-10">
                             <p className="text-[15px] font-medium leading-relaxed text-neutral-600">
-                                Reserve a formal consultation with the RMTY
-                                team to define your vision, clarify project
-                                scope, and align design direction with your
-                                site and budget requirements.
+                                Reserve a formal consultation with the RMTY team to define your vision, clarify project scope, and align design direction with your site and budget requirements.
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Main Content ── */}
             <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:items-start">
                     <div className="lg:col-span-7">
@@ -331,7 +261,7 @@ await Swal.fire({
                             <div className="mb-20">
                                 <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
                                     <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Project Specs</h2>
-                                    <span className="text-xs font-bold tracking-widests text-neutral-400">02</span>
+                                    <span className="text-xs font-bold tracking-widest text-neutral-400">02</span>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
                                     <UnderlineInput label="Location *" value={location} onValueChange={setLocation} externalError={errors.location} />
@@ -381,51 +311,32 @@ await Swal.fire({
                                 />
                                 <AnimatePresence mode="wait">
                                     {errors.captcha && (
-                                        <motion.p
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
-                                        >
+                                        <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                                            className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold">
                                             {errors.captcha}
                                         </motion.p>
                                     )}
                                 </AnimatePresence>
                             </div>
 
-                            {/* Submit error */}
                             <AnimatePresence>
                                 {submitError && (
-                                    <motion.div
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
-                                        className="mb-10 flex items-center gap-4 border-l-2 border-red-500 py-1 pl-4"
-                                    >
-                                        <span className="text-[11px] font-bold tracking-[0.15em] text-red-500 uppercase">
-                                            {submitError}
-                                        </span>
+                                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                                        className="mb-10 flex items-center gap-4 border-l-2 border-red-500 py-1 pl-4">
+                                        <span className="text-[11px] font-bold tracking-[0.15em] text-red-500 uppercase">{submitError}</span>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
 
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="rounded-full border border-black px-14 py-4 text-[11px] font-bold tracking-[0.2em] text-black uppercase transition-all hover:bg-black hover:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
+                            <button type="submit" disabled={submitting}
+                                className="rounded-full border border-black px-14 py-4 text-[11px] font-bold tracking-[0.2em] text-black uppercase transition-all hover:bg-black hover:text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                                 {submitting ? "PROCESSING..." : "REQUEST SCHEDULE"}
                             </button>
                         </form>
                     </div>
 
-                    {/* Right sticky image */}
                     <div className="hidden lg:block lg:col-span-5 relative h-[750px] bg-neutral-200 overflow-hidden sticky top-32">
-                        <img
-                            src="/images/home-hero.webp"
-                            alt="Appointment Header"
-                            className="h-full w-full object-cover grayscale-[15%] transition-transform duration-[3s] hover:scale-105"
-                        />
+                        <img src="/images/home-hero.webp" alt="Appointment Header" className="h-full w-full object-cover grayscale-[15%] transition-transform duration-[3s] hover:scale-105" />
                         <div className="absolute inset-0 bg-black/5 pointer-events-none" />
                     </div>
                 </div>
@@ -443,31 +354,30 @@ function OngoingConsultationBlock({ consultation, onDashboard }) {
     };
     const s = statusColors[consultation?.status] ?? statusColors.pending;
 
+    // ✅ Both declared BEFORE rows — no hoisting error
     const formattedDate = consultation?.consultation_date
-        ? new Date(consultation.consultation_date).toLocaleDateString("en-US", {
-              weekday: "long", year: "numeric", month: "long", day: "numeric",
-          })
+        ? new Date(String(consultation.consultation_date).replace(" ", "T"))
+              .toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
         : "To be confirmed";
-const rows = [
-    ...(consultation?.reference_id
-        ? [{ label: "Reference No.", value: consultation.reference_id, mono: true }]
-        : []),
-    { label: "Project Type", value: consultation?.project_type ?? "—" },
-    { label: "Location",     value: consultation?.location ?? "—" },
-    { label: "Date",         value: formattedDate },
-    { label: "Time",         value: formattedTime || "—" },
-    { label: "Status",       value: s.label, highlight: true, color: s.text },
-];
 
     const formattedTime = consultation?.consultation_date
-        ? new Date(consultation.consultation_date).toLocaleTimeString("en-US", {
-              hour: "numeric", minute: "2-digit", hour12: true,
-          })
+        ? new Date(String(consultation.consultation_date).replace(" ", "T"))
+              .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
         : "";
+
+    const rows = [
+        ...(consultation?.reference_id
+            ? [{ label: "Reference No.", value: consultation.reference_id, mono: true }]
+            : []),
+        { label: "Project Type", value: consultation?.project_type ?? "—" },
+        { label: "Location",     value: consultation?.location ?? "—" },
+        { label: "Date",         value: formattedDate },
+        { label: "Time",         value: formattedTime || "—" },
+        { label: "Status",       value: s.label, highlight: true, color: s.text },
+    ];
 
     return (
         <section className="w-full bg-[#f1f1f1] text-black min-h-screen [font-family:var(--font-neue)]">
-            {/* Header */}
             <div className="mx-auto max-w-screen-2xl px-6 pt-32 pb-16 md:pt-48 border-b border-neutral-300">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:items-end">
                     <h1 className="lg:col-span-8 text-[3.5rem] md:text-[6rem] lg:text-[6.5rem] leading-[0.85] font-bold tracking-tighter uppercase">
@@ -481,18 +391,10 @@ const rows = [
                 </div>
             </div>
 
-            {/* Block content */}
             <div className="mx-auto max-w-screen-2xl px-6 py-16 md:py-24">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:items-start">
                     <div className="lg:col-span-7">
-
-                        {/* Notice banner */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                            className="mb-12"
-                        >
+                        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-12">
                             <div className="border-b-2 border-black pb-4 mb-10 flex justify-between items-end">
                                 <h2 className="text-xl md:text-2xl font-bold tracking-tight uppercase">Active Consultation</h2>
                                 <span className={`text-[10px] font-bold tracking-widest uppercase px-3 py-1 ${s.bg} ${s.text} border ${s.border}`}>
@@ -504,52 +406,37 @@ const rows = [
                                 You currently have an ongoing consultation request. A new appointment cannot be scheduled until your current one is resolved. Visit your dashboard to view details, track its status, or contact us for assistance.
                             </p>
 
-                            {/* Summary card */}
                             <div className="border border-neutral-200 bg-white mb-10">
                                 <div className="bg-black px-6 py-4">
-                                    <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-400">
-                                        Current Booking
-                                    </p>
+                                    <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-neutral-400">Current Booking</p>
                                 </div>
                                 <div className="divide-y divide-neutral-100">
                                     {rows.map(({ label, value, highlight, color, mono }) => (
-    <div key={label} className="flex justify-between items-center px-6 py-4">
-        <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-neutral-400">
-            {label}
-        </span>
-        <span className={`text-[13px] font-semibold ${highlight ? color : "text-neutral-800"} ${mono ? "font-mono tracking-wider" : ""}`}>
-            {value}
-        </span>
-    </div>
-))}
+                                        <div key={label} className="flex justify-between items-center px-6 py-4">
+                                            <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-neutral-400">{label}</span>
+                                            <span className={`text-[13px] font-semibold ${highlight ? color : "text-neutral-800"} ${mono ? "font-mono tracking-wider" : ""}`}>
+                                                {value}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* CTA */}
                             <div className="flex flex-col sm:flex-row gap-4">
-                                <button
-                                    onClick={onDashboard}
-                                    className="bg-black text-white px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all hover:bg-neutral-800 cursor-pointer"
-                                >
+                                <button onClick={onDashboard}
+                                    className="bg-black text-white px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase hover:bg-neutral-800 cursor-pointer">
                                     Go to Dashboard
                                 </button>
-                                <a
-                                    href="mailto:hello@rmty.com"
-                                    className="border border-black px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase transition-all hover:bg-black hover:text-white text-center cursor-pointer"
-                                >
+                                <a href="mailto:hello@rmty.com"
+                                    className="border border-black px-10 py-4 text-[11px] font-bold tracking-[0.2em] uppercase hover:bg-black hover:text-white text-center cursor-pointer">
                                     Contact Us
                                 </a>
                             </div>
                         </motion.div>
                     </div>
 
-                    {/* Right sticky image */}
                     <div className="hidden lg:block lg:col-span-5 relative h-[750px] bg-neutral-200 overflow-hidden sticky top-32">
-                        <img
-                            src="/images/home-hero.webp"
-                            alt="Appointment Header"
-                            className="h-full w-full object-cover grayscale-[15%]"
-                        />
+                        <img src="/images/home-hero.webp" alt="Appointment Header" className="h-full w-full object-cover grayscale-[15%]" />
                         <div className="absolute inset-0 bg-black/5 pointer-events-none" />
                     </div>
                 </div>
@@ -564,37 +451,19 @@ function AuthRequiredModal({ isOpen, onClose, onAction }) {
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="absolute inset-0 bg-black/20"
-                    />
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="relative w-full max-w-[420px] bg-white p-12 md:p-14 flex flex-col items-center text-center"
-                    >
-                        <span className="text-[10px] font-bold tracking-[0.25em] text-neutral-400 uppercase mb-6">
-                            One More Step
-                        </span>
-                        <h2 className="text-xl md:text-2xl font-medium tracking-tight text-neutral-900 mb-4">
-                            Sign in to submit.
-                        </h2>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/20" />
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.3, ease: "easeOut" }}
+                        className="relative w-full max-w-[420px] bg-white p-12 md:p-14 flex flex-col items-center text-center">
+                        <span className="text-[10px] font-bold tracking-[0.25em] text-neutral-400 uppercase mb-6">One More Step</span>
+                        <h2 className="text-xl md:text-2xl font-medium tracking-tight text-neutral-900 mb-4">Sign in to submit.</h2>
                         <p className="text-sm leading-relaxed text-neutral-500 mb-10 max-w-[280px]">
                             Your booking details are saved. Sign in or create a profile — your appointment will be submitted automatically.
                         </p>
                         <div className="flex flex-col w-full gap-2">
-                            <button
-                                onClick={onAction}
-                                className="w-full bg-black text-white py-4 text-[10px] font-bold tracking-[0.2em] uppercase transition-opacity hover:opacity-70 cursor-pointer"
-                            >
+                            <button onClick={onAction} className="w-full bg-black text-white py-4 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-70 cursor-pointer">
                                 Sign In / Create Profile
                             </button>
-                            <button
-                                onClick={onClose}
-                                className="w-full py-4 text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase transition-colors hover:text-black cursor-pointer"
-                            >
+                            <button onClick={onClose} className="w-full py-4 text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase hover:text-black cursor-pointer">
                                 Cancel
                             </button>
                         </div>
@@ -619,9 +488,7 @@ function UnderlineInput({ label, type = "text", options, isPhone, placeholder, v
     }`;
     return (
         <div className="relative group w-full">
-            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>
-                {label}
-            </label>
+            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>{label}</label>
             {options ? (
                 <select value={value} onChange={handleChange} className={inputClass}>
                     <option value="" disabled hidden>Select {label.replace("*", "")}</option>
@@ -632,11 +499,8 @@ function UnderlineInput({ label, type = "text", options, isPhone, placeholder, v
             )}
             <AnimatePresence mode="wait">
                 {externalError && (
-                    <motion.p
-                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold"
-                    >
+                    <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                        className="text-[10px] tracking-wide text-red-500 mt-2 overflow-hidden uppercase font-bold">
                         {externalError}
                     </motion.p>
                 )}
@@ -649,15 +513,11 @@ function AppointmentMessageField({ label, value, onValueChange, externalError })
     const hasError = !!externalError;
     return (
         <div className="relative group w-full">
-            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>
-                {label}
-            </label>
-            <textarea
-                rows={4} value={value} onChange={(e) => onValueChange(e.target.value)}
+            <label className={`block text-[11px] font-bold tracking-[0.15em] uppercase mb-4 transition-colors ${hasError ? "text-red-500" : "text-neutral-800"}`}>{label}</label>
+            <textarea rows={4} value={value} onChange={(e) => onValueChange(e.target.value)}
                 className={`w-full bg-transparent border-b px-0 py-2 text-sm outline-none transition-colors rounded-none resize-none ${
                     hasError ? "border-red-500 text-red-500" : "border-neutral-300 focus:border-black text-black"
-                }`}
-            />
+                }`} />
         </div>
     );
 }
