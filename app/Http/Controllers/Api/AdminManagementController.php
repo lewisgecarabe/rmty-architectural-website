@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use App\Mail\AdminOtpMail;
+use Illuminate\Support\Facades\Mail;
 
 class AdminManagementController extends Controller
 {
@@ -88,56 +90,123 @@ class AdminManagementController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email|max:255',
-            'password' => 'required|string|min:8|confirmed',
+{
+    $validator = Validator::make($request->all(), [
+        'first_name' => 'required|string|max:255',
+        'last_name'  => 'required|string|max:255',
+        'email'      => 'required|email|unique:users,email|max:255',
+        'password'   => 'required|string|min:8|confirmed',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors'  => $validator->errors(),
+        ], 422);
+    }
+
+    try {
+        $otp  = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $name = trim($request->first_name . ' ' . $request->last_name);
+
+        $admin = User::create([
+            'name'           => $name,
+            'first_name'     => $request->first_name,
+            'last_name'      => $request->last_name,
+            'email'          => $request->email,
+            'password'       => Hash::make($request->password),
+            'is_admin'       => true,
+            'role'           => 'admin',
+            'otp'            => Hash::make($otp),
+            'otp_expires_at' => now()->addMinutes(5),
+            'archived_at'    => now(), // locked until verified
         ]);
 
-        if ($validator->fails()) {
+        Mail::to($admin->email)->send(new AdminOtpMail($otp, $admin->first_name));
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Admin created. OTP sent to their email for verification.',
+            'admin_id' => $admin->id,
+        ], 201);
+    } catch (\Exception $e) {
+        \Log::error('Failed to create admin: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create admin account',
+        ], 500);
+    }
+}
+
+// ── verifyOtp() ──────────────────────────────────────────────────────
+public function verifyOtp(Request $request, $id)
+{
+    $validator = Validator::make($request->all(), [
+        'otp' => 'required|string|size:6',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'OTP is required (6 digits)',
+        ], 422);
+    }
+
+    try {
+        $admin = User::findOrFail($id);
+
+        if (!$admin->otp_expires_at || now()->isAfter($admin->otp_expires_at)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'message' => 'OTP has expired. Please request a new one.',
             ], 422);
         }
 
-        try {
-            $name = trim($request->first_name . ' ' . $request->last_name);
-            $admin = User::create([
-                'name' => $name,
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'is_admin' => true,
-                'role'       => 'admin',
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Admin account created successfully',
-                'data' => [
-                    'id' => $admin->id,
-                    'name' => $admin->name,
-                    'first_name' => $admin->first_name,
-                    'last_name' => $admin->last_name,
-                    'email' => $admin->email,
-                    'created_at' => $admin->created_at,
-                ]
-            ], 201);
-        } catch (\Exception $e) {
-            \Log::error('Failed to create admin account: ' . $e->getMessage());
-            
+        if (!Hash::check($request->otp, $admin->otp)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create admin account'
-            ], 500);
+                'message' => 'Invalid OTP. Please try again.',
+            ], 422);
         }
-    }
 
+        // Activate the account
+        $admin->otp            = null;
+        $admin->otp_expires_at = null;
+        $admin->archived_at    = null; // unlock
+        $admin->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email verified. Admin account is now active.',
+        ]);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json(['success' => false, 'message' => 'Admin not found'], 404);
+    } catch (\Exception $e) {
+        \Log::error('OTP verify error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Verification failed'], 500);
+    }
+}
+
+// ── resendOtp() ──────────────────────────────────────────────────────
+public function resendOtp(Request $request, $id)
+{
+    try {
+        $admin = User::findOrFail($id);
+
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $admin->otp            = Hash::make($otp);
+        $admin->otp_expires_at = now()->addMinutes(5);
+        $admin->save();
+
+        Mail::to($admin->email)->send(new AdminOtpMail($otp, $admin->first_name));
+
+        return response()->json(['success' => true, 'message' => 'OTP resent successfully.']);
+    } catch (\Exception $e) {
+        \Log::error('Resend OTP error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to resend OTP'], 500);
+    }
+}
     /**
      * Update an existing admin account
      * 

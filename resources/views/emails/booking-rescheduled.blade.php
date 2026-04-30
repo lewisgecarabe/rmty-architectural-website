@@ -1,107 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consultation Rebooked</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consultation Rebooked — RMTY Designs</title>
 </head>
-<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f8; margin: 0; padding: 40px 20px; -webkit-font-smoothing: antialiased;">
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
-    <div style="max-width: 540px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4;padding:48px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 
-        {{-- Header --}}
-        <div style="background-color: #000000; padding: 40px; text-align: center;">
-            <h2 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 900; letter-spacing: -0.05em; color: #ffffff; text-transform: uppercase;">RMTY</h2>
-            <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.25em; color: #737373; text-transform: uppercase;">Designs Studio </p>
-        </div>
+    {{-- Wordmark --}}
+    <tr>
+        <td style="padding-bottom:16px;text-align:center;">
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.25em;color:#888;text-transform:uppercase;">RMTY Designs Studio</span>
+        </td>
+    </tr>
 
-        {{-- Status Banner --}}
-        <div style="background-color: #eff6ff; border-bottom: 1px solid #bfdbfe; padding: 18px 40px;">
-            <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: #1d4ed8; text-transform: uppercase;">
-                &#8635; &nbsp; Consultation Successfully Rebooked
-            </p>
-        </div>
+    {{-- Card --}}
+    <tr>
+        <td style="background-color:#ffffff;border:1px solid #e5e5e5;overflow:hidden;">
 
-        {{-- Body --}}
-        <div style="padding: 40px;">
+            {{-- Black header --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="background-color:#000000;padding:30px 40px;">
+                        <p style="margin:0 0 5px 0;font-size:10px;font-weight:700;letter-spacing:0.2em;color:#666;text-transform:uppercase;">Consultation Rebooked</p>
+                        <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;line-height:1.25;">Your session has been rebooked.</h1>
+                    </td>
+                </tr>
+            </table>
 
-            <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: #a3a3a3; text-transform: uppercase;">Hello,</p>
-            <p style="margin: 0 0 20px 0; font-size: 22px; font-weight: 800; color: #000000; letter-spacing: -0.03em;">{{ $clientName }}.</p>
+            {{-- Thin blue status strip --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="background-color:#eff6ff;border-bottom:1px solid #bfdbfe;padding:11px 40px;">
+                        <span style="font-size:10px;font-weight:700;letter-spacing:0.18em;color:#1d4ed8;text-transform:uppercase;">&#8635;&nbsp;&nbsp;Rescheduled</span>
+                    </td>
+                </tr>
+            </table>
 
-            <p style="margin: 0 0 30px 0; font-size: 14px; line-height: 1.7; color: #525252;">
-                Your architecture consultation with <strong>RMTY Designs</strong> has been successfully rebooked. We look forward to meeting with you and discussing your project at the new time.
-            </p>
+            {{-- Body --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="padding:34px 40px 0 40px;">
 
-            {{-- Updated appointment details --}}
-            <div style="border: 1px solid #e5e5e5; border-radius: 16px; overflow: hidden; margin-bottom: 30px;">
-                <div style="background-color: #000000; padding: 16px 24px;">
-                    <p style="margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: #737373; text-transform: uppercase;">Updated Appointment Details</p>
-                </div>
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="padding: 0 24px;">
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase; width: 40%;">Client</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $clientName }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">New Date</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $consultationDate }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">New Time</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $consultationTime }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Location</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $location }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Project Type</td>
-                        <td style="padding: 16px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; font-weight: 600; color: #171717; text-align: right;">{{ $projectType }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 16px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #a3a3a3; text-transform: uppercase;">Status</td>
-                        <td style="padding: 16px 0; text-align: right;">
-                            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #1d4ed8; text-transform: uppercase; background-color: #eff6ff; padding: 4px 12px; border-radius: 99px; border: 1px solid #bfdbfe;">Rebooked</span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+                        <p style="margin:0 0 5px 0;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Hi,</p>
+                        <p style="margin:0 0 20px 0;font-size:20px;font-weight:800;color:#111;letter-spacing:-0.02em;">{{ $clientName }}.</p>
 
-            @if(!empty($rescheduleReason))
-            <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px 24px; margin-bottom: 30px;">
-                <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; color: #1d4ed8; text-transform: uppercase;">Reason for Rescheduling</p>
-                <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #1e3a8a;">{{ $rescheduleReason }}</p>
-            </div>
-            @endif
+                        <p style="margin:0 0 26px 0;font-size:14px;line-height:1.75;color:#555;">
+                            Your architecture consultation with <strong style="color:#111;">RMTY Designs</strong> has been successfully rebooked. We look forward to meeting with you and discussing your project at the new time.
+                        </p>
 
-            {{-- Manage Booking CTA --}}
-            <div style="text-align: center; margin-bottom: 30px;">
-                <a href="{{ $dashboardUrl }}" style="display: inline-block; background-color: #000000; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;">
-                    Manage My Booking
-                </a>
-            </div>
+                        {{-- Updated details --}}
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e8e8e8;margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#f9f9f9;padding:12px 20px;border-bottom:1px solid #e8e8e8;">
+                                    <span style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#999;text-transform:uppercase;">Updated Appointment Details</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:0 20px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;width:38%;">New Date</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $consultationDate }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">New Time</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $consultationTime }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Location</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">911 Josefina 2 Sampaloc,<br>Manila, Philippines 1008</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Project Type</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $projectType }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Status</td>
+                                            <td style="padding:12px 0;text-align:right;">
+                                                <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#1d4ed8;text-transform:uppercase;background-color:#eff6ff;padding:4px 12px;border-radius:99px;border:1px solid #bfdbfe;">Rebooked</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
 
-            <div style="background-color: #f8fafc; border-left: 3px solid #3b82f6; padding: 16px 20px 16px 24px; border-radius: 0 8px 8px 0; margin-bottom: 16px;">
-                <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #1e3a8a;">
-                    If you need to make further changes, use the button above
-                </p>
-            </div>
+                        {{-- Onsite notice --}}
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#f9f9f9;border-left:3px solid #000;padding:14px 18px;">
+                                    <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;letter-spacing:0.15em;color:#888;text-transform:uppercase;">Onsite Appointment</p>
+                                    <p style="margin:0;font-size:13px;line-height:1.65;color:#333;">
+                                        This appointment will be held <strong>onsite</strong> at our studio.<br>
+                                        911 Josefina 2 Sampaloc, Manila, Philippines 1008<br>
+                                        (+63) 915 896 2275
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
 
-           
-        </div>
+                        @if(!empty($rescheduleReason))
+                        {{-- Reschedule reason --}}
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#eff6ff;border-left:3px solid #1d4ed8;padding:14px 18px;">
+                                    <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;letter-spacing:0.15em;color:#1d4ed8;text-transform:uppercase;">Reason for Rescheduling</p>
+                                    <p style="margin:0;font-size:13px;line-height:1.65;color:#1e3a8a;">{{ $rescheduleReason }}</p>
+                                </td>
+                            </tr>
+                        </table>
+                        @endif
 
-        <hr style="margin: 25px 0; border: none; border-top: 1px solid #e5e5e5;">
+                        <p style="margin:0 0 22px 0;font-size:14px;line-height:1.75;color:#555;">
+                            If you need to make further changes, you can manage your booking here:
+                        </p>
 
+                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:36px;">
+                            <tr>
+                                <td style="background-color:#000;">
+                                    <a href="{{ $dashboardUrl }}" style="display:inline-block;padding:13px 28px;font-size:11px;font-weight:700;letter-spacing:0.2em;color:#fff;text-decoration:none;text-transform:uppercase;">Manage My Booking</a>
+                                </td>
+                            </tr>
+                        </table>
 
-        {{-- Footer --}}
-        <div style="background-color: #fafafa; border-top: 1px solid #f5f5f5; padding: 30px 40px; text-align: center;">
-            <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: #525252;">Warm regards, RMTY Designs Studio</p>
-            <p style="font-size: 12px; color: #777; line-height: 1.6;">
-    📞 (+63) 915 896 2275<br>
-    📍 911 Josefina 2 Sampaloc, Manila, Philippines, 1008
-</p>
-        </div>
+                    </td>
+                </tr>
+            </table>
 
-    </div>
+            {{-- Footer --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="border-top:1px solid #ebebeb;background-color:#fafafa;padding:24px 40px;">
+                        <p style="margin:0 0 4px 0;font-size:12px;font-weight:700;color:#333;">Warm regards, RMTY Designs Studio</p>
+                        <p style="margin:0 0 12px 0;font-size:12px;color:#888;line-height:1.65;">
+                            (+63) 915 896 2275<br>
+                            911 Josefina 2 Sampaloc, Manila, Philippines 1008
+                        </p>
+                        <p style="margin:0;font-size:11px;color:#bbb;">© {{ date('Y') }} RMTY Designs Studio. All rights reserved.</p>
+                    </td>
+                </tr>
+            </table>
+
+        </td>
+    </tr>
+
+</table>
+</td></tr>
+</table>
+
 </body>
 </html>

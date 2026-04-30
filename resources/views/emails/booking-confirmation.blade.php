@@ -3,106 +3,151 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Booking Confirmed</title>
-    <style>
-        body  { margin:0; padding:0; background:#f5f5f5; font-family:'Helvetica Neue',Arial,sans-serif; color:#111; }
-        .wrap { max-width:560px; margin:40px auto; background:#fff; border:1px solid #e5e5e5; }
-        .head { background:#000; padding:36px 40px; }
-        .head h1 { margin:0; color:#fff; font-size:22px; font-weight:700; letter-spacing:-.3px; }
-        .head p  { margin:6px 0 0; color:#aaa; font-size:12px; letter-spacing:.1em; text-transform:uppercase; }
-        .ref  { background:#f9f9f9; border-left:3px solid #000; margin:32px 40px 0; padding:14px 20px; }
-        .ref .label { font-size:10px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#888; margin:0 0 4px; }
-        .ref .value { font-size:20px; font-weight:800; letter-spacing:.05em; color:#000; margin:0; font-variant-numeric:tabular-nums; }
-        .body { padding:32px 40px; }
-        .body p  { font-size:15px; line-height:1.6; color:#444; margin:0 0 20px; }
-        .table   { width:100%; border-collapse:collapse; margin:24px 0; }
-        .table td { padding:11px 0; border-bottom:1px solid #f0f0f0; font-size:13px; vertical-align:top; }
-        .table td:first-child { color:#888; font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:10px; width:42%; padding-right:12px; }
-        .table td:last-child  { color:#111; font-weight:600; }
-        .btn  { display:inline-block; margin-top:8px; padding:14px 28px; background:#000; color:#fff;
-                text-decoration:none; font-size:11px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; }
-        .foot { border-top:1px solid #f0f0f0; padding:24px 40px; font-size:11px; color:#bbb; line-height:1.6; }
-    </style>
+    <title>Booking Confirmed — RMTY Designs</title>
 </head>
-<body>
-<div class="wrap">
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
-    <!-- Header -->
-    <div class="head">
-        <h1>Your Session is Confirmed.</h1>
-        <p>RMTY Architectural Design</p>
-    </div>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f4;padding:48px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 
-    <!-- Reference ID -->
-    <div class="ref">
-        <p class="label">Your Reference Number</p>
-        <p class="value">{{ $referenceId }}</p>
-    </div>
+    {{-- Wordmark --}}
+    <tr>
+        <td style="padding-bottom:16px;text-align:center;">
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.25em;color:#888;text-transform:uppercase;">RMTY Designs Studio</span>
+        </td>
+    </tr>
 
-    <!-- Body -->
-    <div class="body">
-        <p>Hi {{ $clientName }},</p>
-        <p>
-            We've received your consultation request and it has been confirmed.
-            Please keep your reference number — you'll need it for any follow-ups,
-            rescheduling, or support enquiries.
-        </p>
+    {{-- Card --}}
+    <tr>
+        <td style="background-color:#ffffff;border:1px solid #e5e5e5;overflow:hidden;">
 
-        <table class="table">
-            <tr>
-                <td>Reference</td>
-                <td>{{ $referenceId }}</td>
-            </tr>
-            <tr>
-                <td>Project Type</td>
-                <td>{{ $projectType }}</td>
-            </tr>
-            <tr>
-                <td>Location</td>
-                <td>{{ $location }}</td>
-            </tr>
-            <tr>
-                <td>Date</td>
-                <td>{{ $consultationDate }}</td>
-            </tr>
-            <tr>
-                <td>Time</td>
-                <td>{{ $consultationTime }}</td>
-            </tr>
-            @if($phone)
-            <tr>
-                <td>Contact</td>
-                <td>{{ $phone }}</td>
-            </tr>
-            @endif
-            @if($notes)
-            <tr>
-                <td>Notes</td>
-                <td>{{ $notes }}</td>
-            </tr>
-            @endif
-        </table>
+            {{-- Black header --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="background-color:#000000;padding:30px 40px;">
+                        <p style="margin:0 0 5px 0;font-size:10px;font-weight:700;letter-spacing:0.2em;color:#666;text-transform:uppercase;">Booking Confirmed</p>
+                        <h1 style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;line-height:1.25;">Your session is confirmed.</h1>
+                    </td>
+                </tr>
+            </table>
 
-        <p>
-            You can track the status of your consultation anytime through your
-            client dashboard.
-        </p>
+            {{-- Body --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="padding:34px 40px 0 40px;">
 
-        <a href="{{ $dashboardUrl }}" class="btn">View Dashboard</a>
-    </div>
+                        <p style="margin:0 0 5px 0;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Hi,</p>
+                        <p style="margin:0 0 20px 0;font-size:20px;font-weight:800;color:#111;letter-spacing:-0.02em;">{{ $clientName }}.</p>
 
-    <!-- Footer -->
-    <div class="foot">
-        <p>
-            Questions? Reply to this email or contact us at
-            <a href="mailto:hello@rmty.com" style="color:#111;">hello@rmty.com</a>
-            and quote your reference number <strong>{{ $referenceId }}</strong>.
-        </p>
-        <p style="margin-top:10px;color:#ccc;">
-            © {{ date('Y') }} RMTY Architectural Design. All rights reserved.
-        </p>
-    </div>
+                        <p style="margin:0 0 26px 0;font-size:14px;line-height:1.75;color:#555;">
+                            Your architecture consultation with <strong style="color:#111;">RMTY Designs</strong> has been successfully confirmed. We're looking forward to discussing your project and exploring how we can bring your vision to life.
+                        </p>
 
-</div>
+                        {{-- Details table --}}
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e8e8e8;margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#f9f9f9;padding:12px 20px;border-bottom:1px solid #e8e8e8;">
+                                    <span style="font-size:10px;font-weight:700;letter-spacing:0.15em;color:#999;text-transform:uppercase;">Appointment Details</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding:0 20px;">
+                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;width:38%;">Date</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $consultationDate }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Time</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $consultationTime }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Location</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">911 Josefina 2 Sampaloc,<br>Manila, Philippines 1008</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Project Type</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $projectType }}</td>
+                                        </tr>
+                                        @if($phone)
+                                        <tr>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Contact</td>
+                                            <td style="padding:12px 0;border-bottom:1px solid #f2f2f2;font-size:13px;font-weight:600;color:#111;text-align:right;">{{ $phone }}</td>
+                                        </tr>
+                                        @endif
+                                        <tr>
+                                            <td style="padding:12px 0;font-size:10px;font-weight:700;letter-spacing:0.12em;color:#aaa;text-transform:uppercase;">Status</td>
+                                            <td style="padding:12px 0;text-align:right;">
+                                                <span style="font-size:10px;font-weight:700;letter-spacing:0.1em;color:#15803d;text-transform:uppercase;background-color:#f0fdf4;padding:4px 12px;border-radius:99px;border:1px solid #bbf7d0;">Confirmed</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+
+                        {{-- Onsite notice --}}
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#f9f9f9;border-left:3px solid #000;padding:14px 18px;">
+                                    <p style="margin:0 0 3px 0;font-size:10px;font-weight:700;letter-spacing:0.15em;color:#888;text-transform:uppercase;">Onsite Appointment</p>
+                                    <p style="margin:0;font-size:13px;line-height:1.65;color:#333;">
+                                        This appointment will be held <strong>onsite</strong> at our studio.<br>
+                                        911 Josefina 2 Sampaloc, Manila, Philippines 1008<br>
+                                        (+63) 915 896 2275
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        @if($notes)
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;">
+                            <tr>
+                                <td style="background-color:#f9f9f9;border:1px solid #e8e8e8;padding:14px 18px;">
+                                    <p style="margin:0 0 5px 0;font-size:10px;font-weight:700;letter-spacing:0.15em;color:#aaa;text-transform:uppercase;">Your Notes</p>
+                                    <p style="margin:0;font-size:13px;line-height:1.65;color:#444;">{{ $notes }}</p>
+                                </td>
+                            </tr>
+                        </table>
+                        @endif
+
+                        <p style="margin:0 0 22px 0;font-size:14px;line-height:1.75;color:#555;">
+                            If you need to make any changes, you may do so here:
+                        </p>
+
+                        <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:36px;">
+                            <tr>
+                                <td style="background-color:#000;">
+                                    <a href="{{ $dashboardUrl }}" style="display:inline-block;padding:13px 28px;font-size:11px;font-weight:700;letter-spacing:0.2em;color:#fff;text-decoration:none;text-transform:uppercase;">Manage Booking</a>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+            </table>
+
+            {{-- Footer --}}
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="border-top:1px solid #ebebeb;background-color:#fafafa;padding:24px 40px;">
+                        <p style="margin:0 0 4px 0;font-size:12px;font-weight:700;color:#333;">Warm regards, RMTY Designs Studio</p>
+                        <p style="margin:0 0 12px 0;font-size:12px;color:#888;line-height:1.65;">
+                            (+63) 915 896 2275<br>
+                            911 Josefina 2 Sampaloc, Manila, Philippines 1008
+                        </p>
+                        <p style="margin:0;font-size:11px;color:#bbb;">© {{ date('Y') }} RMTY Designs Studio. All rights reserved.</p>
+                    </td>
+                </tr>
+            </table>
+
+        </td>
+    </tr>
+
+</table>
+</td></tr>
+</table>
+
 </body>
 </html>

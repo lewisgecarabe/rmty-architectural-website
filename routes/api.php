@@ -121,6 +121,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admins/{id}/can-delete', [AdminManagementController::class, 'canDelete']);
     Route::post('/admins/{id}/archive', [AdminManagementController::class, 'archive']);
     Route::post('/admins/{id}/restore', [AdminManagementController::class, 'restore']);
+Route::post('/admins/{id}/verify-otp', [AdminManagementController::class, 'verifyOtp']);
+Route::post('/admins/{id}/resend-otp', [AdminManagementController::class, 'resendOtp']);
 
     Route::get('/inquiries/stats', [InquiryController::class, 'stats']);
     Route::get('/inquiries', [InquiryController::class, 'index']);

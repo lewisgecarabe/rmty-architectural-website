@@ -19,7 +19,6 @@ class ConsultationController extends Controller
     {
         $query = Consultation::latest();
 
-        // Allow searching by reference_id or client name/email from admin panel
         if ($search = $request->query('search')) {
             $query->search($search);
         }
@@ -41,7 +40,7 @@ class ConsultationController extends Controller
             'message'           => 'nullable|string',
         ]);
 
-        // ── Block if user already has an active consultation ──────────────
+        // Block if user already has an active consultation
         $ongoing = Consultation::where('email', $validated['email'])
             ->whereIn('status', ['pending', 'accepted', 'rescheduled'])
             ->where('is_published', 1)
@@ -55,7 +54,6 @@ class ConsultationController extends Controller
             ], 409);
         }
 
-        // ── Create as ACCEPTED immediately (reference_id auto-generated) ──
         $consultation = Consultation::create([
             ...$validated,
             'status'            => 'accepted',
@@ -63,7 +61,6 @@ class ConsultationController extends Controller
             'reschedule_reason' => null,
         ]);
 
-        // ── Send booking confirmation email ───────────────────────────────
         try {
             Mail::to($consultation->email)
                 ->send(new BookingConfirmationMail($consultation));
@@ -74,7 +71,7 @@ class ConsultationController extends Controller
         return response()->json([
             'message'      => 'Consultation submitted successfully.',
             'data'         => $consultation,
-            'reference_id' => $consultation->reference_id,   // ← NEW
+            'reference_id' => $consultation->reference_id,
         ], 201);
     }
 
@@ -84,7 +81,7 @@ class ConsultationController extends Controller
         return response()->json(Consultation::findOrFail($id));
     }
 
-    // GET /api/consultations/ref/{referenceId}  ← NEW: look up by reference ID
+    // GET /api/consultations/ref/{referenceId}
     public function showByReference(string $referenceId): JsonResponse
     {
         $consultation = Consultation::where('reference_id', strtoupper($referenceId))
@@ -112,22 +109,27 @@ class ConsultationController extends Controller
             'reschedule_reason' => 'sometimes|nullable|string|max:1000',
         ]);
 
-        $oldStatus = strtolower((string) $consultation->status);
+        // Capture old status BEFORE any changes
+        $oldStatus = strtolower(trim((string) $consultation->status));
 
         $consultation->fill($validated);
         $consultation->save();
         $consultation->refresh();
 
-        $newStatus = strtolower((string) $consultation->status);
-        $smsSent   = null;
+        $newStatus = strtolower(trim((string) $consultation->status));
 
-        // ── Send email when admin cancels or reschedules ──────────────────
+        Log::info("Consultation #{$id} status change: [{$oldStatus}] → [{$newStatus}]");
+
+        $smsSent = null;
+
+        // Send emails when admin changes status
         if ($oldStatus !== $newStatus) {
 
             if ($newStatus === 'cancelled') {
                 try {
                     Mail::to($consultation->email)
                         ->send(new BookingCancelledMail($consultation));
+                    Log::info("BookingCancelledMail sent to {$consultation->email}");
                 } catch (\Throwable $e) {
                     Log::error('BookingCancelledMail failed: ' . $e->getMessage());
                 }
@@ -137,12 +139,13 @@ class ConsultationController extends Controller
                 try {
                     Mail::to($consultation->email)
                         ->send(new BookingRescheduledMail($consultation));
+                    Log::info("BookingRescheduledMail sent to {$consultation->email}");
                 } catch (\Throwable $e) {
                     Log::error('BookingRescheduledMail failed: ' . $e->getMessage());
                 }
             }
 
-            // ── SMS (existing behaviour) ──────────────────────────────────
+            // SMS (only if SmsController exists and phone is present)
             if (
                 in_array($newStatus, ['accepted', 'cancelled', 'rescheduled'], true) &&
                 !empty($consultation->phone)
@@ -160,7 +163,7 @@ class ConsultationController extends Controller
         return response()->json([
             'message'      => 'Consultation updated successfully.',
             'data'         => $consultation,
-            'reference_id' => $consultation->reference_id,   // ← NEW
+            'reference_id' => $consultation->reference_id,
             'sms_sent'     => $smsSent,
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,

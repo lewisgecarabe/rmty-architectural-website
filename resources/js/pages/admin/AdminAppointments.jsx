@@ -189,18 +189,6 @@ const getStatusMeta = (status) => {
     }
 };
 
-const buildFormData = (payload) => {
-    const fd = new FormData();
-    fd.append("_method", "PUT");
-
-    Object.entries(payload).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-            fd.append(key, value);
-        }
-    });
-
-    return fd;
-};
 
 const getErrorMessage = async (res) => {
     try {
@@ -647,27 +635,26 @@ export default function AdminBookingConsultations() {
         },
     ];
 
-    const sendUpdateRequest = async (id, payload) => {
-        const fd = buildFormData(payload);
+   // DELETE buildFormData entirely, replace sendUpdateRequest with this:
 
-        const headers = getAuthHeaders();
-        delete headers["Content-Type"];
-        delete headers["content-type"];
+const sendUpdateRequest = async (id, payload) => {
+    const res = await fetch(`/api/consultations/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+        credentials: "include",
+        headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+    });
 
-        const res = await fetch(`/api/consultations/${id}`, {
-            method: "POST",
-            body: fd,
-            credentials: "include",
-            headers,
-        });
+    if (!res.ok) {
+        throw new Error(await getErrorMessage(res));
+    }
 
-        if (!res.ok) {
-            throw new Error(await getErrorMessage(res));
-        }
-
-        return res.json();
-    };
-
+    return res.json();
+};
     const updateConsultationRecord = async ({
         id,
         payload,
