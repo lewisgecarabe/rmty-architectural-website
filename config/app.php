@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'Asia/Manila',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------
@@ -117,11 +117,10 @@ return [
     | Supported drivers: "file", "cache"
     |
     */
-
     'maintenance' => [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-'frontend_url' => env('APP_FRONTEND_URL', 'http://localhost:5173'),    
+    'frontend_url' => env('FRONTEND_URL', env('APP_FRONTEND_URL', 'http://localhost:5173')),
 ];

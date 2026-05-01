@@ -135,14 +135,18 @@ Route::post('/admins/{id}/resend-otp', [AdminManagementController::class, 'resen
 
 
 
-    // Consultations (admin management)
-    Route::get('/admin/consultations', [ConsultationController::class, 'index']);
-    Route::put('/consultations/{id}', [ConsultationController::class, 'update']);
-    Route::post('/consultations/{id}', [ConsultationController::class, 'update']);
-    Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
+   // Consultations (admin management)
+Route::get('/admin/consultations', [ConsultationController::class, 'index']);
+Route::put('/consultations/{id}', [ConsultationController::class, 'update']);
+Route::post('/consultations/{id}', [ConsultationController::class, 'update']);
+Route::delete('/consultations/{id}', [ConsultationController::class, 'destroy']);
 
-    Route::get('/consultations/my',     [ConsultationController::class, 'my']);
-    Route::get('/consultations/my-all', [ConsultationController::class, 'myAll']); // ← new
+// Manual SMS reminder from admin bell button
+Route::post('/consultations/{id}/remind', [ConsultationController::class, 'remind']);
+
+// Client consultation history
+Route::get('/consultations/my', [ConsultationController::class, 'my']);
+Route::get('/consultations/my-all', [ConsultationController::class, 'myAll']);
 
     // Blocked slots (admin management)
     Route::get('/admin/blocked-slots',    [BlockedSlotController::class, 'index']);

@@ -15,7 +15,7 @@ class Consultation extends Model
     }
 
     protected $fillable = [
-        'reference_id',       // ← NEW
+        'reference_id',
         'first_name',
         'last_name',
         'email',
@@ -24,14 +24,16 @@ class Consultation extends Model
         'project_type',
         'message',
         'consultation_date',
+        'sms_reminder_sent_at',
         'status',
         'reschedule_reason',
         'is_published',
     ];
 
     protected $casts = [
-        'is_published'      => 'boolean',
-        'consultation_date' => 'datetime',
+        'is_published'          => 'boolean',
+        'consultation_date'     => 'datetime',
+        'sms_reminder_sent_at'  => 'datetime',
     ];
 
     // ── Auto-generate reference_id on creation ────────────────────────────
@@ -58,12 +60,12 @@ class Consultation extends Model
     public function scopeSearch(Builder $query, string $term): Builder
     {
         return $query->where(function (Builder $q) use ($term) {
-            $q->where('first_name',    'like', "%{$term}%")
-              ->orWhere('last_name',   'like', "%{$term}%")
-              ->orWhere('email',       'like', "%{$term}%")
-              ->orWhere('phone',       'like', "%{$term}%")
-              ->orWhere('status',      'like', "%{$term}%")
-              ->orWhere('reference_id','like', "%{$term}%");   // ← NEW
+            $q->where('first_name', 'like', "%{$term}%")
+              ->orWhere('last_name', 'like', "%{$term}%")
+              ->orWhere('email', 'like', "%{$term}%")
+              ->orWhere('phone', 'like', "%{$term}%")
+              ->orWhere('status', 'like', "%{$term}%")
+              ->orWhere('reference_id', 'like', "%{$term}%");
         });
     }
 }

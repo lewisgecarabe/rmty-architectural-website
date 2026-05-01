@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\BookingConfirmationMail;
 use App\Mail\BookingCancelledMail;
 use App\Mail\BookingRescheduledMail;
+use App\Http\Controllers\Api\SmsController;
 
 class ConsultationController extends Controller
 {
@@ -90,7 +91,7 @@ class ConsultationController extends Controller
         return response()->json($consultation);
     }
 
-    // PUT /api/consultations/{id}  (admin — sends email on cancel/reschedule)
+    // PUT /api/consultations/{id}  (admin — sends email on cancel/reschedule, NO SMS)
     public function update(Request $request, $id): JsonResponse
     {
         $consultation = Consultation::findOrFail($id);
@@ -109,7 +110,6 @@ class ConsultationController extends Controller
             'reschedule_reason' => 'sometimes|nullable|string|max:1000',
         ]);
 
-        // Capture old status BEFORE any changes
         $oldStatus = strtolower(trim((string) $consultation->status));
 
         $consultation->fill($validated);
@@ -118,18 +118,12 @@ class ConsultationController extends Controller
 
         $newStatus = strtolower(trim((string) $consultation->status));
 
-        Log::info("Consultation #{$id} status change: [{$oldStatus}] → [{$newStatus}]");
-
-        $smsSent = null;
-
-        // Send emails when admin changes status
+        // Send email only (no SMS) when admin cancels or reschedules
         if ($oldStatus !== $newStatus) {
-
             if ($newStatus === 'cancelled') {
                 try {
                     Mail::to($consultation->email)
                         ->send(new BookingCancelledMail($consultation));
-                    Log::info("BookingCancelledMail sent to {$consultation->email}");
                 } catch (\Throwable $e) {
                     Log::error('BookingCancelledMail failed: ' . $e->getMessage());
                 }
@@ -139,23 +133,8 @@ class ConsultationController extends Controller
                 try {
                     Mail::to($consultation->email)
                         ->send(new BookingRescheduledMail($consultation));
-                    Log::info("BookingRescheduledMail sent to {$consultation->email}");
                 } catch (\Throwable $e) {
                     Log::error('BookingRescheduledMail failed: ' . $e->getMessage());
-                }
-            }
-
-            // SMS (only if SmsController exists and phone is present)
-            if (
-                in_array($newStatus, ['accepted', 'cancelled', 'rescheduled'], true) &&
-                !empty($consultation->phone)
-            ) {
-                try {
-                    $smsMessage = SmsController::buildBookingStatusMessage($consultation, $newStatus);
-                    $smsSent    = SmsController::send($consultation->phone, $smsMessage);
-                } catch (\Throwable $e) {
-                    Log::error('SMS failed: ' . $e->getMessage());
-                    $smsSent = false;
                 }
             }
         }
@@ -164,7 +143,6 @@ class ConsultationController extends Controller
             'message'      => 'Consultation updated successfully.',
             'data'         => $consultation,
             'reference_id' => $consultation->reference_id,
-            'sms_sent'     => $smsSent,
             'old_status'   => $oldStatus,
             'new_status'   => $newStatus,
         ]);
@@ -176,6 +154,49 @@ class ConsultationController extends Controller
         Consultation::findOrFail($id)->delete();
         return response()->json(['message' => 'Consultation deleted successfully.']);
     }
+
+// POST /api/consultations/{id}/remind
+public function remind($id): JsonResponse
+{
+    $consultation = Consultation::findOrFail($id);
+
+    if (empty($consultation->phone)) {
+        return response()->json([
+            'message' => 'No phone number on file for this client.',
+            'sms_sent' => false,
+        ], 422);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Manual Bell Reminder
+    |--------------------------------------------------------------------------
+    | This allows the admin to manually send an SMS reminder by clicking the bell.
+    | It does not require another "Accept" action because the consultation may
+    | already be accepted/confirmed through email or the system flow.
+    */
+    $allowedStatuses = ['accepted', 'rescheduled', 'pending'];
+
+    if (!in_array(strtolower((string) $consultation->status), $allowedStatuses, true)) {
+        return response()->json([
+            'message' => 'SMS reminder cannot be sent for this consultation status.',
+            'sms_sent' => false,
+            'status' => $consultation->status,
+        ], 422);
+    }
+
+    $message = SmsController::buildReminderMessage($consultation);
+
+    $sent = SmsController::send($consultation->phone, $message);
+
+    return response()->json([
+        'message' => $sent
+            ? 'Appointment reminder sent successfully.'
+            : 'Reminder could not be sent. Check Laravel logs.',
+        'sms_sent' => $sent,
+        'preview' => $message,
+    ], $sent ? 200 : 500);
+}
 
     // GET /api/consultations/my  (client — active only)
     public function my(Request $request): JsonResponse
