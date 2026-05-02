@@ -23,7 +23,7 @@ class AdminManagementController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = User::whereIn('role', ['admin', 'super_admin'])
+$query = User::where('is_admin', true)
 
                 ->select('id', 'name', 'first_name', 'last_name', 'email', 'role', 'archived_at', 'created_at', 'updated_at');
 
@@ -59,10 +59,9 @@ class AdminManagementController extends Controller
     public function show($id)
     {
         try {
-            $admin = User::whereIn('role', ['admin', 'super_admin'])
-
-                ->select('id', 'name', 'first_name', 'last_name', 'email', 'role','archived_at', 'created_at', 'updated_at')
-                ->findOrFail($id);
+           $admin = User::where('is_admin', true)
+    ->select('id', 'name', 'first_name', 'last_name', 'email', 'role','archived_at', 'created_at', 'updated_at')
+    ->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -118,7 +117,7 @@ class AdminManagementController extends Controller
             'password'       => Hash::make($request->password),
             'is_admin'       => true,
             'role'           => 'admin',
-            'otp'            => Hash::make($otp),
+            'otp'            => $otp,
             'otp_expires_at' => now()->addMinutes(5),
             'archived_at'    => now(), // locked until verified
         ]);
@@ -163,12 +162,12 @@ public function verifyOtp(Request $request, $id)
             ], 422);
         }
 
-        if (!Hash::check($request->otp, $admin->otp)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid OTP. Please try again.',
-            ], 422);
-        }
+       if ($admin->otp !== $request->otp) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Invalid OTP. Please try again.',
+    ], 422);
+}
 
         // Activate the account
         $admin->otp            = null;
@@ -195,7 +194,7 @@ public function resendOtp(Request $request, $id)
         $admin = User::findOrFail($id);
 
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $admin->otp            = Hash::make($otp);
+$admin->otp = $otp; // plain 6-digit string, no Hash::make()
         $admin->otp_expires_at = now()->addMinutes(5);
         $admin->save();
 

@@ -37,10 +37,10 @@ class AdminAuthController extends Controller
         $user = Auth::user();
 
         // ── Role check ──────────────────────────────────────────────────────
-        if (!in_array($user->role, ['admin', 'super_admin'])) {
-            Auth::logout();
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }                                     // ← brace was missing before; broke everything below
+      if (!$user->is_admin) {
+    Auth::logout();
+    return response()->json(['message' => 'Access denied. You are not authorized to access this panel.'], 403);
+}                                  // ← brace was missing before; broke everything below
 
         // ── Archived check ──────────────────────────────────────────────────
         if ($user->archived_at) {
