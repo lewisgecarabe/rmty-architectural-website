@@ -87,14 +87,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/contact-content', [ContactPageContentController::class, 'index']);
     Route::post('/admin/contact-content', [ContactPageContentController::class, 'store']);
 });
+Route::prefix('client')->group(function () {
+    Route::post('/forgot-password',   [AuthController::class, 'forgotPassword'])
+        ->middleware('throttle:5,1');   // 5 requests/min per IP
+ 
+    Route::post('/verify-reset-otp',  [AuthController::class, 'verifyResetOtp'])
+        ->middleware('throttle:10,1');
+ 
+    Route::post('/reset-password',    [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:10,1');
+});
 
-Route::post('/client/forgot-password',   [ClientPasswordResetController::class, 'sendOtp']);
-Route::post('/client/verify-reset-otp',  [ClientPasswordResetController::class, 'verifyOtp']);
-Route::post('/client/reset-password',    [ClientPasswordResetController::class, 'resetPassword']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])
+    ->middleware('throttle:10,1');
 Route::post('/logout', [AuthController::class, 'logout']);
+
+
 
 // Consultation booking — public (contact form)
 Route::post('/inquiries', [InquiryController::class, 'store']);
