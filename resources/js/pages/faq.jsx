@@ -151,7 +151,10 @@ export default function FAQ() {
                                     key={item.question}
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.24, delay: index * 0.05 }}
+                                    transition={{
+                                        duration: 0.24,
+                                        delay: index * 0.05,
+                                    }}
                                     className={`rounded-xl border transition-all ${
                                         isOpen
                                             ? "border-neutral-400 bg-white shadow-sm"
@@ -161,7 +164,9 @@ export default function FAQ() {
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            setOpenKey(isOpen ? null : item.question)
+                                            setOpenKey(
+                                                isOpen ? null : item.question,
+                                            )
                                         }
                                         aria-expanded={isOpen}
                                         aria-controls={contentId}
@@ -175,13 +180,31 @@ export default function FAQ() {
                                                 {item.question}
                                             </p>
                                         </div>
-                                        <motion.span
-                                            animate={{ rotate: isOpen ? 45 : 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="grid place-items-center h-9 w-9 rounded-full border border-neutral-300 text-xl md:text-2xl leading-none text-neutral-500 bg-white"
+
+                                        {/* PERFECTLY CENTERED SVG ICON */}
+                                        <motion.div
+                                            animate={{
+                                                rotate: isOpen ? 180 : 0,
+                                            }}
+                                            transition={{
+                                                duration: 0.3,
+                                                ease: "easeInOut",
+                                            }}
+                                            className="flex items-center justify-center shrink-0 h-9 w-9 rounded-full border border-neutral-300 text-neutral-500 bg-white"
                                         >
-                                            +
-                                        </motion.span>
+                                            <svg
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </motion.div>
                                     </button>
 
                                     <AnimatePresence initial={false}>

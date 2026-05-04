@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ProjectCard from "../components/ProjectCard";
+import Navbar from "../components/navbar"; // Adjust this import path if Navbar is in a different folder
+import Faq from "./Faq";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -23,6 +25,9 @@ export default function Home() {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [content, setContent] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // State to handle opening the menu from the Navbar
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -89,12 +94,15 @@ export default function Home() {
         return () => clearInterval(timer);
     }, [activeHeroImages.length]);
 
-    // NOTICE: We removed the full-page "if (loading)" block here!
+    const handleOpenMenu = () => {
+        setIsMenuOpen(true);
+        // You can add logic here to open your actual sidebar/menu component
+    };
 
     return (
         <>
             {/* --- HERO SECTION --- */}
-            <section className="relative w-full h-screen bg-black overflow-hidden">
+            <section className="relative w-full h-[80vh] bg-black overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black">
                     {/* USER'S LOADING OVERLAY FOR HERO */}
                     <AnimatePresence>
@@ -148,21 +156,18 @@ export default function Home() {
                     <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="md:col-span-2">
                             <div className="text-white [font-family:var(--font-neue)] mb-6 md:mb-12">
-                                <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold tracking-tighter uppercase leading-none">
-                                    {content?.hero_title_1 || "RMTY Designs"}
+                                <h1 className="text-[45px] font-bold tracking-tighter uppercase leading-none">
+                                    {content?.hero_title_1 || "RMTY"}
                                 </h1>
-                                <h2 className="text-2xl md:text-3xl lg:text-5xl font-normal tracking-tight leading-none mt-2">
-                                    {content?.hero_title_2 || "Studio"}
+                                <h2 className="text-[24px] font-normal tracking-tight leading-none mt-2">
+                                    {content?.hero_title_2 ||
+                                        "Architectural Design Studio"}
                                 </h2>
-                                <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-white/85">
-                                    {content?.hero_description ||
-                                        "RMTY is an architecture and design studio crafting purposeful spaces through contextual planning, refined detailing, and collaborative design leadership."}
-                                </p>
                             </div>
                         </div>
                     </div>
                     <div className="w-full flex items-end mt-2 md:justify-center">
-                        <div className="w-full md:w-1/2 md:h-10 border-b-2 border-white"></div>
+                        <div className="w-full md:w-1/2 border-b-2 border-white"></div>
                     </div>
                 </div>
             </section>
@@ -240,7 +245,7 @@ export default function Home() {
                 <div className="max-w-screen-2xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="flex flex-col items-start justify-center h-full">
                         <h2 className="text-4xl md:text-6xl font-normal tracking-tight mb-12">
-                            {content?.contact_heading || "Contact Us."}
+                            {content?.contact_heading || "Partner with us."}
                         </h2>
                         <div className="space-y-8 w-full max-w-md">
                             <div>
@@ -338,6 +343,7 @@ export default function Home() {
                     </div>
                 </div>
             </section>
+            <Faq />
         </>
     );
 }

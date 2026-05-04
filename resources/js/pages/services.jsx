@@ -47,7 +47,9 @@ function ImageWithLoader({ src, alt, className }) {
 }
 
 function getLastBySortOrder(data, sortOrder) {
-    const matches = data.filter((s) => Number(s.sort_order) === Number(sortOrder));
+    const matches = data.filter(
+        (s) => Number(s.sort_order) === Number(sortOrder),
+    );
     return matches.length > 0 ? matches[matches.length - 1] : {};
 }
 
@@ -81,9 +83,12 @@ export default function Services() {
                             .filter(
                                 (s) =>
                                     Number(s.sort_order) >= 3 &&
-                                    Number(s.is_published) === 1
+                                    Number(s.is_published) === 1,
                             )
-                            .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+                            .sort(
+                                (a, b) =>
+                                    Number(a.sort_order) - Number(b.sort_order),
+                            ),
                     );
                 }
             })
@@ -143,7 +148,9 @@ export default function Services() {
 
                             <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 text-[10px] tracking-widest uppercase font-bold text-black bg-white/60 backdrop-blur-sm py-2 mx-4 border border-white/40 z-20">
                                 <span className="opacity-80">📍</span>
-                                <span>{section.locationTag || "Tagaytay City"}</span>
+                                <span>
+                                    {section.locationTag || "Tagaytay City"}
+                                </span>
                             </div>
                         </div>
 
@@ -169,7 +176,9 @@ export default function Services() {
                                 ) : (
                                     services.map((item, idx) => {
                                         const isOpen = openIndex === idx;
-                                        const bulletItems = parseBulletContent(item.content);
+                                        const bulletItems = parseBulletContent(
+                                            item.content,
+                                        );
 
                                         return (
                                             <div
@@ -179,7 +188,9 @@ export default function Services() {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        setOpenIndex(isOpen ? null : idx)
+                                                        setOpenIndex(
+                                                            isOpen ? null : idx,
+                                                        )
                                                     }
                                                     className="flex w-full items-center justify-between py-5 text-left outline-none group"
                                                 >
@@ -191,7 +202,9 @@ export default function Services() {
                                                     </span>
                                                 </button>
 
-                                                <AnimatePresence initial={false}>
+                                                <AnimatePresence
+                                                    initial={false}
+                                                >
                                                     {isOpen && (
                                                         <motion.div
                                                             initial={{
@@ -213,22 +226,32 @@ export default function Services() {
                                                             className="overflow-hidden"
                                                         >
                                                             <div className="pb-6 pr-8">
-                                                                {bulletItems.length > 0 ? (
+                                                                {bulletItems.length >
+                                                                0 ? (
                                                                     <ul className="list-disc pl-5 space-y-2 text-[13px] leading-relaxed text-gray-500">
                                                                         {bulletItems.map(
-                                                                            (point, pointIndex) => (
+                                                                            (
+                                                                                point,
+                                                                                pointIndex,
+                                                                            ) => (
                                                                                 <li
-                                                                                    key={pointIndex}
+                                                                                    key={
+                                                                                        pointIndex
+                                                                                    }
                                                                                     className="text-justify"
                                                                                 >
-                                                                                    {point}
+                                                                                    {
+                                                                                        point
+                                                                                    }
                                                                                 </li>
-                                                                            )
+                                                                            ),
                                                                         )}
                                                                     </ul>
                                                                 ) : (
                                                                     <p className="text-[13px] leading-relaxed text-gray-500 text-justify">
-                                                                        No details available.
+                                                                        No
+                                                                        details
+                                                                        available.
                                                                     </p>
                                                                 )}
                                                             </div>
@@ -276,14 +299,10 @@ export default function Services() {
                         <div className="absolute inset-0 flex items-center justify-center z-20">
                             <Link
                                 to="/projects"
-                                className="border border-white px-10 py-4 text-[10px] font-bold tracking-[0.25em] uppercase text-white transition-colors duration-300 hover:bg-white hover:text-black"
+                                className="bg-white px-10 py-4 text-[10px] font-bold tracking-[0.25em] uppercase text-black transition-colors duration-300 hover:bg-white hover:text-black"
                             >
                                 {cta.title || "SEE OTHER PROJECTS"}
                             </Link>
-                        </div>
-
-                        <div className="absolute right-6 top-6 text-[10px] font-bold tracking-[0.15em] uppercase text-white/80 z-20">
-                            {cta.content || "Architecture"}
                         </div>
                     </div>
                 </div>

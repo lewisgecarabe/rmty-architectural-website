@@ -230,7 +230,9 @@ export default function About() {
                                         (artist?.image ? (
                                             <img
                                                 src={imageUrl(artist.image)}
-                                                alt={artist.title || "Artist"}
+                                                alt={
+                                                    artist.title || "Architect"
+                                                }
                                                 className="h-full w-full object-cover"
                                             />
                                         ) : (
@@ -244,7 +246,7 @@ export default function About() {
 
                             <div className="md:col-span-7">
                                 <h3 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                                    {artist?.title || "ABOUT THE ARTIST."}
+                                    {artist?.title || "ABOUT THE ARCHITECT."}
                                 </h3>
 
                                 <div className="mt-8 space-y-6">
